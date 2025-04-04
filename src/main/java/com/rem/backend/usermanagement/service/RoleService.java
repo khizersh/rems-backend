@@ -1,7 +1,7 @@
-package com.rem.backend.service;
+package com.rem.backend.usermanagement.service;
 
-import com.rem.backend.repository.RoleRepository;
-import com.rem.backend.repository.UserRoleRepository;
+import com.rem.backend.usermanagement.repository.RoleRepository;
+import com.rem.backend.usermanagement.repository.UserRoleRepository;
 import com.rem.backend.usermanagement.entity.Role;
 import com.rem.backend.usermanagement.entity.UserRoles;
 import com.rem.backend.utility.ResponseMapper;

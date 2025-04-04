@@ -9,6 +9,7 @@ public enum Responses {
     SUCCESS("0000", "Request Success!"),
     NO_DATA_FOUND("0001", "No Data Found!"),
     INVALID_PARAMETER("0002", "Invalid Parameter!"),
+    INVALID_USER("0003", "Invalid Credentials!"),
     SYSTEM_FAILURE("9999", "System Failure!");
 
 

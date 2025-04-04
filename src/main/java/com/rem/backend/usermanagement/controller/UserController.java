@@ -1,10 +1,9 @@
-package com.rem.backend.controller;
+package com.rem.backend.usermanagement.controller;
 
-import com.rem.backend.dto.AuthRequest;
-import com.rem.backend.service.UserService;
+import com.rem.backend.usermanagement.dto.AuthRequest;
+import com.rem.backend.usermanagement.service.UserService;
 import com.rem.backend.usermanagement.utillity.JWTUtils;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -19,14 +18,12 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("login")
-    public String login(@RequestBody AuthRequest request) {
-
-        return jwtUtil.generateToken(request.getUsername());
+    public Map login(@RequestBody AuthRequest request) {
+        return userService.login(request);
     }
 
 
-
-    @GetMapping("/{username}")
+    @GetMapping("/getUser/{username}")
     public Map getUser(@PathVariable String username) {
         return userService.findUserByUsername(username);
     }

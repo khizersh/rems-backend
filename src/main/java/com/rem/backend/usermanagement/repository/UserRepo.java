@@ -1,4 +1,4 @@
-package com.rem.backend.repository;
+package com.rem.backend.usermanagement.repository;
 
 import com.rem.backend.usermanagement.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +9,6 @@ import java.util.Optional;
 @Repository
 public interface UserRepo extends JpaRepository<User , Long> {
 
-    public Optional<User> findByUsername(String username);
+    public Optional<User> findByUsernameAndIsActiveTrue(String username);
 }
 

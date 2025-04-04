@@ -1,4 +1,4 @@
-package com.rem.backend.dto;
+package com.rem.backend.usermanagement.dto;
 
 import lombok.*;
 

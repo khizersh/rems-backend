@@ -43,21 +43,6 @@ public class SecurityConfig  {
         return http.build();
     }
 
-//    @Bean
-//    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-//        http
-//                .authorizeHttpRequests(authz -> authz
-//                        .requestMatchers("/api/user/login").permitAll()  // Public endpoints that don't require auth
-//                        .requestMatchers("/public/**").permitAll()  // Public endpoints that don't require auth
-//                        .anyRequest().authenticated()  // Secure all other endpoints
-//                )
-//                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class) // Add JWT filter before default auth filter
-//                .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless apps using JWT
-//                .formLogin(fl -> fl.disable())  // Disable form login if not needed
-//                .httpBasic(hb -> hb.disable());  // Disable HTTP Basic if not needed
-//
-//        return http.build();
-//    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

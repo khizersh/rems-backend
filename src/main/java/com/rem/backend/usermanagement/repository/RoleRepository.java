@@ -1,4 +1,4 @@
-package com.rem.backend.repository;
+package com.rem.backend.usermanagement.repository;
 
 import com.rem.backend.usermanagement.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;

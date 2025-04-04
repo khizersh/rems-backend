@@ -1,8 +1,7 @@
-package com.rem.backend.controller;
+package com.rem.backend.usermanagement.controller;
 
 
-import com.rem.backend.dto.AuthRequest;
-import com.rem.backend.service.RoleService;
+import com.rem.backend.usermanagement.service.RoleService;
 import com.rem.backend.usermanagement.entity.Role;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;

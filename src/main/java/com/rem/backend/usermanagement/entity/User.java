@@ -16,6 +16,8 @@ public class User {
     private String username;
     private String email;
     private String password;
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean isActive = true;
 
     @Transient
     private Set<UserRoles> roles;

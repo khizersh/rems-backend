@@ -1,28 +1,32 @@
 package com.rem.backend.usermanagement.middleware;
 
-import com.rem.backend.service.UserService;
+import com.rem.backend.usermanagement.entity.UserRoleMapper;
+import com.rem.backend.usermanagement.service.UserRoleMappingService;
+import com.rem.backend.usermanagement.service.UserService;
 import com.rem.backend.usermanagement.utillity.JWTUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
+import java.util.Optional;
+import java.util.Set;
 
 @Component
+@AllArgsConstructor
 public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTUtils jwtUtil;
     private final UserService userDetailsService;
+    private final UserRoleMappingService userRoleMappingService;
 
-    public JWTFilter(JWTUtils jwtUtil, UserService userDetailsService) {
-        this.jwtUtil = jwtUtil;
-        this.userDetailsService = userDetailsService;
-    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -41,7 +45,6 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
 
-
         final String authorizationHeader = request.getHeader("Authorization");
 
         String token = null;
@@ -57,25 +60,26 @@ public class JWTFilter extends OncePerRequestFilter {
 
             var userDetails = userDetailsService.loadUserByUsername(username);
 
-            // Create an authentication token
-
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
 
-            System.out.println("userDetails.getAuthorities() :: " + userDetails.getAuthorities());
-            System.out.println("url  :: " + request.getRequestURI());
 
             for (GrantedAuthority authority : userDetails.getAuthorities()) {
-                if(authority.getAuthority().equalsIgnoreCase("ADMIN_ROLE1")){
+                Set<UserRoleMapper> roleSet = userRoleMappingService.getUserRolesMappers(authority.getAuthority());
+
+                Optional<UserRoleMapper> role = roleSet.stream()
+                        .filter(userRoleMapper -> {
+                            String endpoint = userRoleMapper.getEndPoint().toLowerCase();
+                            String requestUri = request.getRequestURI().toLowerCase();
+                            return endpoint.equalsIgnoreCase("*") || requestUri.startsWith(endpoint);
+                        })
+                        .findFirst();
+
+                if (role.isPresent()) {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
+
             }
-
-            // Set the authentication in the security context
-
-
-
-
         }
 
         chain.doFilter(request, response);
