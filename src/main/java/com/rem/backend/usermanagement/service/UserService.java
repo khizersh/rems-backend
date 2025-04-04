@@ -70,9 +70,10 @@ public class UserService implements UserDetailsService {
     }
 
 
-    public Map<String, Object> findUserByUsername(String username) {
+    public Map<String, Object> findUserByUsername(String username, String loggedInUser) {
 
         try {
+            System.out.println("loggedInUser :: " + loggedInUser);
             ValidationService.validate(username, "username");
             Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(username);
 

@@ -3,8 +3,7 @@ package com.rem.backend.entity.customer;
 import com.rem.backend.entity.project.Project;
 import jakarta.persistence.*;
 import lombok.Data;
-
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customer")
@@ -34,15 +33,30 @@ public class Customer {
     private String nextOFKinNationalId;
     @Column(nullable = false)
     private String relationShipWithKin;
-    @Column(nullable = false)
-    private String updatedBy;
-    @Column(nullable = false)
-    private String createdBy;
-    @Column(nullable = false)
-    private Timestamp createdDate;
-    @Column(nullable = false)
-    private Timestamp updatedDate;
     @ManyToOne
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
+
+    @Column(nullable = false)
+    private String createdBy;
+    @Column(nullable = false)
+    private String updatedBy;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdDate;
+
+    @Column(nullable = false)
+    private LocalDateTime updatedDate;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdDate = LocalDateTime.now();
+        this.updatedDate = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedDate = LocalDateTime.now();
+    }
+
 }

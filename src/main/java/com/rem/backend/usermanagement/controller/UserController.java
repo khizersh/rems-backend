@@ -3,10 +3,13 @@ package com.rem.backend.usermanagement.controller;
 import com.rem.backend.usermanagement.dto.AuthRequest;
 import com.rem.backend.usermanagement.service.UserService;
 import com.rem.backend.usermanagement.utillity.JWTUtils;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
 @RestController
 @RequestMapping("/api/user/")
@@ -24,8 +27,9 @@ public class UserController {
 
 
     @GetMapping("/getUser/{username}")
-    public Map getUser(@PathVariable String username) {
-        return userService.findUserByUsername(username);
+    public Map getUser(@PathVariable String username, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return userService.findUserByUsername(username, loggedInUser);
     }
 
 

@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
+
 @Component
 @AllArgsConstructor
 public class JWTFilter extends OncePerRequestFilter {
@@ -43,7 +45,6 @@ public class JWTFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-
 
         final String authorizationHeader = request.getHeader("Authorization");
 
@@ -75,6 +76,7 @@ public class JWTFilter extends OncePerRequestFilter {
                         })
                         .findFirst();
 
+                request.setAttribute(LOGGED_IN_USER, username);
                 if (role.isPresent()) {
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
