@@ -1,62 +1,47 @@
 package com.rem.backend.entity.project;
 
-import com.rem.backend.enums.ProjectType;
+import com.rem.backend.enums.ApartmentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+
 
 @Entity
-@Table(name = "project")
+@Table(name = "apartment")
 @Data
-public class Project {
+public class Apartment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long projectId;
+    private long id;
 
     @Column(nullable = false)
-    private String name;
+    private String serialNo;
 
     @Column(nullable = false)
-    private String address;
+    private int squareYards;
 
     @Column(nullable = false)
-    private long floors;
+    private int roomCount = 0;
 
     @Column(nullable = false)
-    private double purchasingAmount = 0.0;
-
-    @Column(nullable = false)
-    private double registrationAmount = 0.0;
-
-    @Column(nullable = false)
-    private double additionalAmount = 0.0;
-
-    @Column(nullable = false)
-    private double totalAmount = 0.0;
+    private int bathroomCount = 0;
 
     @Column(nullable = true)
-    private String information;
+    private double amount = 0.0;
+
+
+    @Column(nullable = true)
+    private double additionalAmount = 0.0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ProjectType projectType;
+    private ApartmentType apartmentType;
 
-    @Column(nullable = false)
-    private long organizationId;
-
-    @Column(nullable = false)
-    private int monthDuration;
-
-
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Floor> floorList = new ArrayList<>();
-
-    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
-    private boolean isActive = true;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "floor_id", nullable = false)
+    private Floor floor;
 
     @Column(nullable = false)
     private String createdBy;
@@ -81,5 +66,6 @@ public class Project {
         this.updatedDate = LocalDateTime.now();
     }
 
-
+    @Transient // for add/updating apartment
+    private long floorId;
 }

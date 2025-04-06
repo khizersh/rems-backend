@@ -10,14 +10,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
 import java.io.IOException;
 import java.util.Optional;
-import java.util.Set;
 
 import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
@@ -36,17 +33,19 @@ public class JWTFilter extends OncePerRequestFilter {
         return path.equals("/api/user/login"); // Skip JWT check for login
     }
 
+
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        // 🔥 Bypass JWT check for public endpoints
         if (shouldNotFilter(request)) {
             chain.doFilter(request, response);
             return;
         }
 
         final String authorizationHeader = request.getHeader("Authorization");
+        final String requestUri = request.getRequestURI().toLowerCase();
 
         String token = null;
         String username = null;
@@ -57,30 +56,28 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         if (username != null && jwtUtil.validateToken(token, username)) {
-
-
             var userDetails = userDetailsService.loadUserByUsername(username);
+            var authorities = userDetails.getAuthorities();
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userDetails, null, userDetails.getAuthorities());
+            Optional<UserRoleMapper> role = authorities.stream()
+                    .flatMap(authority -> userRoleMappingService
+                            .getUserRolesMappers(authority.getAuthority()).stream())
+                    .filter(userRoleMapper -> {
+                        String endpoint = userRoleMapper.getEndPoint().toLowerCase();
+                        return endpoint.equals("*") || requestUri.startsWith(endpoint);
+                    })
+                    .findFirst();
 
-
-            for (GrantedAuthority authority : userDetails.getAuthorities()) {
-                Set<UserRoleMapper> roleSet = userRoleMappingService.getUserRolesMappers(authority.getAuthority());
-
-                Optional<UserRoleMapper> role = roleSet.stream()
-                        .filter(userRoleMapper -> {
-                            String endpoint = userRoleMapper.getEndPoint().toLowerCase();
-                            String requestUri = request.getRequestURI().toLowerCase();
-                            return endpoint.equalsIgnoreCase("*") || requestUri.startsWith(endpoint);
-                        })
-                        .findFirst();
+            if (role.isPresent()) {
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, authorities);
 
                 request.setAttribute(LOGGED_IN_USER, username);
-                if (role.isPresent()) {
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
-
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.getWriter().write("You are not authorized to access this endpoint.");
+                return;
             }
         }
 
