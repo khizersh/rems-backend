@@ -1,28 +1,33 @@
-package com.rem.backend.entity.project;
+package com.rem.backend.entity.booking;
+
+import com.rem.backend.entity.customer.Customer;
+import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.entity.project.Unit;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+
 
 @Entity
-@Table(name = "floor")
+@Table(name = "booking")
 @Data
-public class Floor {
+public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private int floor;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "unit_id")
+    private Unit unit;
 
-    @OneToMany(mappedBy = "floor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Unit> unitList = new ArrayList<>();
+    @Transient
+    private PaymentSchedule paymentSchedule;
 
 
     @Column(nullable = false)
@@ -47,4 +52,5 @@ public class Floor {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
+
 }

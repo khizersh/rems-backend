@@ -1,6 +1,6 @@
 package com.rem.backend.enums;
 
-public enum ScheduleType {
+public enum PaymentScheduleType {
 
     BUILDER,
     CUSTOMER

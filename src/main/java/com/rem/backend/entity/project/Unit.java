@@ -1,61 +1,47 @@
-package com.rem.backend.entity.paymentschedule;
+package com.rem.backend.entity.project;
 
-
-import com.rem.backend.entity.project.Unit;
-import com.rem.backend.enums.PaymentScheduleType;
+import com.rem.backend.enums.UnitType;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 
 @Entity
-@Table(name = "payment_schedule")
+@Table(name = "unit")
 @Data
-public class PaymentSchedule {
+public class Unit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)
-    private int durationInMonths;
+    private String serialNo;
 
     @Column(nullable = false)
-    private double actualAmount;
-
-    @Column(nullable = true)
-    private double miscellaneousAmount = 0.0;
+    private int squareYards;
 
     @Column(nullable = false)
-    private double totalAmount;
+    private int roomCount = 0;
+
+    @Column(nullable = false)
+    private int bathroomCount = 0;
 
     @Column(nullable = true)
-    private double downPayment = 0.0;
+    private double amount = 0.0;
+
 
     @Column(nullable = true)
-    private double quarterlyPayment = 0.0;
-
-    @Column(nullable = true)
-    private double halfYearlyPayment = 0.0;
-
-    @Column(nullable = true)
-    private double yearlyPayment = 0.0;
-
-    @Column(nullable = true)
-    private double onPossessionPayment = 0.0;
+    private double additionalAmount = 0.0;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PaymentScheduleType paymentScheduleType;
+    private UnitType unitType;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "unit_id")
-    private Unit unit;
-
-    @OneToMany(mappedBy = "paymentSchedule", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MonthWisePayment> monthWisePaymentList;
+    @JoinColumn(name = "floor_id", nullable = false)
+    private Floor floor;
 
     @Column(nullable = false)
     private String createdBy;
@@ -79,4 +65,7 @@ public class PaymentSchedule {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
+
+    @Transient // for add/updating apartment
+    private long floorId;
 }

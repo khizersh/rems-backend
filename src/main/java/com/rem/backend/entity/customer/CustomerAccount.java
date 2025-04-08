@@ -1,19 +1,18 @@
-package com.rem.backend.entity.paymentschedule;
+package com.rem.backend.entity.customer;
 
-
+import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
-import com.rem.backend.enums.PaymentScheduleType;
+
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-
 @Entity
-@Table(name = "payment_schedule")
+@Table(name = "customer_account")
 @Data
-public class PaymentSchedule {
+public class CustomerAccount {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,37 +24,38 @@ public class PaymentSchedule {
     @Column(nullable = false)
     private double actualAmount;
 
-    @Column(nullable = true)
-    private double miscellaneousAmount = 0.0;
+    @Column(nullable = false)
+    private double miscellaneousAmount;
+
+    @Column(nullable = false)
+    private double downPayment;
 
     @Column(nullable = false)
     private double totalAmount;
 
     @Column(nullable = true)
-    private double downPayment = 0.0;
+    private double quarterlyPayment;
 
     @Column(nullable = true)
-    private double quarterlyPayment = 0.0;
+    private double halfYearly;
 
     @Column(nullable = true)
-    private double halfYearlyPayment = 0.0;
+    private double onPosessionAmount;
 
-    @Column(nullable = true)
-    private double yearlyPayment = 0.0;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 
-    @Column(nullable = true)
-    private double onPossessionPayment = 0.0;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "project_id")
+    private Project project;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentScheduleType paymentScheduleType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "unit_id")
     private Unit unit;
 
-    @OneToMany(mappedBy = "paymentSchedule", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<MonthWisePayment> monthWisePaymentList;
+    @OneToMany(mappedBy = "customerAccount", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CustomerPayment> customerPayments;
 
     @Column(nullable = false)
     private String createdBy;

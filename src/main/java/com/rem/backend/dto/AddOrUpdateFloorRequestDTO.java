@@ -1,6 +1,6 @@
 package com.rem.backend.dto;
 
-import com.rem.backend.entity.project.Apartment;
+import com.rem.backend.entity.project.Unit;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -13,5 +13,5 @@ import java.util.List;
 public class AddOrUpdateFloorRequestDTO {
     private Long projectId;
     private int floor;
-    private List<Apartment> apartmentList;
+    private List<Unit> unitList;
 }

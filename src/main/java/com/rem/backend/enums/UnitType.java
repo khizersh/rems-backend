@@ -1,6 +1,6 @@
 package com.rem.backend.enums;
 
-public enum ApartmentType {
+public enum UnitType {
 
     SHOP , APARTMENT
 

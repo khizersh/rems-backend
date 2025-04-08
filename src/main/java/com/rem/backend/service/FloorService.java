@@ -1,6 +1,6 @@
 package com.rem.backend.service;
 
-import com.rem.backend.entity.project.Apartment;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.repository.FloorRepo;
@@ -33,14 +33,14 @@ public class FloorService {
             Project project = projectOptional.get();
             floorInput.setProject(project);
 
-            if (floorInput.getApartmentList() != null) {
-                for (Apartment apartment : floorInput.getApartmentList()) {
-                    ValidationService.validate(apartment.getSerialNo(), "apartment serial no");
-                    ValidationService.validate(apartment.getSquareYards(), "square yards");
-                    ValidationService.validate(apartment.getApartmentType(), "apartment type");
+            if (floorInput.getUnitList() != null) {
+                for (Unit unit : floorInput.getUnitList()) {
+                    ValidationService.validate(unit.getSerialNo(), "unit serial no");
+                    ValidationService.validate(unit.getSquareYards(), "square yards");
+                    ValidationService.validate(unit.getUnitType(), "unit type");
 
-                    apartment.setUpdatedBy(loggedInUser);
-                    apartment.setFloor(floorInput); // Link each apartment to the floor
+                    unit.setUpdatedBy(loggedInUser);
+                    unit.setFloor(floorInput); // Link each apartment to the floor
                 }
             }
 
@@ -49,7 +49,7 @@ public class FloorService {
                 // Update existing floor
                 Floor existing = floorRepo.findById(floorInput.getId()).get();
                 existing.setFloor(floorInput.getFloor());
-                existing.setApartmentList(floorInput.getApartmentList()); // Will overwrite apartments
+                existing.setUnitList(floorInput.getUnitList()); // Will overwrite apartments
                 savedFloor = floorRepo.save(existing);
             } else {
                 // Add new floor

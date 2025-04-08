@@ -1,29 +1,33 @@
-package com.rem.backend.entity.project;
+package com.rem.backend.entity.customer;
+
+import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "floor")
+@Table(name = "customer_payment")
 @Data
-public class Floor {
+public class CustomerPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private int floor;
+    @Column(nullable = false)
+    private double amount;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "project_id", nullable = false)
-    private Project project;
+    @Column(nullable = false)
+    private double receivedAmount;
 
-    @OneToMany(mappedBy = "floor", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Unit> unitList = new ArrayList<>();
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentType paymentType;
 
+    @OneToMany(mappedBy = "customerPayment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CustomerPaymentDetail> customerPaymentDetails;
 
     @Column(nullable = false)
     private String createdBy;

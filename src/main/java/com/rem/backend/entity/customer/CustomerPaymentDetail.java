@@ -1,47 +1,30 @@
-package com.rem.backend.entity.project;
+package com.rem.backend.entity.customer;
 
-import com.rem.backend.enums.ApartmentType;
+import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
-
 @Entity
-@Table(name = "apartment")
+@Table(name = "customer_payment_detail")
 @Data
-public class Apartment {
+public class CustomerPaymentDetail {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @Column(nullable = false)
-    private String serialNo;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_payment_id")
+    private CustomerPayment customerPayment;
 
     @Column(nullable = false)
-    private int squareYards;
-
-    @Column(nullable = false)
-    private int roomCount = 0;
-
-    @Column(nullable = false)
-    private int bathroomCount = 0;
-
-    @Column(nullable = true)
-    private double amount = 0.0;
-
-
-    @Column(nullable = true)
-    private double additionalAmount = 0.0;
+    private double amount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ApartmentType apartmentType;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "floor_id", nullable = false)
-    private Floor floor;
+    private PaymentType paymentType;
 
     @Column(nullable = false)
     private String createdBy;
@@ -65,7 +48,4 @@ public class Apartment {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
-    @Transient // for add/updating apartment
-    private long floorId;
 }

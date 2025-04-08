@@ -1,6 +1,6 @@
 package com.rem.backend.service;
 
-import com.rem.backend.entity.project.Apartment;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.ProjectType;
@@ -56,13 +56,13 @@ public class ProjectService {
                     ValidationService.validate(floor.getFloor(), "floor no");
                     floor.setProject(project);
 
-                    for (Apartment apartment : floor.getApartmentList()) {
-                        ValidationService.validate(apartment.getSerialNo(), "apartment serial no");
-                        ValidationService.validate(apartment.getAmount(), "amount");
-                        ValidationService.validate(apartment.getSquareYards(), "square yards");
-                        ValidationService.validate(apartment.getApartmentType(), "apartment type");
+                    for (Unit unit : floor.getUnitList()) {
+                        ValidationService.validate(unit.getSerialNo(), "unit serial no");
+                        ValidationService.validate(unit.getAmount(), "amount");
+                        ValidationService.validate(unit.getSquareYards(), "square yards");
+                        ValidationService.validate(unit.getUnitType(), "unit type");
 
-                        apartment.setFloor(floor); // Link apartment to floor
+                        unit.setFloor(floor); // Link apartment to floor
                     }
 
                 }
