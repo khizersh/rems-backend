@@ -1,43 +1,36 @@
-package com.rem.backend.entity.project;
+package com.rem.backend.entity.sidebar;
 
-import com.rem.backend.enums.UnitType;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name = "unit")
 @Data
-public class Unit {
+@Table(name = "sidebar")
+public class Sidebar {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)
-    private String serialNo;
+    private String title;
 
     @Column(nullable = false)
-    private int squareYards;
+    private String url;
 
     @Column(nullable = false)
-    private int roomCount = 0;
+    private String icon;
 
     @Column(nullable = false)
-    private int bathroomCount = 0;
+    private String roles;
 
-    @Column(nullable = true)
-    private double amount = 0.0;
-
-
-    @Column(nullable = true)
-    private double additionalAmount = 0.0;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UnitType unitType;
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "parent_id")
+    private List<ChildSidebar> childList = new ArrayList<>();
 
     @Column(nullable = false)
     private String createdBy;
@@ -61,7 +54,4 @@ public class Unit {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
-    @Transient // for add/updating apartment
-    private long floorId;
 }

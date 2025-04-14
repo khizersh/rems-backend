@@ -34,7 +34,6 @@ public class UnitService {
 
             } else {
                 unit = new Unit();
-                unit.setFloor(floor);
             }
 
             unit.setSerialNo(dto.getSerialNo());

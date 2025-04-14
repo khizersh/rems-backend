@@ -1,6 +1,10 @@
 package com.rem.backend.usermanagement.service;
 
 
+import com.rem.backend.entity.organization.Organization;
+import com.rem.backend.entity.sidebar.Sidebar;
+import com.rem.backend.repository.OrganizationRepo;
+import com.rem.backend.service.SidebarService;
 import com.rem.backend.usermanagement.dto.AuthRequest;
 import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.usermanagement.entity.User;
@@ -17,9 +21,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,8 +30,10 @@ public class UserService implements UserDetailsService {
 
 
     private final UserRepo userRepo;
+    private final OrganizationRepo organizationRepo;
     private final RoleService roleService;
     private final JWTUtils jwtUtils;
+    private final SidebarService sidebarService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -73,7 +77,6 @@ public class UserService implements UserDetailsService {
     public Map<String, Object> findUserByUsername(String username, String loggedInUser) {
 
         try {
-            System.out.println("loggedInUser :: " + loggedInUser);
             ValidationService.validate(username, "username");
             Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(username);
 
@@ -101,14 +104,20 @@ public class UserService implements UserDetailsService {
     public Map<String, Object> login(AuthRequest request) {
         try {
 
+            Map<String, Object> response = new HashMap<>();
             ValidationService.validate(request.getPassword(), "password");
             ValidationService.validate(request.getUsername(), "username");
 
             Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(request.getUsername());
+            Optional<Organization> organizationOptional = organizationRepo.findByOrganizationIdAndIsActiveTrue(userOptional.get().getOrganizationId());
 
-            if (userOptional.isPresent()) {
+            if (userOptional.isPresent() && organizationOptional.isPresent()) {
                 String token = jwtUtils.generateToken(userOptional.get().getUsername());
-                return ResponseMapper.buildResponse(Responses.SUCCESS, token);
+                List<Sidebar> sidebarList = sidebarService.getSidebarByRole(request.getUsername());
+                response.put("token", token);
+                response.put("organization", organizationOptional.get());
+                response.put("sidebar", sidebarList);
+                return ResponseMapper.buildResponse(Responses.SUCCESS, response);
             }
             return ResponseMapper.buildResponse(Responses.INVALID_USER, null);
 

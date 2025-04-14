@@ -17,6 +17,9 @@ public class CustomerPayment {
     private long id;
 
     @Column(nullable = false)
+    private int serialNo;
+
+    @Column(nullable = false)
     private double amount;
 
     @Column(nullable = false)
@@ -25,6 +28,10 @@ public class CustomerPayment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType paymentType;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_account_id", nullable = false)
+    private CustomerAccount customerAccount;
 
     @OneToMany(mappedBy = "customerPayment", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CustomerPaymentDetail> customerPaymentDetails;

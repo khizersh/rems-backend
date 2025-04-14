@@ -51,8 +51,8 @@ public class Project {
     @Column(nullable = false)
     private int monthDuration;
 
-
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "project_id")
     private List<Floor> floorList = new ArrayList<>();
 
     @Column(columnDefinition = "TINYINT(1) DEFAULT 1")

@@ -31,7 +31,6 @@ public class FloorService {
             if (projectOptional.isEmpty()) return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
 
             Project project = projectOptional.get();
-            floorInput.setProject(project);
 
             if (floorInput.getUnitList() != null) {
                 for (Unit unit : floorInput.getUnitList()) {
@@ -40,7 +39,6 @@ public class FloorService {
                     ValidationService.validate(unit.getUnitType(), "unit type");
 
                     unit.setUpdatedBy(loggedInUser);
-                    unit.setFloor(floorInput); // Link each apartment to the floor
                 }
             }
 

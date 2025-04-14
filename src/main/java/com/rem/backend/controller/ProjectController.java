@@ -1,10 +1,16 @@
 package com.rem.backend.controller;
 
+import com.rem.backend.dto.project.ProjectPaginationRequest;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.service.ProjectService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Map;
 
@@ -23,7 +29,7 @@ public class ProjectController {
     }
 
     @PostMapping("/add")
-    public Map addOrganization(@PathVariable Project project , HttpServletRequest request){
+    public Map addOrganization(@RequestBody Project project , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return projectService.createProject(project , loggedInUser);
     }
@@ -34,8 +40,17 @@ public class ProjectController {
         return projectService.deActivate(id , loggedInUser);
     }
 
-    @GetMapping("/getByOrganization")
-    public Map getByOrganizationId(@PathVariable long id ){
-        return projectService.getProjectsByOrganizationId(id);
+
+    @PostMapping("/getByOrganization")
+    public ResponseEntity<?> getProjectsByOrganization(@RequestBody ProjectPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        Map<String , Object> projectPage = projectService.getProjectsByOrganizationId(request.getOrganizationId(), pageable);
+        return ResponseEntity.ok(projectPage);
     }
 }
