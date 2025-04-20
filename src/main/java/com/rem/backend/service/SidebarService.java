@@ -140,7 +140,7 @@ public class SidebarService {
 
                     // Check if parent sidebar matches any of the user roles
                     for (UserRoles role : userRoles) {
-                        if (sidebar.getRoles().toLowerCase().contains(role.getRoleCode().toLowerCase())) {
+                        if (sidebar.getRoles().toLowerCase().contains(role.getRoleCode().toString().toLowerCase())) {
                             parentMatched = true;
                             break;
                         }
@@ -151,7 +151,7 @@ public class SidebarService {
 
                         for (ChildSidebar child : sidebar.getChildList()) {
                             for (UserRoles role : userRoles) {
-                                if (child.getRoles().toLowerCase().contains(role.getRoleCode().toLowerCase())) {
+                                if (child.getRoles().toLowerCase().contains(role.getRoleCode().toString().toLowerCase())) {
                                     matchingChildren.add(child);
                                     break;
                                 }

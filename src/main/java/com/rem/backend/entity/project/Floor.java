@@ -17,12 +17,17 @@ public class Floor {
 
     private int floor;
 
+    @Column(nullable = false)
+    private long projectId;
 
+    @Transient
+    private String projectName;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "floor_id")
+    @Transient
+    private int unitCount;
+
+    @Transient
     private List<Unit> unitList = new ArrayList<>();
-
 
     @Column(nullable = false)
     private String createdBy;

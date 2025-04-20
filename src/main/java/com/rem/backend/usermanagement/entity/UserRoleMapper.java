@@ -1,6 +1,7 @@
 package com.rem.backend.usermanagement.entity;
 
 
+import com.rem.backend.enums.RoleType;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -13,12 +14,15 @@ import java.time.LocalDateTime;
 @Data
 public class UserRoleMapper {
 
+
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Code cannot be empty")
-    private String roleCode;
+
+    @Enumerated(EnumType.STRING)
+    private RoleType roleCode;
 
     @NotBlank(message = "Code cannot be empty")
     private String endPoint;

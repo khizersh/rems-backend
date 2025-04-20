@@ -29,11 +29,11 @@ public class CustomerPayment {
     @Column(nullable = false)
     private PaymentType paymentType;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_account_id", nullable = false)
-    private CustomerAccount customerAccount;
 
-    @OneToMany(mappedBy = "customerPayment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(nullable = false)
+    private long customerAccountId;
+
+    @Transient
     private List<CustomerPaymentDetail> customerPaymentDetails;
 
     @Column(nullable = false)

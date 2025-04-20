@@ -54,7 +54,8 @@ public class CustomerAccount {
     @JoinColumn(name = "unit_id")
     private Unit unit;
 
-    @OneToMany(mappedBy = "customerAccount", cascade = CascadeType.ALL, orphanRemoval = true)
+
+    @Transient
     private List<CustomerPayment> customerPayments;
 
     @Column(nullable = false)

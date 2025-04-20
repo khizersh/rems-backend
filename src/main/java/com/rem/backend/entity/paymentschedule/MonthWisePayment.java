@@ -21,7 +21,6 @@ public class MonthWisePayment {
     @Column(nullable = false)
     private double amount;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_schedule_id", nullable = false)
-    private PaymentSchedule paymentSchedule;
+    @Column(nullable = false)
+    private long paymentScheduleId;
 }

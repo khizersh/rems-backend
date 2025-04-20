@@ -54,7 +54,7 @@ public class PaymentSchedule {
     @JoinColumn(name = "unit_id")
     private Unit unit;
 
-    @OneToMany(mappedBy = "paymentSchedule", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Transient
     private List<MonthWisePayment> monthWisePaymentList;
 
     @Column(nullable = false)

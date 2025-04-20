@@ -59,7 +59,7 @@ public class UserService implements UserDetailsService {
 
             // Convert user roles to GrantedAuthority
             Set<GrantedAuthority> grantedAuthorities = user.getRoles().stream()
-                    .map(role -> new SimpleGrantedAuthority(role.getRoleCode()))
+                    .map(role -> new SimpleGrantedAuthority(role.getRoleCode().toString()))
                     .collect(Collectors.toSet());
 
             // Return a Spring Security UserDetails object

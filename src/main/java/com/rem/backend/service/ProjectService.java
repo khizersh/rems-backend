@@ -1,10 +1,14 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.paymentschedule.MonthWisePayment;
+import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
+import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.enums.ProjectType;
 import com.rem.backend.repository.FloorRepo;
+import com.rem.backend.repository.PaymentScheduleRepository;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.UnitRepo;
 import com.rem.backend.utility.ResponseMapper;
@@ -15,11 +19,16 @@ import org.springframework.data.domain.Pageable;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.rem.backend.utility.Utility.DATA;
+import static com.rem.backend.utility.Utility.RESPONSE_CODE;
+import static com.rem.backend.utility.ValidationService.*;
 
 @Service
 @AllArgsConstructor
@@ -28,6 +37,7 @@ public class ProjectService {
     private final ProjectRepo projectRepo;
     private final FloorRepo floorRepo;
     private final UnitRepo unitRepo;
+    private final PaymentSchedulerService paymentSchedulerService;
 
     public Map<String, Object> getProjectById(@PathVariable long id) {
         try {
@@ -64,34 +74,63 @@ public class ProjectService {
             ValidationService.validate(project.getAddress(), "address");
             ValidationService.validate(project.getProjectType(), "project type");
 
-            // If project type is APARTMENT, validate floors and units
+            Project projectSaved = projectRepo.save(project);
+
             if (project.getProjectType().equals(ProjectType.APARTMENT)) {
                 for (Floor floor : project.getFloorList()) {
                     ValidationService.validate(floor.getFloor(), "floor no");
                     floor.setCreatedBy(loggedInUser);
                     floor.setUpdatedBy(loggedInUser);
+                    floor.setProjectId(projectSaved.getProjectId());
+                    Floor floorSaved = floorRepo.save(floor);
 
                     for (Unit unit : floor.getUnitList()) {
                         ValidationService.validate(unit.getSerialNo(), "unit serial no");
                         ValidationService.validate(unit.getAmount(), "amount");
                         ValidationService.validate(unit.getSquareYards(), "square yards");
                         ValidationService.validate(unit.getUnitType(), "unit type");
+                        unit.setFloorId(floorSaved.getId());
                         unit.setCreatedBy(loggedInUser);
                         unit.setUpdatedBy(loggedInUser);
-                        unitRepo.save(unit);
+                        Unit unitSaved = unitRepo.save(unit);
+
+
+                        validatePaymentScheduler(unit.getPaymentSchedule());
+
+                        PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+
+
+                        if(paymentSchedule != null){
+
+                        }
+                        paymentSchedule.setCreatedBy(loggedInUser);
+                        paymentSchedule.setUpdatedBy(loggedInUser);
+                        paymentSchedule.setUnit(unitSaved);
+                        paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
+
+                        Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule);
+                        if (createPaymentScheduler != null) {
+                            // Set type to CUSTOMER and associate with unit
+                            PaymentSchedule savedSchedule = null;
+                            if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
+                                return createPaymentScheduler;
+                            }
+
+                        }
                     }
-                    floorRepo.save(floor);
+
                 }
 
             }
 
-            // Save the project (which will cascade save for floors and units)
-            Project projectSaved = projectRepo.save(project);
+
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, projectSaved);
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
@@ -122,6 +161,20 @@ public class ProjectService {
             ValidationService.validate(organizationId, "organization id");
             Page<Project> projects = projectRepo.findByOrganizationId(organizationId , pageable);
             return ResponseMapper.buildResponse(Responses.SUCCESS, projects);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    public Map<String, Object> getAllProjectsByOrgId(long organizationId ) {
+        try {
+            ValidationService.validate(organizationId, "organization id");
+            List list = projectRepo.findAllByOrganizationId(organizationId );
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
 
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());

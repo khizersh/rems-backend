@@ -15,9 +15,8 @@ public class CustomerPaymentDetail {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_payment_id")
-    private CustomerPayment customerPayment;
+    @Column(nullable = false)
+    private long customerPaymentId;
 
     @Column(nullable = false)
     private double amount;

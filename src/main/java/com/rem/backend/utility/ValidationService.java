@@ -85,13 +85,18 @@ public class ValidationService {
             int from = payment.getFromMonth();
             int to = payment.getToMonth();
 
+            if (from < 0) {
+                throw new IllegalArgumentException("Invalid From Month");
+            }
+            if (to < 0) {
+                throw new IllegalArgumentException("Invalid From Month");
+            }
+
+
             if (from >= to) {
                 throw new IllegalArgumentException("Invalid range: fromMonth must be less than toMonth.");
             }
 
-            if (from != expectedStart) {
-                throw new IllegalArgumentException("Month ranges must start from 1 and be continuous without gaps. Expected fromMonth: " + expectedStart);
-            }
 
             if (to > durationInMonths) {
                 throw new IllegalArgumentException("toMonth cannot be greater than durationInMonths: " + durationInMonths);
@@ -111,15 +116,39 @@ public class ValidationService {
             throw new IllegalArgumentException("Booking cannot be null.");
         }
 
-        if (booking.getCustomer() == null) {
+        if (booking.getCustomer() == null && booking.getCustomerId() == null) {
             throw new IllegalArgumentException("Customer must be provided.");
         }
 
-        if (booking.getUnit() == null) {
+        if (booking.getUnit() == null && booking.getUnitId() == null) {
             throw new IllegalArgumentException("Unit must be provided.");
         }
 
         PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
+
+        if (paymentSchedule != null) {
+            // Basic checks before deeper validation
+            if (paymentSchedule.getDurationInMonths() <= 0) {
+                throw new IllegalArgumentException("Duration in months must be greater than 0.");
+            }
+
+            if (paymentSchedule.getActualAmount() <= 0) {
+                throw new IllegalArgumentException("Actual amount must be greater than 0.");
+            }
+
+            if (paymentSchedule.getTotalAmount() <= 0) {
+                throw new IllegalArgumentException("Total amount must be greater than 0.");
+            }
+
+        }
+    }
+
+
+
+    public static void validatePaymentScheduler(PaymentSchedule reqeust) {
+
+
+        PaymentSchedule paymentSchedule = reqeust;
 
         if (paymentSchedule != null) {
             // Basic checks before deeper validation

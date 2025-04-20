@@ -29,6 +29,11 @@ public class Booking {
     @Transient
     private PaymentSchedule paymentSchedule;
 
+    @Transient
+    private Long unitId;
+
+    @Transient
+    private Long customerId;
 
     @Column(nullable = false)
     private String createdBy;

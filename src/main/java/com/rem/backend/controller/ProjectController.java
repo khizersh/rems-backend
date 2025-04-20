@@ -28,8 +28,13 @@ public class ProjectController {
         return projectService.getProjectById(id);
     }
 
+    @GetMapping("/getAllProjectByOrg/{id}")
+    public Map getAllProjectsByOrganizationId(@PathVariable long id){
+        return projectService.getAllProjectsByOrgId(id);
+    }
+
     @PostMapping("/add")
-    public Map addOrganization(@RequestBody Project project , HttpServletRequest request){
+    public Map addProject(@RequestBody Project project , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return projectService.createProject(project , loggedInUser);
     }

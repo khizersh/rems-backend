@@ -1,6 +1,7 @@
 package com.rem.backend.usermanagement.entity;
 
 
+import com.rem.backend.enums.RoleType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -20,8 +21,9 @@ public class UserRoles {
     @Column(nullable = true)
     private long userId;
 
-    @Column(nullable = true)
-    private String roleCode;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    private RoleType roleCode;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;

@@ -13,14 +13,11 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long customerId;
 
-    @Column(nullable = false, unique = true)
-    private String email;
-
-    @Column(nullable = false, unique = true)
-    private String username;
+    @Column(nullable = false)
+    private Long userId;
 
     @Column(nullable = false)
-    private String password;
+    private String name;
 
     @Column(nullable = true)
     private String country;
@@ -44,7 +41,25 @@ public class Customer {
     private String relationShipWithKin;
 
     @Column(nullable = false)
+    private long organizationId;
+
+    @Column(nullable = false)
     private long projectId;
+
+    @Column(nullable = false)
+    private long floorId;
+
+    @Column(nullable = false)
+    private long unitId;
+
+    @Transient
+    private String projectName;
+
+    @Transient
+    private String floorNo;
+
+    @Transient
+    private String unitSerialNo;
 
     @Column(nullable = false)
     private String createdBy;
@@ -57,6 +72,15 @@ public class Customer {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+    @Transient
+    private String email;
+
+    @Transient
+    private String username;
+
+    @Transient
+    private String password;
 
     @PrePersist
     protected void onCreate() {

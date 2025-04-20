@@ -1,5 +1,6 @@
 package com.rem.backend.entity.project;
 
+import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.enums.UnitType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -31,6 +32,8 @@ public class Unit {
     @Column(nullable = true)
     private double amount = 0.0;
 
+    @Column(nullable = false)
+    private long floorId;
 
     @Column(nullable = true)
     private double additionalAmount = 0.0;
@@ -51,6 +54,16 @@ public class Unit {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
+
+    @Transient
+    private String projectName;
+
+    @Transient
+    private int floorNo;
+
+    @Transient
+    private PaymentSchedule paymentSchedule;
+
     @PrePersist
     protected void onCreate() {
         this.createdDate = LocalDateTime.now();
@@ -62,6 +75,4 @@ public class Unit {
         this.updatedDate = LocalDateTime.now();
     }
 
-    @Transient // for add/updating apartment
-    private long floorId;
 }
