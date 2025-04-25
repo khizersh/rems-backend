@@ -1,5 +1,6 @@
 package com.rem.backend.entity.customer;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
 
@@ -44,14 +45,17 @@ public class CustomerAccount {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "project_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Project project;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "unit_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Unit unit;
 
 
