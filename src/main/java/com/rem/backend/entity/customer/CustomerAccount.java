@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "customer_account")
+@Table(
+        name = "customer_account",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "unit_id"})
+)
 @Data
 public class CustomerAccount {
 

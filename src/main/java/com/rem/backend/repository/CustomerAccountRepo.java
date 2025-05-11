@@ -9,19 +9,21 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Long> {
 
 
-    Page<CustomerAccount> findByProject_ProjectId(Long projectId, Pageable pageable);
-
-    Page<CustomerAccount> findByCustomer_CustomerId(Long customerId, Pageable pageable);
-
     Page<CustomerAccount> findByUnit_Id(Long unitId, Pageable pageable);
-
-
+    Page<CustomerAccount> findByProject_ProjectId(Long projectId, Pageable pageable);
     Page<CustomerAccount> findByProject_OrganizationId(Long organizationId, Pageable pageable);
+    Page<CustomerAccount> findByUnit_FloorId(Long floorId, Pageable pageable);
+
+    Optional<CustomerAccount> findByCustomer_CustomerId(Long customerId);
+
+
+
 
     @Query(value =  "SELECT ca.id AS accountId, c.name AS customerName FROM customer_account ca LEFT JOIN customer c ON ca.customer_id = c.customer_id where c.organization_id = :organizationId" , nativeQuery = true)
     List<Map<String , Object>> findNameIdOrganization(Long organizationId);
@@ -33,5 +35,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
 
     Page<CustomerAccount> findAllByOrderByCreatedDateDesc(Pageable pageable);
+
+    Optional<CustomerAccount> findByCustomer_CustomerIdAndUnit_Id(Long customerId, Long unitId);
 
 }

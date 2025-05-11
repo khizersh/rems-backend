@@ -74,6 +74,9 @@ public class ProjectService {
             ValidationService.validate(project.getAddress(), "address");
             ValidationService.validate(project.getProjectType(), "project type");
 
+            double totalAmount = project.getPurchasingAmount() + project.getAdditionalAmount() + project.getRegistrationAmount();
+            project.setTotalAmount(totalAmount);
+
             Project projectSaved = projectRepo.save(project);
 
             if (project.getProjectType().equals(ProjectType.APARTMENT)) {
@@ -92,12 +95,16 @@ public class ProjectService {
                         unit.setFloorId(floorSaved.getId());
                         unit.setCreatedBy(loggedInUser);
                         unit.setUpdatedBy(loggedInUser);
+//                        unit.setAmount(loggedInUser);
+
                         Unit unitSaved = unitRepo.save(unit);
 
-
-                        validatePaymentScheduler(unit.getPaymentSchedule());
-
                         PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+                        paymentSchedule.setCreatedBy(loggedInUser);
+                        paymentSchedule.setUpdatedBy(loggedInUser);
+
+                        validatePaymentScheduler(paymentSchedule);
+
 
 
                         if(paymentSchedule != null){
@@ -125,7 +132,7 @@ public class ProjectService {
 
 
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, projectSaved);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Project added successfully!");
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());

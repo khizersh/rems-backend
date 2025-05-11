@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Optional;
 
 
 @RestController
@@ -43,7 +44,6 @@ public class CustomerAccountController {
     }
 
 
-
     @PostMapping("/getByProjectId")
     public ResponseEntity<?> getByProjectId(@RequestBody CustomerPaginationRequest request) {
         ValidationService.validate(request.getId(), "Project ID");
@@ -61,15 +61,14 @@ public class CustomerAccountController {
 
     @PostMapping("/getByCustomerId")
     public ResponseEntity<?> getByCustomerId(@RequestBody CustomerPaginationRequest request) {
+        Map<String , Object> result = customerAccountService.getByCustomerId(request.getId());
+        return ResponseEntity.ok(result);
+    }
 
-        Pageable pageable = PageRequest.of(
-                request.getPage(),
-                request.getSize(),
-                request.getSortDir().equalsIgnoreCase("asc")
-                        ? Sort.by(request.getSortBy()).ascending()
-                        : Sort.by(request.getSortBy()).descending());
 
-        Page<CustomerAccount> result = customerAccountService.getByCustomerId(request.getId(),  pageable);
+    @PostMapping("/getByCustomerIdAndUnitId")
+    public ResponseEntity<?> getByCustomerIdAndUnitId(@RequestBody Map<String, String> request) {
+        Map<String, Object> result = customerAccountService.getByCustomerAndUnitId(request);
         return ResponseEntity.ok(result);
     }
 
@@ -86,7 +85,6 @@ public class CustomerAccountController {
         Page<CustomerAccount> result = customerAccountService.getByUnitId(request.getId(), pageable);
         return ResponseEntity.ok(result);
     }
-
 
 
     @PostMapping("/getAll")
@@ -111,14 +109,14 @@ public class CustomerAccountController {
                         ? Sort.by(request.getSortBy()).ascending()
                         : Sort.by(request.getSortBy()).descending());
 
-        Map<String , Object> customerAccount = customerAccountService.getCustomerAccountsByIds(request.getId(), request.getFilteredBy(), pageable);
+        Map<String, Object> customerAccount = customerAccountService.getCustomerAccountsByIds(request.getId(), request.getFilteredBy(), pageable);
         return ResponseEntity.ok(customerAccount);
     }
 
 
     @PostMapping("/getNameIdsByIds")
     public ResponseEntity<?> getCustomerAccountNameIdsByIds(@RequestBody CustomerPaginationRequest request) {
-        Map<String , Object> customerAccount = customerAccountService.getCustomerAccountsNameIdByIds(request.getId(), request.getFilteredBy());
+        Map<String, Object> customerAccount = customerAccountService.getCustomerAccountsNameIdByIds(request.getId(), request.getFilteredBy());
         return ResponseEntity.ok(customerAccount);
     }
 

@@ -42,6 +42,9 @@ public class Unit {
     @Column(nullable = false)
     private UnitType unitType;
 
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean isBooked;
+
     @Column(nullable = false)
     private String createdBy;
 

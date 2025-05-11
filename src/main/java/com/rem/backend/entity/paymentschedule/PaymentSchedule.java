@@ -1,6 +1,7 @@
 package com.rem.backend.entity.paymentschedule;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentScheduleType;
 import jakarta.persistence.*;
@@ -52,6 +53,7 @@ public class PaymentSchedule {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unit_id")
+    @JsonIgnore
     private Unit unit;
 
     @Transient

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class CustomerAccountService {
@@ -43,6 +44,44 @@ public class CustomerAccountService {
 
     }
 
+
+    public Map<String, Object> getByCustomerAndUnitId(Map<String , String > request) {
+        try {
+
+            if (!request.containsKey("customerId") || !request.containsKey("unitId")) {
+                throw new IllegalArgumentException("Missing customerId or unitId in request");
+            }
+
+            String customerIdStr = request.get("customerId");
+            String unitIdStr = request.get("unitId");
+
+            long customerId;
+            long unitId;
+
+            try {
+                customerId = Long.parseLong(customerIdStr);
+                unitId = Long.parseLong(unitIdStr);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("customerId and unitId must be valid numbers");
+            }
+
+            ValidationService.validate(customerId, "customer ID");
+            ValidationService.validate(unitId, "unit ID");
+
+            Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(customerId , unitId);
+            if(customerAccountOptional.isEmpty()){
+                throw new IllegalArgumentException("Customer Account Not Found!");
+            }
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(customerId , unitId));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
+    }
+
     public Map<String, Object> getNameIdByProjectId(Long projectId) {
         try {
             ValidationService.validate(projectId, "Project ID");
@@ -57,9 +96,9 @@ public class CustomerAccountService {
 
     }
 
-    public Page<CustomerAccount> getByCustomerId(Long customerId, Pageable pageable) {
+    public Map<String , Object> getByCustomerId(Long customerId) {
         ValidationService.validate(customerId, "Customer ID");
-        return customerAccountRepo.findByCustomer_CustomerId(customerId, pageable);
+        return  ResponseMapper.buildResponse(Responses.SUCCESS , customerAccountRepo.findByCustomer_CustomerId(customerId));
     }
 
     public Page<CustomerAccount> getByUnitId(Long unitId, Pageable pageable) {
@@ -86,10 +125,10 @@ public class CustomerAccountService {
                     customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
                     break;
                 case "project":
-                    customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
+                    customers = customerAccountRepo.findByProject_ProjectId(id, pageable);
                     break;
                 case "floor":
-                    customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
+                    customers = customerAccountRepo.findByUnit_FloorId(id, pageable);
                     break;
                 default:
                     customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);

@@ -31,6 +31,12 @@ public class CustomerController {
     }
 
 
+    @PostMapping("search")
+    public Map searchCustomersByName(@RequestBody Map<String, String > request){
+        return customerService.searchCustomersByName(request);
+    }
+
+
     @PostMapping("/addCustomer")
     public Map addCustomer(@RequestBody Customer customer){
         return customerService.createCustomer(customer);

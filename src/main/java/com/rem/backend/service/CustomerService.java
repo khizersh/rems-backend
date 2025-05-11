@@ -13,6 +13,7 @@ import com.rem.backend.usermanagement.entity.UserRoleMapper;
 import com.rem.backend.usermanagement.entity.UserRoles;
 import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.usermanagement.repository.UserRoleRepository;
+import com.rem.backend.utility.PasswordGenerator;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -23,10 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static com.rem.backend.utility.EndPointUtils.GET_PROJECTS_BY_ORG_ID;
 
@@ -40,6 +38,7 @@ public class CustomerService {
     private final ProjectRepo projectRepo;
     private final FloorRepo floorRepo;
     private final UnitRepo unitRepo;
+    private final EmailService emailService;
 
     public Map<String, Object> getCustomerById(long id) {
         try {
@@ -116,19 +115,23 @@ public class CustomerService {
             }
 
 
-
-            if(customer.getUserId() != null){
-              Optional<User> userOptional   = userRepo.findById(customer.getUserId());
-              if (userOptional.isEmpty()) return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid user selected!");
-            }else{
+            if (customer.getUserId() != null) {
+                Optional<User> userOptional = userRepo.findById(customer.getUserId());
+                if (userOptional.isEmpty())
+                    return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid user selected!");
+            } else {
                 User user = new User();
+                if (!ValidationService.isValidEmail(customer.getEmail())) {
+                    throw new IllegalArgumentException("Invalid Email!");
+                }
                 user.setActive(true);
                 user.setEmail(customer.getEmail());
-                user.setPassword(customer.getPassword());
+                user.setPassword(PasswordGenerator.generateRandomPassword());
                 user.setUsername(customer.getUsername());
                 user.setEmail(customer.getEmail());
                 user.setOrganizationId(customer.getOrganizationId());
                 User userSaved = userRepo.save(user);
+                emailService.sendUserCredentialsEmail(user.getEmail() , user.getUsername(), user.getPassword() );
                 customer.setUserId(userSaved.getId());
 
                 UserRoles roles = new UserRoles();
@@ -147,6 +150,26 @@ public class CustomerService {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    public Map<String, Object> searchCustomersByName(Map<String, String> request) {
+        try {
+
+            String name = "";
+            if (request.containsKey("name")) {
+                name = request.get("name").toString();
+            }
+            List<Map<String, Object>> customers;
+            if (name != null && !name.trim().isEmpty()) {
+                customers = customerRepo.searchByName(name);
+            } else {
+                customers = customerRepo.findTop20ByOrderByCreatedDateDesc();
+            }
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customers);
+        } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }

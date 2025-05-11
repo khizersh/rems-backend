@@ -1,10 +1,15 @@
 package com.rem.backend.controller;
 
 
+import com.rem.backend.dto.customer.CustomerPaginationRequest;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.service.BookingService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -23,5 +28,19 @@ public class BookingController {
     public Map addBooking(@RequestBody Booking booking, HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return bookingService.createBooking(booking, loggedInUser);
+    }
+
+
+    @PostMapping("/getByIds")
+    public ResponseEntity<?> getProjectsByIds(@RequestBody CustomerPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        Map<String , Object> projectPage = bookingService.getBookingsByIds(request.getId(), request.getFilteredBy(), pageable);
+        return ResponseEntity.ok(projectPage);
     }
 }

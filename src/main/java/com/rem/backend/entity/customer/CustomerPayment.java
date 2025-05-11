@@ -1,5 +1,6 @@
 package com.rem.backend.entity.customer;
 
+import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -28,6 +29,10 @@ public class CustomerPayment {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType paymentType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentStatus paymentStatus;
 
 
     @Column(nullable = false)

@@ -6,15 +6,20 @@ import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentScheduleType;
+import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
+import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
@@ -34,11 +39,13 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final ProjectRepo projectRepo;
+    private final FloorRepo floorRepo;
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerRepo customerRepo;
     private final CustomerService customerService;
     private final UnitRepo unitRepo;
     private final PaymentSchedulerService paymentSchedulerService;
+    private final PaymentScheduleRepository paymentScheduleRepo;
     private final CustomerPaymentRepo customerPaymentRepo;
 
 
@@ -51,8 +58,8 @@ public class BookingService {
             validateBooking(booking);
 
 
-            if(bookingRepository.existsByUnit_Id(booking.getUnitId()))
-                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER , "This unit is already booked!");
+            if (bookingRepository.existsByUnit_Id(booking.getUnitId()))
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "This unit is already booked!");
 
             Customer customer = null;
             if (booking.getCustomerId() != null) {
@@ -75,6 +82,10 @@ public class BookingService {
             }
             Unit unit = unitOptional.get();
             booking.setUnit(unit);
+            unit.setBooked(true);
+
+
+            unitRepo.save(unit);
 
 
             PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
@@ -89,12 +100,20 @@ public class BookingService {
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     return createPaymentScheduler;
                 }
-                savedSchedule = (PaymentSchedule) createPaymentScheduler.get(DATA);
-                booking.setPaymentSchedule(savedSchedule);
+                createPaymentScheduler.get(DATA);
             }
 
+
+            Optional<Floor>  optionalFloor = floorRepo.findById(unit.getFloorId());
+
+            if(optionalFloor.isPresent()){
+                booking.setProjectId(optionalFloor.get().getProjectId());
+            }
+
+            booking.setUnitSerial(unit.getSerialNo());
             booking.setCreatedBy(loggedInUser);
             booking.setUpdatedBy(loggedInUser);
+            booking.setFloorId(unit.getFloorId());
             Booking bookingSaved = bookingRepository.save(booking);
             createCustomerAccount(bookingSaved, loggedInUser);
 
@@ -105,7 +124,7 @@ public class BookingService {
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
-            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
     }
@@ -134,7 +153,6 @@ public class BookingService {
         account.setDownPayment(schedule.getDownPayment());
 
 
-
         account.setTotalAmount(schedule.getTotalAmount());
         account.setQuarterlyPayment(schedule.getQuarterlyPayment());
         account.setHalfYearly(schedule.getHalfYearlyPayment());
@@ -148,12 +166,12 @@ public class BookingService {
         account.setUpdatedBy(loggedInUser);
 
 
-       double monthlySum = monthlyPaymentSum(schedule);
-        double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount())  ;
-        double collectedAmount = Math.ceil( schedule.getDownPayment() +
-                schedule.getOnPossessionPayment() + monthlySum) ;
+        double monthlySum = monthlyPaymentSum(schedule);
+        double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount());
+        double collectedAmount = Math.ceil(schedule.getDownPayment() +
+                schedule.getOnPossessionPayment() + monthlySum);
 
-        if(totalAmount != collectedAmount){
+        if (totalAmount != collectedAmount) {
             throw new IllegalArgumentException("Amounts not matched!");
         }
 
@@ -166,7 +184,7 @@ public class BookingService {
                     .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
                     .findFirst();
 
-            if(monthWisePaymentOptional.isEmpty()){
+            if (monthWisePaymentOptional.isEmpty()) {
                 throw new IllegalArgumentException("Invalid Month wise customerPayment!");
             }
             double amount = monthWisePaymentOptional.get().getAmount();
@@ -188,7 +206,8 @@ public class BookingService {
             customerPayment.setSerialNo(serialNo);
             customerPayment.setAmount(amount);
             customerPayment.setReceivedAmount(0);
-            customerPayment.setPaymentType(PaymentType.CASH); // Adjust if needed
+            customerPayment.setPaymentType(PaymentType.CASH);
+            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
             customerPayment.setCreatedBy(booking.getCreatedBy());
             customerPayment.setUpdatedBy(booking.getUpdatedBy());
             customerPayment.setCreatedDate(LocalDateTime.now());
@@ -200,10 +219,9 @@ public class BookingService {
         }
 
 
-
     }
 
-    public double monthlyPaymentSum(PaymentSchedule schedule){
+    public double monthlyPaymentSum(PaymentSchedule schedule) {
         double sum = 0.0;
         for (int i = 0; i < schedule.getDurationInMonths(); i++) {
             int serialNo = i + 1;
@@ -211,7 +229,7 @@ public class BookingService {
                     .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
                     .findFirst();
 
-            if(monthWisePaymentOptional.isEmpty()){
+            if (monthWisePaymentOptional.isEmpty()) {
                 throw new IllegalArgumentException("Invalid Month wise payment!");
             }
             double amount = monthWisePaymentOptional.get().getAmount();
@@ -231,6 +249,63 @@ public class BookingService {
             sum += amount;
         }
         return sum;
+    }
+
+
+    public Map<String, Object> getBookingsByIds(long id, String filteredBy, Pageable pageable) {
+        try {
+            Page<Booking> bookings = null;
+            ValidationService.validate(id, filteredBy);
+
+            // Fetch bookings based on filter
+            switch (filteredBy) {
+                case "organization":
+                    bookings = bookingRepository.findByOrganizationId(id, pageable);
+                    break;
+                case "project":
+                    bookings = bookingRepository.findByProjectId(id, pageable);
+                    break;
+                case "floor":
+                    bookings = bookingRepository.findByFloorId(id, pageable);
+                    break;
+                case "unit":
+                    bookings = bookingRepository.findByUnitId(id, pageable);
+                    break;
+                default:
+                    bookings = bookingRepository.findByOrganizationId(id, pageable);
+            }
+
+            // Populate transient fields for API response
+            bookings.getContent().forEach(booking -> {
+                Unit unit = booking.getUnit();
+                booking.setCustomerName(booking.getCustomer().getName());
+                booking.setCustomerId(booking.getCustomer().getCustomerId());
+                booking.setUnitSerial(unit.getSerialNo());
+
+                Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepo.findByUnitIdAndPaymentScheduleType(unit.getId(), PaymentScheduleType.CUSTOMER);
+
+                if (paymentScheduleOptional.isPresent()) {
+                    booking.setTotalAmount(paymentScheduleOptional.get().getTotalAmount());
+                }
+
+                Optional<Floor> optionalFloor = floorRepo.findById(unit.getFloorId());
+                if (optionalFloor.isPresent()) {
+                    String projectName = projectRepo.findProjectNameById(optionalFloor.get().getProjectId());
+                    booking.setProject(projectName);
+                    booking.setFloorNo(optionalFloor.get().getFloor());
+                }
+
+
+            });
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, bookings);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
     }
 
 }

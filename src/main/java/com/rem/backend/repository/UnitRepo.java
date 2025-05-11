@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Map;
+
 @Repository
 public interface UnitRepo extends JpaRepository<Unit, Long> {
 
@@ -19,6 +22,9 @@ public interface UnitRepo extends JpaRepository<Unit, Long> {
 
     @Query(value = "SELECT u.serial_no FROM unit u WHERE u.id = :id" , nativeQuery = true)
     String findUnitSerialById(long id);
+
+    @Query(value = "SELECT id as id, serial_no as serialNo  FROM unit  WHERE floor_id = :floorId And is_booked = 0 ;", nativeQuery = true)
+    List<Map<String , Object>> findAllUnitByFloorIdAndIsBookedFalse(long floorId);
 
 
 

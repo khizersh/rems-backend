@@ -7,6 +7,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.Validation;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 import java.util.Comparator;
 import java.util.List;
@@ -106,7 +108,7 @@ public class ValidationService {
         }
 
         if (expectedStart != durationInMonths) {
-            throw new IllegalArgumentException("Final toMonth must match durationInMonths. Last toMonth was: " + expectedStart);
+            throw new IllegalArgumentException("Duration in months must match month wise payment: " + durationInMonths);
         }
     }
 
@@ -150,6 +152,7 @@ public class ValidationService {
 
         PaymentSchedule paymentSchedule = reqeust;
 
+        paymentSchedule.setTotalAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
         if (paymentSchedule != null) {
             // Basic checks before deeper validation
             if (paymentSchedule.getDurationInMonths() <= 0) {
@@ -175,6 +178,16 @@ public class ValidationService {
     }
 
 
+    private static final String EMAIL_REGEX = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(EMAIL_REGEX);
+
+    public static boolean isValidEmail(String email) {
+        if (email == null) {
+            return false;
+        }
+        Matcher matcher = EMAIL_PATTERN.matcher(email);
+        return matcher.matches();
+    }
 }
 
 
