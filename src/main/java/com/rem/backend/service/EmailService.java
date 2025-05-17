@@ -1,58 +1,55 @@
 package com.rem.backend.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import static com.rem.backend.utility.Utility.COMPANY_NAME;
-
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class EmailService {
 
+    private final JavaMailSender mailSender;
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
-    public boolean sendEmail(String toEmail, String subject, String body) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("youremail@gmail.com");
-            message.setTo(toEmail);
-            message.setSubject(subject);
-            message.setText(body);
-
-            mailSender.send(message);
-
-            System.out.println("Email sent successfully to " + toEmail);
-            return true;
-        } catch (MailException e) {
-            System.err.println("Failed to send email to " + toEmail + ": " + e.getMessage());
-            e.printStackTrace();
-            return false;
-        }
+    public EmailService(JavaMailSender mailSender) {
+        this.mailSender = mailSender;
+    }
+    public CompletableFuture<Void> sendEmailAsync(String toEmail, String username, String password) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                sendCredentialsEmail(toEmail, username, password);
+            } catch (Exception e) {
+                e.printStackTrace(); // Optionally log this properly
+                throw new RuntimeException("Failed to send email", e);
+            }
+        });
     }
 
-    public boolean sendUserCredentialsEmail(String toEmail, String username, String password) {
-        boolean flag = false;
-        try {
-            String emailSubject = "Your Account Details";
-            String emailBody = "Hello " + username + ",\n\n" +
-                    "Your account has been created successfully.\n\n" +
-                    "Username: " + username + "\n" +
-                    "Password: " + password + "\n\n" +
-                    "Please log in and change your password after first login.\n\n" +
-                    "Regards,\n" + COMPANY_NAME;
+    public void sendCredentialsEmail(String toEmail, String username, String password) throws MessagingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
-            flag = sendEmail(toEmail, emailSubject, emailBody);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            return flag;
-        }
+        helper.setFrom(fromEmail);
+        helper.setTo(toEmail);
+        helper.setSubject("Your Account Credentials");
 
+        String content = "<p>Hello,</p>"
+                + "<p>Your account has been created successfully. Here are your credentials:</p>"
+                + "<ul>"
+                + "<li><strong>Username:</strong> " + username + "</li>"
+                + "<li><strong>Password:</strong> " + password + "</li>"
+                + "</ul>"
+                + "<p>Please change your password after your first login.</p>"
+                + "<p>Regards,<br/>Real Estate Management Team</p>";
+
+        helper.setText(content, true); // true = HTML
+
+        mailSender.send(message);
     }
-
 }

@@ -1,13 +1,11 @@
 package com.rem.backend.service;
 
 import com.rem.backend.entity.customer.Customer;
+import com.rem.backend.entity.customer.CustomerPaymentDetail;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.RoleType;
-import com.rem.backend.repository.CustomerRepo;
-import com.rem.backend.repository.FloorRepo;
-import com.rem.backend.repository.ProjectRepo;
-import com.rem.backend.repository.UnitRepo;
+import com.rem.backend.repository.*;
 import com.rem.backend.usermanagement.entity.User;
 import com.rem.backend.usermanagement.entity.UserRoleMapper;
 import com.rem.backend.usermanagement.entity.UserRoles;
@@ -39,6 +37,8 @@ public class CustomerService {
     private final FloorRepo floorRepo;
     private final UnitRepo unitRepo;
     private final EmailService emailService;
+    private final CustomerPaymentDetailRepo customerPaymentDetailRepo;
+    private final CustomerPaymentService customerPaymentService;
 
     public Map<String, Object> getCustomerById(long id) {
         try {
@@ -48,6 +48,28 @@ public class CustomerService {
                 return ResponseMapper.buildResponse(Responses.SUCCESS, customerOptional.get());
             }
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getFullDetailByCustomerId(Map<String , String> request ) {
+        try {
+            String customerId = request.get("customerId");
+            String customerPaymentId = request.get("customerPaymentId");
+            ValidationService.validate(customerId, "customerId");
+            ValidationService.validate(customerPaymentId, "customerPaymentId");
+            Map<String , Object> response = customerPaymentService.getPaymentDetailsByPaymentIdOnlyData(Long.valueOf(customerPaymentId));
+            if(response == null)
+                response = new HashMap<>();
+            Map<String , Object> customer = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
+
+            response.put("customer" , customer);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
         } catch (Exception e) {
@@ -131,7 +153,7 @@ public class CustomerService {
                 user.setEmail(customer.getEmail());
                 user.setOrganizationId(customer.getOrganizationId());
                 User userSaved = userRepo.save(user);
-                emailService.sendUserCredentialsEmail(user.getEmail() , user.getUsername(), user.getPassword() );
+                emailService.sendEmailAsync(user.getEmail() , user.getUsername(), user.getPassword() );
                 customer.setUserId(userSaved.getId());
 
                 UserRoles roles = new UserRoles();

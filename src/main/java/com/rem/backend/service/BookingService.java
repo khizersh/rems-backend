@@ -206,6 +206,7 @@ public class BookingService {
             customerPayment.setSerialNo(serialNo);
             customerPayment.setAmount(amount);
             customerPayment.setReceivedAmount(0);
+            customerPayment.setRemainingAmount(amount);
             customerPayment.setPaymentType(PaymentType.CASH);
             customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
             customerPayment.setCreatedBy(booking.getCreatedBy());

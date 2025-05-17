@@ -35,6 +35,12 @@ public class Customer {
     private String nextOFKinName;
 
     @Column(nullable = false)
+    private String guardianName;
+
+    @Column(nullable = false)
+    private String contactNo;
+
+    @Column(nullable = false)
     private String nextOFKinNationalId;
 
     @Column(nullable = false)

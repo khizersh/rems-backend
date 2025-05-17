@@ -26,6 +26,11 @@ public class CustomerPayment {
     @Column(nullable = false)
     private double receivedAmount;
 
+    @Column(nullable = false)
+    private double remainingAmount;
+
+
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType paymentType;
@@ -40,6 +45,10 @@ public class CustomerPayment {
 
     @Transient
     private List<CustomerPaymentDetail> customerPaymentDetails;
+
+
+    @Column(nullable = true)
+    private LocalDateTime paidDate;
 
     @Column(nullable = false)
     private String createdBy;

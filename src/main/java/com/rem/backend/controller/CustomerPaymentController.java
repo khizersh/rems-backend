@@ -9,10 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -43,6 +40,12 @@ public class CustomerPaymentController {
     public ResponseEntity<?> payInstallment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         Map<String, Object> projectPage = customerPaymentService.updateCustomerPayment(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(projectPage);
+    }
+
+    @GetMapping("/paymentDetails/{paymentId}")
+    public ResponseEntity<?> getDetailsByPaymentId(@PathVariable long paymentId) {
+        Map<String, Object> projectPage = customerPaymentService.getPaymentDetailsByPaymentId(paymentId);
         return ResponseEntity.ok(projectPage);
     }
 }
