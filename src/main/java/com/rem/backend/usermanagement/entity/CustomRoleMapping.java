@@ -1,31 +1,41 @@
 package com.rem.backend.usermanagement.entity;
 
-
-import com.rem.backend.enums.RoleType;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "role_mapping")
-@Data
-public class UserRoleMapper {
 
+@Entity
+@Table(name = "custom_role_mapping")
+@Data
+public class CustomRoleMapping {
 
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
+    @Column(nullable = false)
+    private long userId;
 
-    @Enumerated(EnumType.STRING)
-    private RoleType roleCode;
+    @Column(nullable = false)
+    private long roleId;
 
-    @NotBlank(message = "Code cannot be empty")
+    @Column(nullable = false)
+    private long permissionId;
+
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean isActive = true;
+
+    @Transient
     private String endPoint;
+
+    @Column(nullable = false)
+    private String createdBy;
+
+    @Column(nullable = false)
+    private String updatedBy;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
@@ -43,6 +53,4 @@ public class UserRoleMapper {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
-
 }

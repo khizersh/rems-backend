@@ -1,59 +1,40 @@
-package com.rem.backend.entity.customer;
+package com.rem.backend.entity.organization;
 
-import com.rem.backend.enums.PaymentStatus;
-import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
-import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 
 import java.time.LocalDateTime;
-import java.util.List;
+
 
 @Entity
-@Table(name = "customer_payment")
+@Table(name = "organization_account")
 @Data
-public class CustomerPayment {
+public class OrganizationAccount {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)
-    private int serialNo;
+    private long organizationId;
 
     @Column(nullable = false)
-    private double amount;
+    private String name;
 
     @Column(nullable = false)
-    private double receivedAmount;
+    private String bankName;
 
     @Column(nullable = false)
-    private double remainingAmount;
-
-
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentType paymentType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentStatus paymentStatus;
-
+    private String accountNo;
 
     @Column(nullable = false)
-    private long customerAccountId;
+    private String iban;
 
-    @Transient
-    private List<CustomerPaymentDetail> customerPaymentDetails;
+    @Column(nullable = false)
+    private double totalAmount;
 
-
-    @Transient
-    private List<OrganizationAccountDetail> organizationAccountDetails;
-
-
-    @Column(nullable = true)
-    private LocalDateTime paidDate;
+    @Column(nullable = false)
+    private LocalDateTime lastUpdatedDateTime;
 
     @Column(nullable = false)
     private String createdBy;
@@ -71,10 +52,12 @@ public class CustomerPayment {
     protected void onCreate() {
         this.createdDate = LocalDateTime.now();
         this.updatedDate = LocalDateTime.now();
+        this.lastUpdatedDateTime = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
+        this.lastUpdatedDateTime = LocalDateTime.now();
     }
 }

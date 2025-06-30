@@ -32,6 +32,10 @@ public class Project {
     @Column(nullable = false)
     private double registrationAmount = 0.0;
 
+
+    @Column(nullable = false)
+    private double constructionAmount = 0.0;
+
     @Column(nullable = false)
     private double additionalAmount = 0.0;
 

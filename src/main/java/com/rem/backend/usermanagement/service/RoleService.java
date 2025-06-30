@@ -10,8 +10,7 @@ import com.rem.backend.utility.ValidationService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -49,4 +48,22 @@ public class RoleService {
             return null;
         }
     }
+
+    public Optional<Role> getRoleById(long roleId) {
+        try {
+            return roleRepository.findById(roleId);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    public List<Role> getAll() {
+        try {
+            return roleRepository.findAll();
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+
 }

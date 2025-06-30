@@ -1,9 +1,12 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.sidebar.ChildSidebar;
 import com.rem.backend.entity.sidebar.Sidebar;
 import com.rem.backend.repository.ChildSidebarRepository;
+import com.rem.backend.repository.CustomerRepo;
 import com.rem.backend.repository.SidebarRepo;
+import com.rem.backend.usermanagement.entity.Role;
 import com.rem.backend.usermanagement.entity.User;
 import com.rem.backend.usermanagement.entity.UserRoles;
 import com.rem.backend.usermanagement.repository.UserRepo;
@@ -24,6 +27,7 @@ public class SidebarService {
     private final ChildSidebarRepository childSidebarRepository;
     private final UserRepo userRepo;
     private final RoleService roleService;
+    private final CustomerRepo customerRepo;
 
     // Add new Sidebar with children
     public Map<String, Object> addSidebar(Sidebar sidebar, String loggedInUser) {
@@ -131,19 +135,27 @@ public class SidebarService {
 
             if (userOptional.isPresent()) {
                 User user = userOptional.get();
+                Optional<Customer> customerOptional = customerRepo.findByUserId(user.getId());
                 Set<UserRoles> userRoles = roleService.getUserRoles(user.getId());
 
                 List<Sidebar> allSidebars = sidebarRepo.findAll();
+                List<Role> roleList = roleService.getAll();
 
                 for (Sidebar sidebar : allSidebars) {
                     boolean parentMatched = false;
 
                     // Check if parent sidebar matches any of the user roles
+
                     for (UserRoles role : userRoles) {
-                        if (sidebar.getRoles().toLowerCase().contains(role.getRoleCode().toString().toLowerCase())) {
-                            parentMatched = true;
-                            break;
+
+                        Optional<Role> roleOptional = roleList.stream().filter(singleRole -> singleRole.getId() == role.getRoleId()).findFirst();
+                        if (roleOptional.isPresent()) {
+                            if (sidebar.getRoles().toLowerCase().contains(roleOptional.get().getName().toString().toLowerCase())) {
+                                parentMatched = true;
+                                break;
+                            }
                         }
+
                     }
 
                     if (parentMatched) {
@@ -151,14 +163,24 @@ public class SidebarService {
 
                         for (ChildSidebar child : sidebar.getChildList()) {
                             for (UserRoles role : userRoles) {
-                                if (child.getRoles().toLowerCase().contains(role.getRoleCode().toString().toLowerCase())) {
-                                    matchingChildren.add(child);
-                                    break;
+                                Optional<Role> roleOptional = roleList.stream().filter(singleRole -> singleRole.getId() == role.getRoleId()).findFirst();
+                                if (roleOptional.isPresent()) {
+                                    if (child.getRoles().toLowerCase().contains(roleOptional.get().getName().toString().toLowerCase())) {
+                                        if (customerOptional.isPresent()) {
+                                            child.setUrl(child.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId())));
+                                        }
+                                        matchingChildren.add(child);
+                                        break;
+                                    }
                                 }
                             }
                         }
 
                         sidebar.setChildList(matchingChildren);
+
+                        if (customerOptional.isPresent()) {
+                            sidebar.setUrl(sidebar.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId()))); ;
+                        }
                         finalSidebarList.add(sidebar);
                     }
                 }

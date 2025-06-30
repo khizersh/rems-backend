@@ -26,6 +26,14 @@ public class PaymentSchedulerService {
     private final PaymentScheduleRepository paymentScheduleRepository;
     private final MonthWisePaymentRepo monthWisePaymentRepo;
 
+    public void deleteByUnitId(long unitID){
+        try {
+            paymentScheduleRepository.deleteByUnit_Id(unitID);
+        }catch (Exception e){
+           e.printStackTrace();
+        }
+    }
+
     public Map<String, Object> createSchedule(PaymentSchedule paymentSchedule) {
 
         try {
@@ -73,6 +81,34 @@ public class PaymentSchedulerService {
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
+    }
+
+    public PaymentSchedule getPaymentDetailsByUnitId(long unitId ,PaymentScheduleType type ) {
+
+        try {
+
+
+            ValidationService.validate(unitId, "unitId");
+            ValidationService.validate(type, "paymentScheduleType");
+            Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.
+                    findByUnitIdAndPaymentScheduleType(Long.valueOf(unitId), type);
+
+            PaymentSchedule paymentSchedule = null;
+            if (paymentScheduleOptional.isPresent()) {
+                paymentSchedule = paymentScheduleOptional.get();
+                List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+            }
+
+
+            return paymentSchedule;
+        } catch (IllegalArgumentException e) {
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
 
     }

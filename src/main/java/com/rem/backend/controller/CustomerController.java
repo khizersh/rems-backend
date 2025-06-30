@@ -1,14 +1,10 @@
 package com.rem.backend.controller;
 
-import com.rem.backend.dto.customer.CustomerPaginationRequest;
-import com.rem.backend.dto.floor.FloorPaginationRequest;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.customer.Customer;
-import com.rem.backend.repository.CustomerRepo;
 import com.rem.backend.service.CustomerService;
 import com.rem.backend.service.EmailService;
-import com.rem.backend.utility.ResponseMapper;
-import com.rem.backend.utility.Responses;
-import com.rem.backend.utility.ValidationService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
 
 @RestController
@@ -33,6 +31,12 @@ public class CustomerController {
     }
 
 
+    @GetMapping("/detail/{id}")
+    public Map getFullCustomerDetails(@PathVariable long id) {
+        return customerService.getFullDetailByCustomer(id);
+    }
+
+
     @PostMapping("search")
     public Map searchCustomersByName(@RequestBody Map<String, String> request) {
         return customerService.searchCustomersByName(request);
@@ -40,8 +44,16 @@ public class CustomerController {
 
 
     @PostMapping("/addCustomer")
-    public Map addCustomer(@RequestBody Customer customer) {
-        return customerService.createCustomer(customer);
+    public Map addCustomer(@RequestBody Customer customer, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return customerService.createCustomer(customer , loggedInUser);
+    }
+
+
+    @PostMapping("/updateCustomer")
+    public Map updateCustomer(@RequestBody Customer customer, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return customerService.updateCustomer(customer , loggedInUser);
     }
 
 
@@ -53,7 +65,7 @@ public class CustomerController {
 
 
     @PostMapping("/getByIds")
-    public ResponseEntity<?> getProjectsByIds(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getProjectsByIds(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),

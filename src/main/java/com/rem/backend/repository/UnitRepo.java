@@ -17,6 +17,7 @@ public interface UnitRepo extends JpaRepository<Unit, Long> {
 
 
     Page<Unit> findByFloorId(long floorId, Pageable pageable);
+    List<Unit> findByFloorId(long floorId);
 
     int countByFloorId(Long floorId);
 

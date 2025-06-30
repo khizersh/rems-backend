@@ -2,7 +2,6 @@ package com.rem.backend.service;
 
 import com.rem.backend.dto.unit.UnitDetails;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
-import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.enums.PaymentScheduleType;
@@ -22,6 +21,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.List;
 
+import static com.rem.backend.utility.ValidationService.validatePaymentScheduler;
+
 @Service
 @AllArgsConstructor
 public class UnitService {
@@ -31,6 +32,7 @@ public class UnitService {
     private final FloorRepo floorRepo;
     private final ProjectRepo projectRepo;
     private final PaymentScheduleRepository paymentScheduleRepository;
+    private final PaymentSchedulerService paymentSchedulerService;
 
 
     public Map<String, Object> getUnitByFloor(long floorId, Pageable pageable) {
@@ -59,7 +61,7 @@ public class UnitService {
     }
 
 
-    public Map<String, Object> getUnitDetailsByFloor(long unitId) {
+    public Map<String, Object> getUnitDetailsByUnit(long unitId) {
         try {
             ValidationService.validate(unitId, "unit id");
 
@@ -71,9 +73,9 @@ public class UnitService {
                 if (optionalFloor.isPresent()) {
                     String projectName = projectRepo.findProjectNameById(optionalFloor.get().getProjectId());
 
-                    Optional<PaymentSchedule>  paymentScheduleOptional = paymentScheduleRepository.findByUnitIdAndPaymentScheduleType(unitId , PaymentScheduleType.BUILDER);
+                    Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.BUILDER);
 
-                    if(paymentScheduleOptional.isPresent()){
+                    if (paymentScheduleOptional.isPresent()) {
                         unitDetails = new UnitDetails();
                         unitDetails.setUnitId(unitOptional.get().getId());
                         unitDetails.setUnitSerial(unitOptional.get().getSerialNo());
@@ -88,6 +90,32 @@ public class UnitService {
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, unitDetails);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getUnitByUnitId(long unitId) {
+        try {
+            ValidationService.validate(unitId, "unit id");
+
+            Optional<Unit> unitOptional = unitRepo.findById(unitId);
+            Unit unit = null;
+            if (unitOptional.isPresent()) {
+                unit = unitOptional.get();
+                PaymentSchedule paymentScheduleOptional = paymentSchedulerService.getPaymentDetailsByUnitId(unitId, PaymentScheduleType.BUILDER);
+                unit.setPaymentSchedule(paymentScheduleOptional);
+
+            } else {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "UNIT NOT FOUND!");
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, unit);
 
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
@@ -114,34 +142,36 @@ public class UnitService {
     }
 
 
-    public Map<String, Object> addOrUpdateUnit(Unit dto) {
+    public Map<String, Object> addOrUpdateUnit(Unit unit, String loggedInUser) {
         try {
-            Optional<Floor> floorOptional = floorRepo.findById(dto.getFloorId());
 
+            ValidationService.validate(unit.getSerialNo(), "unit serial no");
+            ValidationService.validate(unit.getAmount(), "amount");
+            ValidationService.validate(unit.getSquareYards(), "square yards");
+            ValidationService.validate(unit.getUnitType(), "unit type");
+            ValidationService.validate(unit.getFloorId(), "floor id");
+            unit.setCreatedBy(loggedInUser);
+            unit.setUpdatedBy(loggedInUser);
 
-            if (floorOptional.isEmpty()) return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
+            Unit unitSaved = unitRepo.save(unit);
 
-            Floor floor = floorOptional.get();
-            Unit unit;
-            if (unitRepo.existsById(dto.getId())) {
-                unit = unitRepo.findById(dto.getId()).get();
+            PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+            paymentSchedule.setCreatedBy(loggedInUser);
+            paymentSchedule.setUpdatedBy(loggedInUser);
 
-            } else {
-                unit = new Unit();
-            }
+            validatePaymentScheduler(paymentSchedule);
 
-            unit.setSerialNo(dto.getSerialNo());
-            unit.setSquareYards(dto.getSquareYards());
-            unit.setRoomCount(dto.getRoomCount());
-            unit.setBathroomCount(dto.getBathroomCount());
-            unit.setAmount(dto.getAmount());
-            unit.setAdditionalAmount(dto.getAdditionalAmount());
-            unit.setUnitType(dto.getUnitType());
+            paymentSchedule.setCreatedBy(loggedInUser);
+            paymentSchedule.setUpdatedBy(loggedInUser);
+            paymentSchedule.setUnit(unitSaved);
+            paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
 
+            paymentSchedulerService.createSchedule(paymentSchedule);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, unitSaved);
 
-            Unit saved = unitRepo.save(unit);
-            return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
-
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());

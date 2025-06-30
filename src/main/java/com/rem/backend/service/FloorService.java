@@ -27,6 +27,20 @@ public class FloorService {
     private final FloorRepo floorRepo;
     private final UnitRepo unitRepo;
 
+
+    public Map<String, Object> deleteById(long floorId) {
+        try {
+            ValidationService.validate(floorId, "floor id");
+            floorRepo.deleteById(floorId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully deleted");
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> getFloorsByProject(long projectId, Pageable pageable) {
         try {
             ValidationService.validate(projectId, "project id");
@@ -50,14 +64,17 @@ public class FloorService {
         }
     }
 
-    public Map<String, Object> addOrUpdateFloorInProject(Long projectId, Floor floorInput, String loggedInUser) {
+    public Map<String, Object> addOrUpdateFloorInProject( Floor floorInput, String loggedInUser) {
         try {
-            Optional<Project> projectOptional = projectRepo.findById(projectId);
 
 
-            if (projectOptional.isEmpty()) return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
+            ValidationService.validate(floorInput.getProjectId() , "project");
+            ValidationService.validate(floorInput.getFloor() , "floor no");
 
-            Project project = projectOptional.get();
+            Optional<Project> projectOptional = projectRepo.findById(floorInput.getProjectId());
+            if (projectOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Project!");
+
 
             if (floorInput.getUnitList() != null) {
                 for (Unit unit : floorInput.getUnitList()) {
@@ -78,9 +95,17 @@ public class FloorService {
                 savedFloor = floorRepo.save(existing);
             } else {
                 // Add new floor
+               Optional<Floor> floorOptional = floorRepo.findByFloorAndProjectId(floorInput.getFloor() , floorInput.getProjectId());
+               if (floorOptional.isPresent())
+                   throw new IllegalArgumentException("Floor No Already exist!");
                 floorInput.setCreatedBy(loggedInUser);
                 floorInput.setUpdatedBy(loggedInUser);
                 savedFloor = floorRepo.save(floorInput);
+
+                Project project = projectOptional.get();
+                project.setFloors(project.getFloors() + 1);
+                projectRepo.save(project);
+
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, savedFloor);

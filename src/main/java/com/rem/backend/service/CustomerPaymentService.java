@@ -1,11 +1,14 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.customer.Customer;
+import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
+import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.customer.CustomerPaymentDetail;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
-import com.rem.backend.repository.CustomerPaymentDetailRepo;
-import com.rem.backend.repository.CustomerPaymentRepo;
+import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -16,10 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.rem.backend.enums.PaymentStatus.PAID;
@@ -30,7 +30,10 @@ import static com.rem.backend.enums.PaymentStatus.PENDING;
 public class CustomerPaymentService {
     private final CustomerPaymentRepo customerPaymentRepo;
     private final CustomerPaymentDetailRepo customerPaymentDetailRepo;
-
+    private final CustomerAccountRepo customerAccountRepo;
+    private final CustomerRepo customerRepo;
+    private final UnitRepo unitRepo;
+    private final OrganizationAccountService organizationAccountService;
 
     public Map<String, Object> getPaymentsByCustomerAccountId(long customerAccountId, Pageable pageable) {
         try {
@@ -61,6 +64,56 @@ public class CustomerPaymentService {
             Map<String, Object> response = new HashMap<>();
             response.put("payment", customerPayment);
             response.put("paymentDetails", paymentDetails);
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getAllPaymentDetailsByAccountId(long customerAccountId) {
+        try {
+            ValidationService.validate(customerAccountId, "customerAccountId");
+            List<CustomerPaymentDetail> customerPaymentDetails = new ArrayList<>();
+
+            List<CustomerPayment> customerPayments = customerPaymentRepo
+                    .findByCustomerAccountId(customerAccountId);
+
+            Map<String, Object> response = new HashMap<>();
+
+
+            for (CustomerPayment customerPayment : customerPayments) {
+                if (!customerPayment.getPaymentStatus().equals(PaymentStatus.UNPAID)) {
+                    List<CustomerPaymentDetail> paymentDetails = customerPaymentDetailRepo.findByCustomerPaymentId(customerPayment.getId());
+                    customerPaymentDetails.addAll(paymentDetails);
+                }
+
+            }
+
+            Optional<CustomerAccount> customerAccount = customerAccountRepo.findById(customerAccountId);
+            if (customerAccount.isPresent()) {
+
+                Map<String, Object> customerDetail = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId());
+
+                double grandTotal = customerPaymentDetails.stream()
+                        .mapToDouble(CustomerPaymentDetail::getAmount)
+                        .sum();
+                double totalAmount = customerAccount.get().getTotalAmount();
+                double balanceAmount = totalAmount - grandTotal;
+
+                response.put("totalAmount", totalAmount);
+                response.put("grandTotal", grandTotal);
+                response.put("balanceAmount", balanceAmount);
+                response.put("customer", customerDetail);
+            }
+
+            response.put("paymentDetails", customerPaymentDetails);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
@@ -104,6 +157,7 @@ public class CustomerPaymentService {
     public Map<String, Object> updateCustomerPayment(CustomerPayment customerPayment, String loggedInUser) {
         try {
             ValidationService.validate(customerPayment.getId(), "customerPayment");
+            ValidationService.validate(customerPayment.getOrganizationAccountDetails(), "receiving account");
             Optional<CustomerPayment> payments = customerPaymentRepo.findById(customerPayment.getId());
 
             if (payments.isEmpty())
@@ -145,6 +199,32 @@ public class CustomerPaymentService {
                 paymentType = PaymentType.CUSTOM;
             }
 
+
+            double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().mapToDouble(OrganizationAccountDetail::getAmount).sum();
+
+            if (receivingAccountAmount != customerPaidAmount)
+                throw new IllegalArgumentException("Receiving Amount is not matched!");
+
+
+            Map<String, Object> customerData = customerRepo.getAllDetailsByCustomerId(customerPayment.getOrganizationAccountDetails().get(0).getCustomerId());
+            String customerName = "", unitSerial = "", projectName = "";
+            long projectId =  0l;
+            if (customerData != null) {
+                customerName = customerData.get("customerName").toString();
+                projectName = customerData.get("projectName").toString();
+                unitSerial = customerData.get("unitSerial").toString();
+                projectId = Long.valueOf(customerData.get("projectId").toString()) ;
+
+            }
+            for (OrganizationAccountDetail organizationAccountDetail : customerPayment.getOrganizationAccountDetails()) {
+                organizationAccountDetail.setCustomerName(customerName);
+                organizationAccountDetail.setProjectName(projectName);
+                organizationAccountDetail.setUnitSerialNo(unitSerial);
+                organizationAccountDetail.setProjectId(projectId);
+                organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
+                organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+            }
+
             double remainingAmount = totalAmount - customerPaidAmount;
 
             if (remainingAmount == 0) {
@@ -166,7 +246,6 @@ public class CustomerPaymentService {
             } else {
 //                WHEN PAID AMOUNT IS GREATER THAN INSTALLMENT AMOUNT
 
-                List<CustomerPaymentDetail> paymentDetails = customerPayment.getCustomerPaymentDetails();
                 List<CustomerPayment> customerPayments = customerPaymentRepo
                         .findByCustomerAccountId(customerPayment.getCustomerAccountId()).stream()
                         .filter(customerPaymentSaved -> customerPaymentSaved.getSerialNo() >= customerPayment.getSerialNo())

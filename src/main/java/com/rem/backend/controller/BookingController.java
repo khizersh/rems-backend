@@ -1,7 +1,7 @@
 package com.rem.backend.controller;
 
 
-import com.rem.backend.dto.customer.CustomerPaginationRequest;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.service.BookingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,7 +32,7 @@ public class BookingController {
 
 
     @PostMapping("/getByIds")
-    public ResponseEntity<?> getProjectsByIds(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getProjectsByIds(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),

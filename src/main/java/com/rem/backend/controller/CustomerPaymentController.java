@@ -1,6 +1,6 @@
 package com.rem.backend.controller;
 
-import com.rem.backend.dto.customer.CustomerPaginationRequest;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.service.CustomerPaymentService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,7 +23,7 @@ public class CustomerPaymentController {
     CustomerPaymentService customerPaymentService;
 
     @PostMapping("/getByCustomerAccountId")
-    public ResponseEntity<?> getProjectsByIds(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getProjectsByIds(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),
@@ -46,6 +46,13 @@ public class CustomerPaymentController {
     @GetMapping("/paymentDetails/{paymentId}")
     public ResponseEntity<?> getDetailsByPaymentId(@PathVariable long paymentId) {
         Map<String, Object> projectPage = customerPaymentService.getPaymentDetailsByPaymentId(paymentId);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @GetMapping("/customerLedger/{customerAccountId}")
+    public ResponseEntity<?> getAllDetailsByCustomer(@PathVariable long customerAccountId) {
+        Map<String, Object> projectPage = customerPaymentService.getAllPaymentDetailsByAccountId(customerAccountId);
         return ResponseEntity.ok(projectPage);
     }
 }

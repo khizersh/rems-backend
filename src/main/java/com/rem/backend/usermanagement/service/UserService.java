@@ -6,6 +6,9 @@ import com.rem.backend.entity.sidebar.Sidebar;
 import com.rem.backend.repository.OrganizationRepo;
 import com.rem.backend.service.SidebarService;
 import com.rem.backend.usermanagement.dto.AuthRequest;
+import com.rem.backend.usermanagement.dto.UserWithPermissionsDto;
+import com.rem.backend.usermanagement.entity.CustomRoleMapping;
+import com.rem.backend.usermanagement.entity.DefaultRolePermissionMapping;
 import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.usermanagement.entity.User;
 import com.rem.backend.usermanagement.entity.UserRoles;
@@ -34,11 +37,14 @@ public class UserService implements UserDetailsService {
     private final RoleService roleService;
     private final JWTUtils jwtUtils;
     private final SidebarService sidebarService;
+    private final DefaultPermissionMappingService defaultPermissionMappingService;
+    private final CustomPermissionMappingService customPermissionMappingService;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
-        UserDetails user = findUserByUsernameMiddleware(username);
+//        UserDetails user = findUserByUsernameMiddleware(username);
+        UserDetails user = null;
 
         if (user == null) {
             throw new UsernameNotFoundException("User not found with username: " + username);
@@ -47,31 +53,81 @@ public class UserService implements UserDetailsService {
         return user;
     }
 
-    private UserDetails findUserByUsernameMiddleware(String username) {
-        Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(username);
+    public boolean isValidCall(String username, String requestUri) {
+        boolean flag = false;
+        try {
 
-        if (userOptional.isPresent()) {
-            User user = userOptional.get();
+            Optional<String> endPointExist = getFinalUserPermissionsByUsername(username).
+                    stream().filter(endpoint ->
+                    endpoint.equals("/api/*") || requestUri.toLowerCase().startsWith(endpoint.toLowerCase())
+            ).findFirst();
 
-            Set<UserRoles> roles = roleService.getUserRoles(user.getId());
+            if (endPointExist.isPresent())
+                flag = true;
 
-            user.setRoles(roles);
-
-            // Convert user roles to GrantedAuthority
-            Set<GrantedAuthority> grantedAuthorities = user.getRoles().stream()
-                    .map(role -> new SimpleGrantedAuthority(role.getRoleCode().toString()))
-                    .collect(Collectors.toSet());
-
-            // Return a Spring Security UserDetails object
-            return new org.springframework.security.core.userdetails.User(
-                    user.getUsername(),
-                    user.getPassword(), // Ensure password is set
-                    grantedAuthorities
-            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            return flag;
         }
-
-        throw new UsernameNotFoundException("User not found with username: " + username);
     }
+
+    private List<String> getFinalUserPermissionsByUsername(String username) {
+        try {
+
+            Set<DefaultRolePermissionMapping> defaultSet = defaultPermissionMappingService.getDefaultPermissionsByUsername(username);
+            Set<CustomRoleMapping> customSet = customPermissionMappingService.getCustomPermissionsByUsername(username);
+
+// Step 1: Remove inactive custom permissions from defaultSet
+            Set<DefaultRolePermissionMapping> toRemove = customSet.stream().filter(custom -> !custom.isActive()).map(custom -> {
+                DefaultRolePermissionMapping temp = new DefaultRolePermissionMapping();
+                temp.setPermissionId(custom.getPermissionId());
+                temp.setRoleId(custom.getRoleId());
+                return temp;
+            }).collect(Collectors.toSet());
+
+            defaultSet.removeAll(toRemove);
+
+// Step 2: Add active custom permissions if not already in defaultSet
+            Set<DefaultRolePermissionMapping> toAdd = customSet.stream().filter(CustomRoleMapping::isActive).map(custom -> {
+                DefaultRolePermissionMapping temp = new DefaultRolePermissionMapping();
+                temp.setPermissionId(custom.getPermissionId());
+                temp.setRoleId(custom.getRoleId());
+                return temp;
+            }).filter(item -> !defaultSet.contains(item)).collect(Collectors.toSet());
+
+            defaultSet.addAll(toAdd);
+
+
+            List<String> endPointList = defaultSet.stream().map(defaultRolePermissionMapping -> defaultRolePermissionMapping.getEndPoint()).toList();
+
+            return endPointList;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+//    private UserDetails findUserByUsernameMiddleware(String username) {
+//        Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(username);
+//
+//        if (userOptional.isPresent()) {
+//            User user = userOptional.get();
+//
+//            Set<UserRoles> roles = roleService.getUserRoles(user.getId());
+//
+//            user.setRoles(roles);
+//
+//            // Convert user roles to GrantedAuthority
+//            Set<GrantedAuthority> grantedAuthorities = user.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.getRoleId().toString())).collect(Collectors.toSet());
+//
+//            // Return a Spring Security UserDetails object
+//            return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), // Ensure password is set
+//                    grantedAuthorities);
+//        }
+//
+//        throw new UsernameNotFoundException("User not found with username: " + username);
+//    }
 
 
     public Map<String, Object> findUserByUsername(String username, String loggedInUser) {

@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public interface CustomerRepo extends JpaRepository<Customer, Long> {
@@ -18,6 +19,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
     Page<Customer> findByProjectId(long organizationId, Pageable pageable);
     Page<Customer> findByFloorId(long organizationId, Pageable pageable);
     Page<Customer> findByUnitId(long organizationId, Pageable pageable);
+    Optional<Customer> findByUserId(long userId);
     boolean existsByUnitId(long unitId);
 
     @Query(value = "SELECT c.customer_id AS customerId, c.name AS name, c.unit_id AS unitId " +
@@ -39,6 +41,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
             c.guardian_name   AS guardianName,
             c.address         AS customerAddress,
             p.name            AS projectName,
+            p.project_id      AS projectId,
             f.floor           AS floorNo,
             u.serial_no       AS unitSerial,
             u.unit_type       AS unitType

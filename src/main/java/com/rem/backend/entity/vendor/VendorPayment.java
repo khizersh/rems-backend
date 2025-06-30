@@ -1,59 +1,42 @@
-package com.rem.backend.entity.customer;
+package com.rem.backend.entity.vendor;
 
-import com.rem.backend.enums.PaymentStatus;
-import com.rem.backend.enums.PaymentType;
+
+import com.rem.backend.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.Data;
-import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 
 import java.time.LocalDateTime;
-import java.util.List;
+
 
 @Entity
-@Table(name = "customer_payment")
+@Table(name = "vendor_payment")
 @Data
-public class CustomerPayment {
+public class VendorPayment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)
-    private int serialNo;
+    private double vendorAccountId;
 
     @Column(nullable = false)
-    private double amount;
+    private double projectId;
 
     @Column(nullable = false)
-    private double receivedAmount;
+    private double amountPaid;
 
     @Column(nullable = false)
-    private double remainingAmount;
-
-
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentType paymentType;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private PaymentStatus paymentStatus;
-
+    private double creditAmount;
 
     @Column(nullable = false)
-    private long customerAccountId;
+    private double materialAmount;
+
+    @Column(nullable = false)
+    private TransactionType transactionType;
 
     @Transient
-    private List<CustomerPaymentDetail> customerPaymentDetails;
-
-
-    @Transient
-    private List<OrganizationAccountDetail> organizationAccountDetails;
-
-
-    @Column(nullable = true)
-    private LocalDateTime paidDate;
+    private long organizationAccountId;
 
     @Column(nullable = false)
     private String createdBy;

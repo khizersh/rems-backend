@@ -68,7 +68,7 @@ public class BookingService {
                     customer = customerOptional.get();
                 }
             } else {
-                Map<String, Object> createCustomer = customerService.createCustomer(booking.getCustomer());
+                Map<String, Object> createCustomer = customerService.createCustomer(booking.getCustomer(), loggedInUser);
                 if (!createCustomer.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     return createCustomer;
                 }
@@ -104,9 +104,9 @@ public class BookingService {
             }
 
 
-            Optional<Floor>  optionalFloor = floorRepo.findById(unit.getFloorId());
+            Optional<Floor> optionalFloor = floorRepo.findById(unit.getFloorId());
 
-            if(optionalFloor.isPresent()){
+            if (optionalFloor.isPresent()) {
                 booking.setProjectId(optionalFloor.get().getProjectId());
             }
 
@@ -175,11 +175,33 @@ public class BookingService {
             throw new IllegalArgumentException("Amounts not matched!");
         }
 
-
         CustomerAccount customerAccountSaved = customerAccountRepo.save(account);
 
+        int serialNoStart = 1;
+        if (schedule.getDownPayment() > 0) {
+            serialNoStart  = 2;
+
+
+//        insert entry in customer_payment for a down payment
+            CustomerPayment customerPayment = new CustomerPayment();
+            customerPayment.setSerialNo(0);
+            customerPayment.setAmount(schedule.getDownPayment());
+            customerPayment.setReceivedAmount(0);
+            customerPayment.setRemainingAmount(schedule.getDownPayment());
+            customerPayment.setPaymentType(PaymentType.CASH);
+            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
+            customerPayment.setCreatedBy(booking.getCreatedBy());
+            customerPayment.setUpdatedBy(booking.getUpdatedBy());
+            customerPayment.setCreatedDate(LocalDateTime.now());
+            customerPayment.setUpdatedDate(LocalDateTime.now());
+            customerPayment.setCustomerAccountId(customerAccountSaved.getId());
+
+            customerPaymentRepo.save(customerPayment);
+        }
+
+
         for (int i = 0; i < schedule.getDurationInMonths(); i++) {
-            int serialNo = i + 1;
+            int serialNo = i + serialNoStart;
             Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
                     .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
                     .findFirst();

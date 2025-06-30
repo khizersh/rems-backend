@@ -6,6 +6,7 @@ import com.rem.backend.repository.CustomerAccountRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
+import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,14 +17,12 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class CustomerAccountService {
 
     private final CustomerAccountRepo customerAccountRepo;
 
-    @Autowired
-    public CustomerAccountService(CustomerAccountRepo customerAccountRepo) {
-        this.customerAccountRepo = customerAccountRepo;
-    }
+
 
     public Page<CustomerAccount> getByProjectId(Long projectId, Pageable pageable) {
         ValidationService.validate(projectId, "Project ID");

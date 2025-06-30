@@ -1,7 +1,7 @@
 package com.rem.backend.usermanagement.middleware;
 
-import com.rem.backend.usermanagement.entity.UserRoleMapper;
-import com.rem.backend.usermanagement.service.UserRoleMappingService;
+import com.rem.backend.usermanagement.entity.DefaultRolePermissionMapping;
+import com.rem.backend.usermanagement.service.DefaultPermissionMappingService;
 import com.rem.backend.usermanagement.service.UserService;
 import com.rem.backend.usermanagement.utillity.JWTUtils;
 import jakarta.servlet.FilterChain;
@@ -24,7 +24,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTUtils jwtUtil;
     private final UserService userDetailsService;
-    private final UserRoleMappingService userRoleMappingService;
+    private final DefaultPermissionMappingService defaultPermissionMappingService;
 
 
     @Override
@@ -55,41 +55,43 @@ public class JWTFilter extends OncePerRequestFilter {
             username = jwtUtil.extractUsername(token);
         }
 
-//        if (username != null && jwtUtil.validateToken(token, username)) {
+        if (username != null && jwtUtil.validateToken(token, username)) {
 //            var userDetails = userDetailsService.loadUserByUsername(username);
 //            var authorities = userDetails.getAuthorities();
 //
-//            Optional<UserRoleMapper> role = authorities.stream()
-//                    .flatMap(authority -> userRoleMappingService
-//                            .getUserRolesMappers(authority.getAuthority()).stream())
-//                    .filter(userRoleMapper -> {
-//                        String endpoint = userRoleMapper.getEndPoint().toLowerCase();
+//            Optional<DefaultRolePermissionMapping> role = authorities.stream()
+//                    .flatMap(authority -> defaultPermissionMappingService
+//                            .getDefaultPermissionsByUsername(authority.getAuthority()).stream())
+//                    .filter(defaultRolePermissionMapping -> {
+//                        String endpoint = defaultRolePermissionMapping.getEndPoint().toLowerCase();
 //                        return endpoint.equals("*") || requestUri.startsWith(endpoint);
 //                    })
 //                    .findFirst();
+
+           boolean isValid = userDetailsService.isValidCall(username , requestUri);
+
+            if (isValid) {
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        null, null, null);
+
+                request.setAttribute(LOGGED_IN_USER, username);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.getWriter().write("You are not authorized to access this endpoint.");
+                return;
+            }
+        }
+
+//        username = "admin";
+//        var userDetails = userDetailsService.loadUserByUsername(username);
+//        var authorities = userDetails.getAuthorities();
 //
-//            if (role.isPresent()) {
-//                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-//                        userDetails, null, authorities);
+//        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+//                userDetails, null, authorities);
 //
-//                request.setAttribute(LOGGED_IN_USER, username);
-//                SecurityContextHolder.getContext().setAuthentication(authentication);
-//            } else {
-//                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-//                response.getWriter().write("You are not authorized to access this endpoint.");
-//                return;
-//            }
-//        }
-
-        username = "admin";
-        var userDetails = userDetailsService.loadUserByUsername(username);
-        var authorities = userDetails.getAuthorities();
-
-        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, authorities);
-
-        request.setAttribute(LOGGED_IN_USER, username);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
+//        request.setAttribute(LOGGED_IN_USER, username);
+//        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         chain.doFilter(request, response);
     }

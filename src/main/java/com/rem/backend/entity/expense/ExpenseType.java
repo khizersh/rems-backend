@@ -1,28 +1,23 @@
-package com.rem.backend.usermanagement.entity;
+package com.rem.backend.entity.expense;
 
-
-import com.rem.backend.enums.RoleType;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-
 @Entity
-@Table(name = "user_role")
+@Table(name = "expense_type")
 @Data
-public class UserRoles {
+public class ExpenseType {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
-    @Column(nullable = true)
-    private long userId;
+    @Column(nullable = false)
+    private String name;
 
-    @Column(nullable = true)
-    private long roleId;
+    @Column(nullable = false)
+    private long organizationId;
 
     @Column(nullable = false)
     private String createdBy;
@@ -36,6 +31,7 @@ public class UserRoles {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
+
     @PrePersist
     protected void onCreate() {
         this.createdDate = LocalDateTime.now();
@@ -46,6 +42,4 @@ public class UserRoles {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
-
 }

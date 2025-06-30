@@ -1,28 +1,40 @@
-package com.rem.backend.usermanagement.entity;
+package com.rem.backend.entity.expense;
 
 
-import com.rem.backend.enums.RoleType;
+import com.rem.backend.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
-
 @Entity
-@Table(name = "user_role")
+@Table(name = "expense")
 @Data
-public class UserRoles {
+public class Expense {
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
-    @Column(nullable = true)
-    private long userId;
 
-    @Column(nullable = true)
-    private long roleId;
+    private double amountPaid;
+    private double creditAmount;
+    private double totalAmount;
+    private long vendorAccountId;
+    private long organizationAccountId;
+    private long expenseTypeId;
+    private long organizationId;
+    private long projectId;
+    private String projectName;
+    private String orgAccountTitle;
+    private String  vendorName;
+    private String  expenseTitle;
+
+
+
+    @Column(nullable = false)
+    private PaymentStatus paymentStatus;
 
     @Column(nullable = false)
     private String createdBy;
@@ -35,6 +47,7 @@ public class UserRoles {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
 
     @PrePersist
     protected void onCreate() {

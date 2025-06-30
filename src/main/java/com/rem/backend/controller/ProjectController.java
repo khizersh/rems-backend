@@ -39,6 +39,13 @@ public class ProjectController {
         return projectService.createProject(project , loggedInUser);
     }
 
+
+    @PostMapping("/update")
+    public Map updateProject(@RequestBody Project project , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return projectService.updateProject(project , loggedInUser);
+    }
+
     @GetMapping("/deActivate")
     public Map deActivateOrganization(@PathVariable long id , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);

@@ -1,9 +1,9 @@
 package com.rem.backend.controller;
 
-import com.rem.backend.dto.floor.FloorPaginationRequest;
 import com.rem.backend.dto.unit.UnitPaginationRequest;
-import com.rem.backend.service.FloorService;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.service.UnitService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
 @RestController
 @RequestMapping("/api/unit/")
@@ -42,7 +44,14 @@ public class UnitController {
 
     @GetMapping("/getDetailsById/{unitId}")
     public ResponseEntity<?> getUnitDetailsById(@PathVariable long unitId) {
-        Map<String , Object> projectPage = unitService.getUnitDetailsByFloor(unitId);
+        Map<String , Object> projectPage = unitService.getUnitByUnitId(unitId);
         return ResponseEntity.ok(projectPage);
+    }
+
+    @PostMapping("/addOrUpdate")
+    public ResponseEntity<?> addOrUpdateUnit(@RequestBody Unit unit, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String , Object> response = unitService.addOrUpdateUnit(unit , loggedInUser);
+        return ResponseEntity.ok(response);
     }
 }

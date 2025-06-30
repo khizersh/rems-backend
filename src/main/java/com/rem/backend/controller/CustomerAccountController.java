@@ -1,7 +1,6 @@
 package com.rem.backend.controller;
 
-import com.rem.backend.dto.customer.CustomerPaginationRequest;
-import com.rem.backend.dto.customerAccount.CustomerAccountPaginationRequest;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.service.CustomerAccountService;
 import com.rem.backend.utility.ValidationService;
@@ -14,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.Optional;
 
 
 @RestController
@@ -25,7 +23,7 @@ public class CustomerAccountController {
     private final CustomerAccountService customerAccountService;
 
     @PostMapping("/getByOrganizationId")
-    public ResponseEntity<?> getByOrganizationId(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getByOrganizationId(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),
@@ -45,7 +43,7 @@ public class CustomerAccountController {
 
 
     @PostMapping("/getByProjectId")
-    public ResponseEntity<?> getByProjectId(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getByProjectId(@RequestBody FilterPaginationRequest request) {
         ValidationService.validate(request.getId(), "Project ID");
 
         Pageable pageable = PageRequest.of(
@@ -60,7 +58,7 @@ public class CustomerAccountController {
     }
 
     @PostMapping("/getByCustomerId")
-    public ResponseEntity<?> getByCustomerId(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getByCustomerId(@RequestBody FilterPaginationRequest request) {
         Map<String , Object> result = customerAccountService.getByCustomerId(request.getId());
         return ResponseEntity.ok(result);
     }
@@ -73,7 +71,7 @@ public class CustomerAccountController {
     }
 
     @PostMapping("/getByUnitId")
-    public ResponseEntity<?> getByUnitId(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getByUnitId(@RequestBody FilterPaginationRequest request) {
 
         Pageable pageable = PageRequest.of(
                 request.getPage(),
@@ -88,7 +86,7 @@ public class CustomerAccountController {
 
 
     @PostMapping("/getAll")
-    public ResponseEntity<?> getAll(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getAll(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),
@@ -101,7 +99,7 @@ public class CustomerAccountController {
     }
 
     @PostMapping("/getByIds")
-    public ResponseEntity<?> getCustomerAccountByIds(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getCustomerAccountByIds(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),
@@ -115,7 +113,7 @@ public class CustomerAccountController {
 
 
     @PostMapping("/getNameIdsByIds")
-    public ResponseEntity<?> getCustomerAccountNameIdsByIds(@RequestBody CustomerPaginationRequest request) {
+    public ResponseEntity<?> getCustomerAccountNameIdsByIds(@RequestBody FilterPaginationRequest request) {
         Map<String, Object> customerAccount = customerAccountService.getCustomerAccountsNameIdByIds(request.getId(), request.getFilteredBy());
         return ResponseEntity.ok(customerAccount);
     }

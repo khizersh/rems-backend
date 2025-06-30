@@ -1,28 +1,24 @@
 package com.rem.backend.usermanagement.entity;
 
-
-import com.rem.backend.enums.RoleType;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 
 @Entity
-@Table(name = "user_role")
+@Table(name = "permissions")
 @Data
-public class UserRoles {
+public class Permissions {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
+    @Column(nullable = false , unique = true)
+    private String code;
+    @Column(nullable = false , unique = true)
+    private String endPoint;
 
-    @Column(nullable = true)
-    private long userId;
-
-    @Column(nullable = true)
-    private long roleId;
 
     @Column(nullable = false)
     private String createdBy;
@@ -46,6 +42,5 @@ public class UserRoles {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
 
 }

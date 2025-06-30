@@ -1,31 +1,52 @@
-package com.rem.backend.usermanagement.entity;
+package com.rem.backend.entity.organizationAccount;
 
+import com.rem.backend.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
-import java.util.Set;
+
 
 @Entity
-@Table(name = "users")
+@Table(name = "organization_account_detail")
 @Data
-public class User {
+public class OrganizationAccountDetail {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
     @Column(nullable = false)
-    private String username;
-    @Column(nullable = false)
-    private String email;
-    @Column(nullable = false)
-    private String password;
-    @Column(nullable = false)
-    private long organizationId;
-    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
-    private boolean isActive = true;
+    private long organizationAcctId;
 
-    @Transient
-    private Set<UserRoles> roles;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TransactionType transactionType;
+
+    @Column(nullable = false)
+    private double amount;
+
+    @Column(nullable = false)
+    private String comments;
+
+    private long projectId;
+
+
+    private String projectName;
+
+    private String customerName;
+
+    private String unitSerialNo;
+
+    private long customerId;
+
+    private long customerPaymentId;
+
+    private long customerPaymentDetailId;
+
+    private long customerAccountId;
+
+    private long expenseId;
 
     @Column(nullable = false)
     private String createdBy;
@@ -49,5 +70,4 @@ public class User {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
 }

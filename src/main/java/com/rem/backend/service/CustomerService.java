@@ -1,16 +1,14 @@
 package com.rem.backend.service;
 
 import com.rem.backend.entity.customer.Customer;
-import com.rem.backend.entity.customer.CustomerPaymentDetail;
-import com.rem.backend.entity.project.Floor;
-import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.RoleType;
 import com.rem.backend.repository.*;
+import com.rem.backend.usermanagement.entity.Role;
 import com.rem.backend.usermanagement.entity.User;
-import com.rem.backend.usermanagement.entity.UserRoleMapper;
 import com.rem.backend.usermanagement.entity.UserRoles;
 import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.usermanagement.repository.UserRoleRepository;
+import com.rem.backend.usermanagement.service.RoleService;
 import com.rem.backend.utility.PasswordGenerator;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -24,8 +22,6 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.*;
 
-import static com.rem.backend.utility.EndPointUtils.GET_PROJECTS_BY_ORG_ID;
-
 @Service
 @AllArgsConstructor
 public class CustomerService {
@@ -37,15 +33,22 @@ public class CustomerService {
     private final FloorRepo floorRepo;
     private final UnitRepo unitRepo;
     private final EmailService emailService;
-    private final CustomerPaymentDetailRepo customerPaymentDetailRepo;
     private final CustomerPaymentService customerPaymentService;
+    private final RoleService roleService;
 
     public Map<String, Object> getCustomerById(long id) {
         try {
             ValidationService.validate(id, "id");
             Optional<Customer> customerOptional = customerRepo.findById(id);
+
+
             if (customerOptional.isPresent()) {
+                Customer customer = customerOptional.get();
+                customer.setProjectName(projectRepo.findProjectNameById(customer.getProjectId()));
+                customer.setFloorNo(floorRepo.findFloorNoById(customer.getFloorId()));
+                customer.setUnitSerialNo(unitRepo.findUnitSerialById(customer.getUnitId()));
                 return ResponseMapper.buildResponse(Responses.SUCCESS, customerOptional.get());
+
             }
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
         } catch (IllegalArgumentException e) {
@@ -57,18 +60,34 @@ public class CustomerService {
     }
 
 
-    public Map<String, Object> getFullDetailByCustomerId(Map<String , String> request ) {
+    public Map<String, Object> getFullDetailByCustomerId(Map<String, String> request) {
         try {
             String customerId = request.get("customerId");
             String customerPaymentId = request.get("customerPaymentId");
             ValidationService.validate(customerId, "customerId");
             ValidationService.validate(customerPaymentId, "customerPaymentId");
-            Map<String , Object> response = customerPaymentService.getPaymentDetailsByPaymentIdOnlyData(Long.valueOf(customerPaymentId));
-            if(response == null)
+            Map<String, Object> response = customerPaymentService.getPaymentDetailsByPaymentIdOnlyData(Long.valueOf(customerPaymentId));
+            if (response == null)
                 response = new HashMap<>();
-            Map<String , Object> customer = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
+            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
 
-            response.put("customer" , customer);
+            response.put("customer", customer);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getFullDetailByCustomer(long customerId) {
+        try {
+
+            ValidationService.validate(customerId, "customerId");
+
+            Map<String, Object> response  = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
@@ -117,7 +136,7 @@ public class CustomerService {
 
 
     @Transactional
-    public Map<String, Object> createCustomer(Customer customer) {
+    public Map<String, Object> createCustomer(Customer customer , String loggedInUser) {
         try {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
@@ -130,6 +149,8 @@ public class CustomerService {
             ValidationService.validate(customer.getUnitId(), "Unit ID");
             ValidationService.validate(customer.getCreatedBy(), "Created By");
             ValidationService.validate(customer.getUpdatedBy(), "Updated By");
+            ValidationService.validate(customer.getContactNo(), "Contact No");
+            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
 
             boolean unitAlreadyAssigned = customerRepo.existsByUnitId(customer.getUnitId());
             if (unitAlreadyAssigned) {
@@ -152,19 +173,59 @@ public class CustomerService {
                 user.setUsername(customer.getUsername());
                 user.setEmail(customer.getEmail());
                 user.setOrganizationId(customer.getOrganizationId());
+                user.setCreatedBy(loggedInUser);
+                user.setUpdatedBy(loggedInUser);
                 User userSaved = userRepo.save(user);
-                emailService.sendEmailAsync(user.getEmail() , user.getUsername(), user.getPassword() );
+                emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword());
                 customer.setUserId(userSaved.getId());
 
                 UserRoles roles = new UserRoles();
-                roles.setRoleCode(RoleType.USER_ROLE);
+                Role role = roleService.getRoleByName(RoleType.USER_ROLE.toString());
+                roles.setRoleId(role.getId());
                 roles.setUserId(userSaved.getId());
+                roles.setCreatedBy(loggedInUser);
+                roles.setUpdatedBy(loggedInUser);
                 userRoleRepo.save(roles);
 
             }
             // Save customer
+            customer.setCreatedBy(loggedInUser);
+            customer.setUpdatedBy(loggedInUser);
+
             Customer savedCustomer = customerRepo.save(customer);
 
+            return ResponseMapper.buildResponse(Responses.SUCCESS, savedCustomer);
+
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    @Transactional
+    public Map<String, Object> updateCustomer(Customer customer , String loggedInUser) {
+        try {
+            ValidationService.validate(customer.getName(), "Customer name");
+            ValidationService.validate(customer.getNationalId(), "National ID");
+            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
+            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
+            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
+            ValidationService.validate(customer.getOrganizationId(), "Organization ID");
+            ValidationService.validate(customer.getProjectId(), "Project ID");
+            ValidationService.validate(customer.getFloorId(), "Floor ID");
+            ValidationService.validate(customer.getUnitId(), "Unit ID");
+            ValidationService.validate(loggedInUser, "Updated By");
+            ValidationService.validate(customer.getContactNo(), "Contact No");
+            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
+
+
+            customer.setUpdatedBy(loggedInUser);
+            Customer savedCustomer = customerRepo.save(customer);
             return ResponseMapper.buildResponse(Responses.SUCCESS, savedCustomer);
 
         } catch (IllegalArgumentException e) {
@@ -196,4 +257,7 @@ public class CustomerService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+
+
 }

@@ -18,6 +18,7 @@ public class Role {
 
     @NotBlank(message = "Name cannot be empty")
     private String name;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
