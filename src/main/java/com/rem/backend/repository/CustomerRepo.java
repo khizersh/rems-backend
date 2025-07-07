@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -54,5 +55,9 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
             nativeQuery = true
     )
     Map<String, Object> getAllDetailsByCustomerId(@Param("customerId") long customerId);
+
+
+    long countByCreatedDateAfterAndOrganizationId(LocalDateTime date, long orgId);
+    long countByOrganizationId(long orgId);
 
 }

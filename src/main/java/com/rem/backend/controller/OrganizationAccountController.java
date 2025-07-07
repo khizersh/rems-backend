@@ -29,6 +29,12 @@ public class OrganizationAccountController {
     }
 
 
+    @GetMapping("/getById/{acctId}")
+    public Map getAccountById(@PathVariable long acctId ){
+        return organizationAccountService.getOrgAccountsById(acctId);
+    }
+
+
     @GetMapping("/getAccountByOrgId/{orgId}")
     public Map getAccountByOrgId(@PathVariable long orgId ){
         return organizationAccountService.getOrgAccountsByOrgId(orgId);

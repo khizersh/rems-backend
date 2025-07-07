@@ -49,6 +49,13 @@ public class VendorAccountController {
     }
 
 
+    @GetMapping("/getById/{orgId}")
+    public ResponseEntity<?> getVendorsById(@PathVariable long orgId){
+        Map<String , Object> projectPage = vendorAccountService.getAccountById(orgId);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
     @PostMapping("/getHistoryByAccountId")
     public ResponseEntity<?> getAccountDetailsByVendorAcctId(@RequestBody CommonPaginationRequest request){
         Pageable pageable = PageRequest.of(

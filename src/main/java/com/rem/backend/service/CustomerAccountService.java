@@ -2,7 +2,9 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;
+import com.rem.backend.entity.customer.CustomerPaymentDetail;
 import com.rem.backend.repository.CustomerAccountRepo;
+import com.rem.backend.repository.CustomerRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -21,6 +23,7 @@ import java.util.Optional;
 public class CustomerAccountService {
 
     private final CustomerAccountRepo customerAccountRepo;
+    private final CustomerRepo customerRepo;
 
 
 
@@ -132,6 +135,23 @@ public class CustomerAccountService {
                 default:
                     customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
             }
+
+//            customers.getContent().forEach(customerAccount -> {
+//
+//                Map<String, Object> customerDetail = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId());
+//
+//                double grandTotal = customerPaymentDetails.stream()
+//                        .mapToDouble(CustomerPaymentDetail::getAmount)
+//                        .sum();
+//                double totalAmount = customerAccount.get().getTotalAmount();
+//                double balanceAmount = totalAmount - grandTotal;
+//
+//                response.put("totalAmount", totalAmount);
+//                response.put("grandTotal", grandTotal);
+//                response.put("balanceAmount", balanceAmount);
+//                customerAccount.setTotalPaidAmount();
+//                customerAccount.setTotalBalanceAmount();
+//            });
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, customers);
 

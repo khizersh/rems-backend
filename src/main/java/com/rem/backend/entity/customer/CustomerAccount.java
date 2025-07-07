@@ -61,6 +61,11 @@ public class CustomerAccount {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Unit unit;
 
+    @Transient
+    private double totalPaidAmount;
+
+    @Transient
+    private double totalBalanceAmount;
 
     @Transient
     private List<CustomerPayment> customerPayments;

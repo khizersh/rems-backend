@@ -30,8 +30,6 @@ public class CustomerPayment {
     @Column(nullable = false)
     private double remainingAmount;
 
-
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType paymentType;
@@ -40,17 +38,16 @@ public class CustomerPayment {
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
 
-
     @Column(nullable = false)
     private long customerAccountId;
+
+
 
     @Transient
     private List<CustomerPaymentDetail> customerPaymentDetails;
 
-
     @Transient
     private List<OrganizationAccountDetail> organizationAccountDetails;
-
 
     @Column(nullable = true)
     private LocalDateTime paidDate;

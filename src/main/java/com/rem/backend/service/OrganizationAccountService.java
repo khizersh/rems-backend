@@ -41,6 +41,25 @@ public class OrganizationAccountService {
     }
 
 
+    public Map<String, Object> getOrgAccountsById(long acctId) {
+        try {
+            ValidationService.validate(acctId, "account");
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(acctId);
+
+            if (organizationAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Account");
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, organizationAccountOptional.get());
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     public Map<String, Object> getOrgAccountDetailByOrgAcctId(long orgAcctId , Pageable pageable) {
         try {
             ValidationService.validate(orgAcctId, "orgId");

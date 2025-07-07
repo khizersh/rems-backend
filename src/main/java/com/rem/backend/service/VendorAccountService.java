@@ -44,6 +44,23 @@ public class VendorAccountService {
         }
     }
 
+
+    public Map<String, Object> getAccountById(long accountId) {
+        try {
+            Optional<VendorAccount> vendorAccounts = vendorAccountRepository.findById(accountId);
+            if (vendorAccounts.isEmpty())
+                throw new IllegalArgumentException("Invalid account!");
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts.get());
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> getVendorDetailsByAccount(long acctId, Pageable pageable) {
         try {
             Page<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
