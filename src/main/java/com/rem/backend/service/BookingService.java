@@ -296,9 +296,11 @@ public class BookingService {
                     break;
                 default:
                     bookings = bookingRepository.findByOrganizationId(id, pageable);
+                    break;
             }
 
             // Populate transient fields for API response
+
             bookings.getContent().forEach(booking -> {
                 Unit unit = booking.getUnit();
                 booking.setCustomerName(booking.getCustomer().getName());

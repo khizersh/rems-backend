@@ -1,5 +1,7 @@
 package com.rem.backend.utility;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class Utility {
 
@@ -12,4 +14,12 @@ public class Utility {
     public static LocalDateTime getDateInLastDays(int days) {
         return LocalDateTime.now().minusDays(days);
     }
+
+    public static LocalDateTime getLocalDateTimeByString(String input) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
+        LocalDate date = LocalDate.parse(input, formatter);
+        return date.atStartOfDay();
+    }
+
+
 }

@@ -165,6 +165,9 @@ public class UserService implements UserDetailsService {
             ValidationService.validate(request.getUsername(), "username");
 
             Optional<User> userOptional = userRepo.findByUsernameAndIsActiveTrue(request.getUsername());
+            if (userOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Credentials!");
+
             Optional<Organization> organizationOptional = organizationRepo.findByOrganizationIdAndIsActiveTrue(userOptional.get().getOrganizationId());
 
             if (userOptional.isPresent() && organizationOptional.isPresent()) {

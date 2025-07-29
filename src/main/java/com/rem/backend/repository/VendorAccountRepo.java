@@ -18,4 +18,8 @@ public interface VendorAccountRepo extends JpaRepository<VendorAccount , Long> {
 
     @Query(value =  " SELECT id , name FROM vendor_account  WHERE organization_id = :organizationId ;" , nativeQuery = true)
     List<Map<String , Object>> findAllByOrgId(long organizationId);
+
+
+    @Query(value =  " SELECT sum(va.total_credit_amount) FROM vendor_account va WHERE organization_id = :organizationId ;" , nativeQuery = true)
+    double findTotalPayableByOrgId(long organizationId);
 }

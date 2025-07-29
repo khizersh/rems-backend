@@ -3,10 +3,7 @@ package com.rem.backend.controller;
 import com.rem.backend.dto.analytic.CountStateByTenureRequest;
 import com.rem.backend.service.AnalyticsService;
 import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -27,6 +24,17 @@ public class AnalyticController {
 
 
 
+    @GetMapping("/getBookingCount/{organizationId}")
+    public Map getSalesCountByYear(@PathVariable long organizationId) {
+        return analyticsService.getBookingCountByYear(organizationId);
+    }
+
+
+
+    @GetMapping("/getBookingAmountSum/{organizationId}")
+    public Map getSalesAmountSumByYear(@PathVariable long organizationId) {
+        return analyticsService.getBookingAmountSumByYear(organizationId);
+    }
 
 
 }
