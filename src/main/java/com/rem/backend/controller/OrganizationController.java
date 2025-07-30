@@ -27,6 +27,16 @@ public class OrganizationController {
         return organizationService.createOrganization(organization , loggedInUser);
     }
 
+
+    @PostMapping("/update")
+    public Map updateOrganization(@RequestBody Organization organization , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return organizationService.updateOrganization(organization , loggedInUser);
+    }
+
+
+
+
     @PostMapping("/deActivate")
     public Map deActivateOrganization(@PathVariable long id , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);

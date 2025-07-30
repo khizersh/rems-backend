@@ -52,6 +52,27 @@ public class OrganizationService {
         }
     }
 
+    public Map<String, Object> updateOrganization(Organization organization, String loggedInUser) {
+        try {
+            ValidationService.validate(organization.getOrganizationId(), "organization id");
+            ValidationService.validate(organization.getName(), "name");
+            ValidationService.validate(organization.getAddress(), "address");
+            organization.setCreatedBy(loggedInUser);
+            organization.setUpdatedBy(loggedInUser);
+
+            if (!organizationRepo.existsById(organization.getOrganizationId()))
+                throw new IllegalArgumentException("Invalid organization");
+
+            Organization organizationSaved = organizationRepo.save(organization);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, organizationSaved);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> deActivate(long id, String loggedInUser) {
         try {
             ValidationService.validate(id, "id");
