@@ -3,6 +3,7 @@ package com.rem.backend.utility;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentPlanType;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
@@ -45,9 +46,9 @@ public class ValidationService {
 
 
     public static void validatePaymentSchedule(PaymentSchedule schedule) {
-        if (schedule.getDurationInMonths() <= 0) {
-            throw new IllegalArgumentException("Duration in months must be greater than 0.");
-        }
+//        if (schedule.getDurationInMonths() <= 0) {
+//            throw new IllegalArgumentException("Duration in months must be greater than 0.");
+//        }
 
         if (schedule.getActualAmount() <= 0) {
             throw new IllegalArgumentException("Actual amount must be greater than 0.");
@@ -74,8 +75,8 @@ public class ValidationService {
         }
     }
 
-    public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths) {
-        if (payments == null || payments.isEmpty()) {
+    public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
+        if (payments == null || payments.isEmpty() && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
             throw new IllegalArgumentException("Month-wise payments list cannot be null or empty.");
         }
 
@@ -130,9 +131,9 @@ public class ValidationService {
 
         if (paymentSchedule != null) {
             // Basic checks before deeper validation
-            if (paymentSchedule.getDurationInMonths() <= 0) {
-                throw new IllegalArgumentException("Duration in months must be greater than 0.");
-            }
+//            if (paymentSchedule.getDurationInMonths() <= 0) {
+//                throw new IllegalArgumentException("Duration in months must be greater than 0.");
+//            }
 
             if (paymentSchedule.getActualAmount() <= 0) {
                 throw new IllegalArgumentException("Actual amount must be greater than 0.");
@@ -155,9 +156,9 @@ public class ValidationService {
         paymentSchedule.setTotalAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
         if (paymentSchedule != null) {
             // Basic checks before deeper validation
-            if (paymentSchedule.getDurationInMonths() <= 0) {
-                throw new IllegalArgumentException("Duration in months must be greater than 0.");
-            }
+//            if (paymentSchedule.getDurationInMonths() <= 0) {
+//                throw new IllegalArgumentException("Duration in months must be greater than 0.");
+//            }
 
             if (paymentSchedule.getActualAmount() <= 0) {
                 throw new IllegalArgumentException("Actual amount must be greater than 0.");

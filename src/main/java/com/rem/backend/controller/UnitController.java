@@ -48,6 +48,13 @@ public class UnitController {
         return ResponseEntity.ok(projectPage);
     }
 
+
+    @GetMapping("/getUnitDetailsById/{unitId}")
+    public ResponseEntity<?> getDetailsById(@PathVariable long unitId) {
+        Map<String , Object> projectPage = unitService.getUnitDetailsByUnit(unitId);
+        return ResponseEntity.ok(projectPage);
+    }
+
     @PostMapping("/addOrUpdate")
     public ResponseEntity<?> addOrUpdateUnit(@RequestBody Unit unit, HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);

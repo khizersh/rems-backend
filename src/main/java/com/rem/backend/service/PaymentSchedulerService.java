@@ -2,6 +2,7 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.repository.MonthWisePaymentRepo;
 import com.rem.backend.repository.PaymentScheduleRepository;
@@ -26,26 +27,31 @@ public class PaymentSchedulerService {
     private final PaymentScheduleRepository paymentScheduleRepository;
     private final MonthWisePaymentRepo monthWisePaymentRepo;
 
-    public void deleteByUnitId(long unitID){
+    public void deleteByUnitId(long unitID) {
         try {
             paymentScheduleRepository.deleteByUnit_Id(unitID);
-        }catch (Exception e){
-           e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
-    public Map<String, Object> createSchedule(PaymentSchedule paymentSchedule) {
+    public Map<String, Object> createSchedule(PaymentSchedule paymentSchedule, PaymentPlanType paymentPlanType) {
 
         try {
             paymentSchedule.setTotalAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+                validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
+            }
             validatePaymentSchedule(paymentSchedule);
-            validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths());
             PaymentSchedule paymentScheduleSaved = paymentScheduleRepository.save(paymentSchedule);
 
-            for (MonthWisePayment payment : paymentSchedule.getMonthWisePaymentList()) {
-                payment.setPaymentScheduleId(paymentScheduleSaved.getId());
-                monthWisePaymentRepo.save(payment);
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+                for (MonthWisePayment payment : paymentSchedule.getMonthWisePaymentList()) {
+                    payment.setPaymentScheduleId(paymentScheduleSaved.getId());
+                    monthWisePaymentRepo.save(payment);
+                }
             }
+
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, paymentScheduleRepository.save(paymentSchedule));
         } catch (IllegalArgumentException e) {
@@ -85,7 +91,7 @@ public class PaymentSchedulerService {
 
     }
 
-    public PaymentSchedule getPaymentDetailsByUnitId(long unitId ,PaymentScheduleType type ) {
+    public PaymentSchedule getPaymentDetailsByUnitId(long unitId, PaymentScheduleType type) {
 
         try {
 

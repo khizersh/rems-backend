@@ -1,6 +1,7 @@
 package com.rem.backend.entity.project;
 
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.UnitType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -21,7 +22,7 @@ public class Unit {
     private String serialNo;
 
     @Column(nullable = false)
-    private int squareYards;
+    private int squareFoot;
 
     @Column(nullable = false)
     private int roomCount = 0;
@@ -44,6 +45,11 @@ public class Unit {
 
     @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
     private boolean isBooked;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentPlanType paymentPlanType;
 
     @Column(nullable = false)
     private String createdBy;

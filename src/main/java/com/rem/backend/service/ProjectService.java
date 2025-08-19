@@ -7,7 +7,6 @@ import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.enums.ProjectType;
 import com.rem.backend.repository.FloorRepo;
-import com.rem.backend.repository.PaymentScheduleRepository;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.UnitRepo;
 import com.rem.backend.utility.ResponseMapper;
@@ -21,10 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-import static com.rem.backend.utility.Utility.DATA;
 import static com.rem.backend.utility.Utility.RESPONSE_CODE;
 import static com.rem.backend.utility.ValidationService.*;
 
@@ -105,7 +102,7 @@ public class ProjectService {
 
             Project projectSaved = projectRepo.save(project);
 
-            if (project.getProjectType().equals(ProjectType.APARTMENT)) {
+            if (project.getProjectType().equals(ProjectType.APARTMENT) ||  project.getProjectType().equals(ProjectType.SHOP)) {
                 for (Floor floor : project.getFloorList()) {
                     ValidationService.validate(floor.getFloor(), "floor no");
                     floor.setCreatedBy(loggedInUser);
@@ -116,31 +113,29 @@ public class ProjectService {
                     for (Unit unit : floor.getUnitList()) {
                         ValidationService.validate(unit.getSerialNo(), "unit serial no");
                         ValidationService.validate(unit.getAmount(), "amount");
-                        ValidationService.validate(unit.getSquareYards(), "square yards");
+                        ValidationService.validate(unit.getSquareFoot(), "square yards");
                         ValidationService.validate(unit.getUnitType(), "unit type");
                         unit.setFloorId(floorSaved.getId());
                         unit.setCreatedBy(loggedInUser);
                         unit.setUpdatedBy(loggedInUser);
-//                        unit.setAmount(loggedInUser);
 
-                        Unit unitSaved = unitRepo.save(unit);
 
                         PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+                        Unit unitSaved = unitRepo.save(unit);
+
                         paymentSchedule.setCreatedBy(loggedInUser);
                         paymentSchedule.setUpdatedBy(loggedInUser);
 
                         validatePaymentScheduler(paymentSchedule);
 
 
-                        if (paymentSchedule != null) {
-
-                        }
                         paymentSchedule.setCreatedBy(loggedInUser);
                         paymentSchedule.setUpdatedBy(loggedInUser);
                         paymentSchedule.setUnit(unitSaved);
                         paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
 
-                        Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule);
+                        Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
                         if (createPaymentScheduler != null) {
                             // Set type to CUSTOMER and associate with unit
                             PaymentSchedule savedSchedule = null;
@@ -254,15 +249,19 @@ public class ProjectService {
                     for (Unit unit : floor.getUnitList()) {
                         ValidationService.validate(unit.getSerialNo(), "unit serial no");
                         ValidationService.validate(unit.getAmount(), "amount");
-                        ValidationService.validate(unit.getSquareYards(), "square yards");
+                        ValidationService.validate(unit.getSquareFoot(), "square yards");
                         ValidationService.validate(unit.getUnitType(), "unit type");
                         unit.setFloorId(floorSaved.getId());
                         unit.setCreatedBy(loggedInUser);
                         unit.setUpdatedBy(loggedInUser);
 
+                        PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+
+                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+
                         Unit unitSaved = unitRepo.save(unit);
 
-                        PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+
                         paymentSchedule.setCreatedBy(loggedInUser);
                         paymentSchedule.setUpdatedBy(loggedInUser);
 
@@ -273,7 +272,7 @@ public class ProjectService {
                         paymentSchedule.setUnit(unitSaved);
                         paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
 
-                        Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule);
+                        Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
                         if (createPaymentScheduler != null) {
                             // Set type to CUSTOMER and associate with unit
                             PaymentSchedule savedSchedule = null;

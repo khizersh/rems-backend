@@ -147,7 +147,7 @@ public class UnitService {
 
             ValidationService.validate(unit.getSerialNo(), "unit serial no");
             ValidationService.validate(unit.getAmount(), "amount");
-            ValidationService.validate(unit.getSquareYards(), "square yards");
+            ValidationService.validate(unit.getSquareFoot(), "square yards");
             ValidationService.validate(unit.getUnitType(), "unit type");
             ValidationService.validate(unit.getFloorId(), "floor id");
             unit.setCreatedBy(loggedInUser);
@@ -166,7 +166,7 @@ public class UnitService {
             paymentSchedule.setUnit(unitSaved);
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
 
-            paymentSchedulerService.createSchedule(paymentSchedule);
+            paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
             return ResponseMapper.buildResponse(Responses.SUCCESS, unitSaved);
 
         } catch (IllegalArgumentException e) {

@@ -79,7 +79,7 @@ public class FloorService {
             if (floorInput.getUnitList() != null) {
                 for (Unit unit : floorInput.getUnitList()) {
                     ValidationService.validate(unit.getSerialNo(), "unit serial no");
-                    ValidationService.validate(unit.getSquareYards(), "square yards");
+                    ValidationService.validate(unit.getSquareFoot(), "square yards");
                     ValidationService.validate(unit.getUnitType(), "unit type");
 
                     unit.setUpdatedBy(loggedInUser);

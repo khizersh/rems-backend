@@ -9,6 +9,7 @@ import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
@@ -85,7 +86,7 @@ public class BookingService {
             unit.setBooked(true);
 
 
-            unitRepo.save(unit);
+           Unit savedUnit = unitRepo.save(unit);
 
 
             PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
@@ -94,7 +95,7 @@ public class BookingService {
             paymentSchedule.setUnit(booking.getUnit());
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
 
-            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule);
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule , booking.getUnit().getPaymentPlanType() );
             if (createPaymentScheduler != null) {
                 PaymentSchedule savedSchedule = null;
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
@@ -115,7 +116,7 @@ public class BookingService {
             booking.setUpdatedBy(loggedInUser);
             booking.setFloorId(unit.getFloorId());
             Booking bookingSaved = bookingRepository.save(booking);
-            createCustomerAccount(bookingSaved, loggedInUser);
+            createCustomerAccount(bookingSaved, loggedInUser , savedUnit.getPaymentPlanType());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
@@ -130,7 +131,7 @@ public class BookingService {
     }
 
 
-    public void createCustomerAccount(Booking booking, String loggedInUser) {
+    public void createCustomerAccount(Booking booking, String loggedInUser, PaymentPlanType paymentPlanType) {
         if (booking == null || booking.getPaymentSchedule() == null) {
             throw new IllegalArgumentException("Booking or its PaymentSchedule cannot be null");
         }
@@ -166,10 +167,20 @@ public class BookingService {
         account.setUpdatedBy(loggedInUser);
 
 
-        double monthlySum = monthlyPaymentSum(schedule);
         double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount());
+
+        if(paymentPlanType.equals(PaymentPlanType.ONE_TIME_PAYMENT)){
+            schedule.setDownPayment(totalAmount);
+            schedule.setDurationInMonths(0);
+        }
+
+        double monthlySum = monthlyPaymentSum(schedule);
         double collectedAmount = Math.ceil(schedule.getDownPayment() +
                 schedule.getOnPossessionPayment() + monthlySum);
+
+
+
+
 
         if (totalAmount != collectedAmount) {
             throw new IllegalArgumentException("Amounts not matched!");
@@ -178,8 +189,11 @@ public class BookingService {
         CustomerAccount customerAccountSaved = customerAccountRepo.save(account);
 
         int serialNoStart = 1;
+
+
+
         if (schedule.getDownPayment() > 0) {
-            serialNoStart  = 2;
+//            serialNoStart  = 2;
 
 
 //        insert entry in customer_payment for a down payment
