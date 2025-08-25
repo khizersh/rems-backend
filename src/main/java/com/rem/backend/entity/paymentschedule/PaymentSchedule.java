@@ -3,6 +3,7 @@ package com.rem.backend.entity.paymentschedule;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rem.backend.entity.project.Unit;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -50,6 +51,11 @@ public class PaymentSchedule {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentScheduleType paymentScheduleType;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PaymentPlanType paymentPlanType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "unit_id")

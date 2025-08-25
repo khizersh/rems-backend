@@ -4,6 +4,7 @@ import com.rem.backend.dto.unit.UnitDetails;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.repository.PaymentScheduleRepository;
 import com.rem.backend.repository.ProjectRepo;
@@ -130,7 +131,6 @@ public class UnitService {
         try {
             ValidationService.validate(floorId, "floor id");
             List<Map<String, Object>> units = unitRepo.findAllUnitByFloorIdAndIsBookedFalse(floorId);
-            UnitDetails unitDetails = new UnitDetails();
             return ResponseMapper.buildResponse(Responses.SUCCESS, units);
 
         } catch (IllegalArgumentException e) {
@@ -153,9 +153,13 @@ public class UnitService {
             unit.setCreatedBy(loggedInUser);
             unit.setUpdatedBy(loggedInUser);
 
+            PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
+
+            unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+
+
             Unit unitSaved = unitRepo.save(unit);
 
-            PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
             paymentSchedule.setCreatedBy(loggedInUser);
             paymentSchedule.setUpdatedBy(loggedInUser);
 
@@ -165,6 +169,7 @@ public class UnitService {
             paymentSchedule.setUpdatedBy(loggedInUser);
             paymentSchedule.setUnit(unitSaved);
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
+            paymentSchedule.setPaymentPlanType(unitSaved.getPaymentPlanType());
 
             paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
             return ResponseMapper.buildResponse(Responses.SUCCESS, unitSaved);

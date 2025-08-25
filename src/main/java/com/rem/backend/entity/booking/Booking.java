@@ -64,6 +64,7 @@ public class Booking {
 
     @Transient
     private String customerName;
+
     private String unitSerial;
 
     @Transient

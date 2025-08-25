@@ -133,6 +133,7 @@ public class ProjectService {
                         paymentSchedule.setCreatedBy(loggedInUser);
                         paymentSchedule.setUpdatedBy(loggedInUser);
                         paymentSchedule.setUnit(unitSaved);
+                        paymentSchedule.setPaymentPlanType(unitSaved.getPaymentPlanType());
                         paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
 
                         Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
@@ -271,6 +272,7 @@ public class ProjectService {
                         paymentSchedule.setUpdatedBy(loggedInUser);
                         paymentSchedule.setUnit(unitSaved);
                         paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
+                        paymentSchedule.setPaymentPlanType(unitSaved.getPaymentPlanType());
 
                         Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
                         if (createPaymentScheduler != null) {

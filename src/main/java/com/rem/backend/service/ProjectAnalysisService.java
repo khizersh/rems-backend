@@ -33,10 +33,10 @@ public class ProjectAnalysisService {
                 throw new IllegalArgumentException("Invalid Project");
 
             List<Expense> expenseList = expenseRepo.findAllByProjectId(projectId);
-            double totalSaleAmount = customerAccountRepo.getTotalAmountSaleByProjectId(projectId);
-            double totalRecAmount = customerAccountRepo.getTotalAmountReceivedByProjectId(projectId);
-            double totalProfit = 0;
-            if (project.getTotalAmount() <= totalRecAmount)
+            Double totalSaleAmount = customerAccountRepo.getTotalAmountSaleByProjectId(projectId);
+            Double totalRecAmount = customerAccountRepo.getTotalAmountReceivedByProjectId(projectId);
+            Double totalProfit = 0d;
+            if (totalRecAmount != null && project.getTotalAmount() <= totalRecAmount)
                 totalProfit = totalRecAmount - project.getTotalAmount();
 
             response.put("project", project);

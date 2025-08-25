@@ -6,13 +6,14 @@ import com.rem.backend.enums.UnitType;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 
 @Entity
 @Table(name = "unit")
 @Data
-public class Unit {
+public class Unit implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -14,21 +14,21 @@ import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.repository.*;
+import com.rem.backend.usermanagement.entity.User;
+import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.rem.backend.utility.Utility.*;
 import static com.rem.backend.utility.ValidationService.*;
@@ -48,6 +48,7 @@ public class BookingService {
     private final PaymentSchedulerService paymentSchedulerService;
     private final PaymentScheduleRepository paymentScheduleRepo;
     private final CustomerPaymentRepo customerPaymentRepo;
+    private final UserRepo userRepo;
 
 
     @Transactional
@@ -86,7 +87,7 @@ public class BookingService {
             unit.setBooked(true);
 
 
-           Unit savedUnit = unitRepo.save(unit);
+            Unit savedUnit = unitRepo.save(unit);
 
 
             PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
@@ -95,7 +96,7 @@ public class BookingService {
             paymentSchedule.setUnit(booking.getUnit());
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
 
-            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule , booking.getUnit().getPaymentPlanType() );
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, booking.getUnit().getPaymentPlanType());
             if (createPaymentScheduler != null) {
                 PaymentSchedule savedSchedule = null;
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
@@ -116,7 +117,7 @@ public class BookingService {
             booking.setUpdatedBy(loggedInUser);
             booking.setFloorId(unit.getFloorId());
             Booking bookingSaved = bookingRepository.save(booking);
-            createCustomerAccount(bookingSaved, loggedInUser , savedUnit.getPaymentPlanType());
+            createCustomerAccount(bookingSaved, loggedInUser, savedUnit.getPaymentPlanType());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
@@ -169,7 +170,7 @@ public class BookingService {
 
         double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount());
 
-        if(paymentPlanType.equals(PaymentPlanType.ONE_TIME_PAYMENT)){
+        if (paymentPlanType.equals(PaymentPlanType.ONE_TIME_PAYMENT)) {
             schedule.setDownPayment(totalAmount);
             schedule.setDurationInMonths(0);
         }
@@ -179,9 +180,6 @@ public class BookingService {
                 schedule.getOnPossessionPayment() + monthlySum);
 
 
-
-
-
         if (totalAmount != collectedAmount) {
             throw new IllegalArgumentException("Amounts not matched!");
         }
@@ -189,7 +187,6 @@ public class BookingService {
         CustomerAccount customerAccountSaved = customerAccountRepo.save(account);
 
         int serialNoStart = 1;
-
 
 
         if (schedule.getDownPayment() > 0) {
@@ -346,5 +343,83 @@ public class BookingService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+
+    public Map<String, Object> getDetailsById(long bookingId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Booking booking = bookingRepository.findById(bookingId)
+                    .orElseThrow(() -> new IllegalArgumentException("Booking not found with id: " + bookingId));
+
+
+            Customer customer = booking.getCustomer();
+            Optional<User> userOptional = userRepo.findById(customer.getUserId());
+            Map<String, Object> customerMap = new HashMap<>();
+            if (customer != null) {
+                customerMap.put("customerId", customer.getCustomerId());
+                customerMap.put("userId", customer.getUserId());
+                customerMap.put("name", customer.getName());
+                customerMap.put("country", customer.getCountry());
+                customerMap.put("city", customer.getCity());
+                customerMap.put("address", customer.getAddress());
+                customerMap.put("nationalId", customer.getNationalId());
+                customerMap.put("nextOFKinName", customer.getNextOFKinName());
+                customerMap.put("guardianName", customer.getGuardianName());
+                customerMap.put("contactNo", customer.getContactNo());
+                customerMap.put("nextOFKinNationalId", customer.getNextOFKinNationalId());
+                customerMap.put("relationShipWithKin", customer.getRelationShipWithKin());
+                customerMap.put("organizationId", customer.getOrganizationId());
+                customerMap.put("projectId", customer.getProjectId());
+                customerMap.put("floorId", customer.getFloorId());
+                customerMap.put("unitId", customer.getUnitId());
+                customerMap.put("projectName", customer.getProjectName());
+                customerMap.put("floorNo", customer.getFloorNo());
+                customerMap.put("unitSerialNo", customer.getUnitSerialNo());
+                customerMap.put("createdBy", customer.getCreatedBy());
+                customerMap.put("updatedBy", customer.getUpdatedBy());
+                customerMap.put("createdDate", customer.getCreatedDate());
+                customerMap.put("updatedDate", customer.getUpdatedDate());
+                customerMap.put("email", userOptional.get().getEmail());
+                customerMap.put("username", customer.getUsername());
+                customerMap.put("age", customer.getAge());
+            }
+
+
+            Unit unit = booking.getUnit();
+            Map<String, Object> unitMap = new HashMap<>();
+            if (unit != null) {
+                unitMap.put("id", unit.getId());
+                unitMap.put("serialNo", unit.getSerialNo());
+                unitMap.put("squareFoot", unit.getSquareFoot());
+                unitMap.put("roomCount", unit.getRoomCount());
+                unitMap.put("bathroomCount", unit.getBathroomCount());
+                unitMap.put("amount", unit.getAmount());
+                unitMap.put("floorId", unit.getFloorId());
+                unitMap.put("additionalAmount", unit.getAdditionalAmount());
+                unitMap.put("unitType", unit.getUnitType());
+                unitMap.put("isBooked", unit.isBooked());
+                unitMap.put("paymentPlanType", unit.getPaymentPlanType());
+                unitMap.put("createdBy", unit.getCreatedBy());
+                unitMap.put("updatedBy", unit.getUpdatedBy());
+                unitMap.put("createdDate", unit.getCreatedDate());
+                unitMap.put("updatedDate", unit.getUpdatedDate());
+                unitMap.put("projectName", unit.getProjectName());
+                unitMap.put("floorNo", unit.getFloorNo());
+            }
+
+            // Final response
+            response.put("customer", customerMap);
+            response.put("unit", unitMap);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
 
 }

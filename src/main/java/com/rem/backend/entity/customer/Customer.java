@@ -2,12 +2,14 @@ package com.rem.backend.entity.customer;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customer")
 @Data
-public class Customer {
+public class Customer implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,6 +59,9 @@ public class Customer {
 
     @Column(nullable = false)
     private long unitId;
+
+    @Column(nullable = false)
+    private int age;
 
     @Transient
     private String projectName;

@@ -31,6 +31,12 @@ public class BookingController {
     }
 
 
+    @GetMapping("/getDetailById/{id}")
+    public Map getDetailsForPrintBooking(@PathVariable long id){
+        return bookingService.getDetailsById(id);
+    }
+
+
     @PostMapping("/getByIds")
     public ResponseEntity<?> getProjectsByIds(@RequestBody FilterPaginationRequest request) {
         Pageable pageable = PageRequest.of(

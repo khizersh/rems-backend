@@ -43,6 +43,7 @@ public class PaymentSchedulerService {
                 validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
             }
             validatePaymentSchedule(paymentSchedule);
+            paymentSchedule.setPaymentPlanType(paymentPlanType);
             PaymentSchedule paymentScheduleSaved = paymentScheduleRepository.save(paymentSchedule);
 
             if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
