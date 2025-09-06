@@ -96,7 +96,7 @@ public class BookingService {
             paymentSchedule.setUnit(booking.getUnit());
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
 
-            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, booking.getUnit().getPaymentPlanType());
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, paymentSchedule.getPaymentPlanType());
             if (createPaymentScheduler != null) {
                 PaymentSchedule savedSchedule = null;
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
@@ -117,7 +117,7 @@ public class BookingService {
             booking.setUpdatedBy(loggedInUser);
             booking.setFloorId(unit.getFloorId());
             Booking bookingSaved = bookingRepository.save(booking);
-            createCustomerAccount(bookingSaved, loggedInUser, savedUnit.getPaymentPlanType());
+            createCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
