@@ -36,6 +36,12 @@ public class VendorPayment {
     private TransactionType transactionType;
 
     @Transient
+    private String organizationAccount;
+
+    @Transient
+    private String vendorAccount;
+
+    @Transient
     private long organizationAccountId;
 
     @Column(nullable = false)

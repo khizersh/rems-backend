@@ -87,7 +87,7 @@ public class CustomerService {
 
             ValidationService.validate(customerId, "customerId");
 
-            Map<String, Object> response  = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
+            Map<String, Object> response = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId));
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
@@ -136,21 +136,21 @@ public class CustomerService {
 
 
     @Transactional
-    public Map<String, Object> createCustomer(Customer customer , String loggedInUser) {
+    public Map<String, Object> createCustomer(Customer customer, String loggedInUser) {
         try {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
-            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
-            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
-            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
+//            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
+//            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
+//            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
             ValidationService.validate(customer.getOrganizationId(), "Organization ID");
+//            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
             ValidationService.validate(customer.getProjectId(), "Project ID");
             ValidationService.validate(customer.getFloorId(), "Floor ID");
             ValidationService.validate(customer.getUnitId(), "Unit ID");
             ValidationService.validate(customer.getCreatedBy(), "Created By");
             ValidationService.validate(customer.getUpdatedBy(), "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
-            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
 
             boolean unitAlreadyAssigned = customerRepo.existsByUnitId(customer.getUnitId());
             if (unitAlreadyAssigned) {
@@ -176,7 +176,10 @@ public class CustomerService {
                 user.setCreatedBy(loggedInUser);
                 user.setUpdatedBy(loggedInUser);
                 User userSaved = userRepo.save(user);
-                emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword());
+
+                if (user.getEmail() != null || !user.getEmail().isBlank())
+                    emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword());
+
                 customer.setUserId(userSaved.getId());
 
                 UserRoles roles = new UserRoles();
@@ -208,7 +211,7 @@ public class CustomerService {
 
 
     @Transactional
-    public Map<String, Object> updateCustomer(Customer customer , String loggedInUser) {
+    public Map<String, Object> updateCustomer(Customer customer, String loggedInUser) {
         try {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
@@ -257,7 +260,6 @@ public class CustomerService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
-
 
 
 }

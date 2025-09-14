@@ -1,7 +1,9 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
+import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.VendorAccountDetailRepo;
 import com.rem.backend.repository.VendorAccountRepo;
 import com.rem.backend.utility.ResponseMapper;
@@ -12,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +25,7 @@ public class VendorAccountService {
 
     private final VendorAccountRepo vendorAccountRepository;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
+    private final OrganizationAccoutRepo organizationAccoutRepo;
 
 
     public Map<String, Object> getAllVendorAccounts(long orgId, Pageable pageable) {
@@ -36,7 +40,7 @@ public class VendorAccountService {
 
     public Map<String, Object> getAllVendorAccountsByOrg(long orgId) {
         try {
-            List<Map<String , Object>> vendorAccounts = vendorAccountRepository.findAllByOrgId(orgId);
+            List<Map<String, Object>> vendorAccounts = vendorAccountRepository.findAllByOrgId(orgId);
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
         } catch (Exception e) {
             e.printStackTrace();
@@ -63,7 +67,27 @@ public class VendorAccountService {
 
     public Map<String, Object> getVendorDetailsByAccount(long acctId, Pageable pageable) {
         try {
+
+            Optional<VendorAccount> accountOptional = vendorAccountRepository.findById(acctId);
+            if (accountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Vendor Account");
+
+
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(accountOptional.get().getOrganizationId());
+            if (organizationAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Organization Account");
+
+
             Page<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
+
+            vendorAccounts.getContent().forEach(payment ->{
+                    payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                    payment.setVendorAccount(accountOptional.get().getName());
+                    }
+            );
+
+
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
         } catch (Exception e) {
             e.printStackTrace();
@@ -121,7 +145,7 @@ public class VendorAccountService {
         }
     }
 
-    public Map<String, Object> addOrUpdatePaymentHistory(VendorPayment vendorPayment, String loggedInUser) {
+    public Map<String, Object> addPaymentHistory(VendorPayment vendorPayment, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(vendorPayment.getVendorAccountId(), "account");

@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 public class ExpenseType {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)

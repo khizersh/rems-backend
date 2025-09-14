@@ -27,6 +27,8 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.rem.backend.utility.Utility.ADMIN_ROLE_ID;
+
 @Service
 @AllArgsConstructor
 public class UserService implements UserDetailsService {
@@ -59,8 +61,8 @@ public class UserService implements UserDetailsService {
 
             Optional<String> endPointExist = getFinalUserPermissionsByUsername(username).
                     stream().filter(endpoint ->
-                    endpoint.equals("/api/*") || requestUri.toLowerCase().startsWith(endpoint.toLowerCase())
-            ).findFirst();
+                            endpoint.equals("/api/*") || requestUri.toLowerCase().startsWith(endpoint.toLowerCase())
+                    ).findFirst();
 
             if (endPointExist.isPresent())
                 flag = true;
@@ -170,12 +172,23 @@ public class UserService implements UserDetailsService {
 
             Optional<Organization> organizationOptional = organizationRepo.findByOrganizationIdAndIsActiveTrue(userOptional.get().getOrganizationId());
 
+
+            String roleShortCode = "ur";
+            Set<UserRoles> roles = roleService.getUserRoles(userOptional.get().getId());
+            for (UserRoles role : roles){
+                if (role.getRoleId() == ADMIN_ROLE_ID){
+                    roleShortCode = "ar";
+                    break;
+                }
+            }
+
             if (userOptional.isPresent() && organizationOptional.isPresent()) {
                 String token = jwtUtils.generateToken(userOptional.get().getUsername());
                 List<Sidebar> sidebarList = sidebarService.getSidebarByRole(request.getUsername());
                 response.put("token", token);
                 response.put("organization", organizationOptional.get());
                 response.put("sidebar", sidebarList);
+                response.put("r", roleShortCode);
                 return ResponseMapper.buildResponse(Responses.SUCCESS, response);
             }
             return ResponseMapper.buildResponse(Responses.INVALID_USER, null);

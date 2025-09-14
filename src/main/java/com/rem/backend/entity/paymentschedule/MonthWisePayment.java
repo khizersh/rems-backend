@@ -3,6 +3,8 @@ package com.rem.backend.entity.paymentschedule;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "month_wise_payment")
 @Data
@@ -23,4 +25,7 @@ public class MonthWisePayment {
 
     @Column(nullable = false)
     private long paymentScheduleId;
+
+
+
 }

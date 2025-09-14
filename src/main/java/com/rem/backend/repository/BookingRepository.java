@@ -18,7 +18,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     boolean existsByUnit_Id(Long unitId);
 
-    Page<Booking> findByOrganizationId(Long projectId, Pageable pageable);
+    Page<Booking> findByOrganizationId(Long organizationId, Pageable pageable);
     Page<Booking> findByProjectId(Long projectId, Pageable pageable);
     Page<Booking> findByFloorId(Long projectId, Pageable pageable);
 

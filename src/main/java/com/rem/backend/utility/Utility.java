@@ -9,6 +9,8 @@ public class Utility {
     public static final String RESPONSE_MESSAGE = "responseMessage";
     public static final String DATA = "data";
     public static final String COMPANY_NAME = "COMPANY_NAME";
+    public static final long ADMIN_ROLE_ID = 1;
+    public static final long USER_ROLE_ID = 2;
 
 
     public static LocalDateTime getDateInLastDays(int days) {

@@ -6,7 +6,9 @@ import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
+import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.PaymentStatus;
+import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.*;
 import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 import com.rem.backend.utility.ResponseMapper;
@@ -30,6 +32,8 @@ public class ExpenseService {
     private final ProjectRepo projectRepo;
     private final ExpenseDetailRepo expenseDetailRepo;
     private final OrganizationAccoutRepo organizationAccoutRepo;
+    private final VendorAccountService vendorAccountService;
+
 
     public Map<String, Object> getExpenseList(long id, long id2, String filteredBy, Pageable pageable) {
 
@@ -77,9 +81,9 @@ public class ExpenseService {
             Expense expense = expenseOptional.get();
             expenseDetails = expenseDetailRepo.findByExpenseId(expenseId);
 
-            Map<String , Object> data = new HashMap<>();
-            data.put("expense" , expense);
-            data.put("expenseDetail" , expenseDetails);
+            Map<String, Object> data = new HashMap<>();
+            data.put("expense", expense);
+            data.put("expenseDetail", expenseDetails);
 
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, data);
@@ -149,7 +153,6 @@ public class ExpenseService {
             expense.setPaymentStatus(getPaymentStatus(expense));
 
 
-
             expense = expenseRepo.save(expense);
 
             ExpenseDetail expenseDetail = new ExpenseDetail();
@@ -163,6 +166,23 @@ public class ExpenseService {
             expenseDetailRepo.save(expenseDetail);
 
 
+            VendorPayment vendorPayment = new VendorPayment();
+            vendorPayment.setAmountPaid(expense.getAmountPaid());
+            vendorPayment.setOrganizationAccountId(expense.getOrganizationAccountId());
+            vendorPayment.setCreditAmount(expense.getCreditAmount());
+            vendorPayment.setProjectId(expense.getProjectId());
+            vendorPayment.setProjectId(expense.getProjectId());
+            if (expense.getCreditAmount() == 0) {
+                vendorPayment.setTransactionType(TransactionType.DEBIT);
+            }else if(expense.getAmountPaid() == 0){
+                vendorPayment.setTransactionType(TransactionType.CREDIT);
+            }else{
+                vendorPayment.setTransactionType(TransactionType.DEBIT_CREDIT);
+            }
+            vendorPayment.setVendorAccountId(expense.getVendorAccountId());
+            vendorAccountService.addPaymentHistory(vendorPayment, loggedInUser);
+
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
@@ -172,7 +192,7 @@ public class ExpenseService {
 
     }
 
-    public PaymentStatus getPaymentStatus(Expense expense){
+    public PaymentStatus getPaymentStatus(Expense expense) {
 
         if (expense.getAmountPaid() == expense.getTotalAmount())
             return PaymentStatus.PAID;
@@ -186,18 +206,22 @@ public class ExpenseService {
         return PaymentStatus.PENDING;
     }
 
-    public Map<String , Object> addExpenseDetail(ExpenseDetail expenseDetail , String loggedInUser){
 
-        try{
+    // PAYING BACK TO VENDOR
+    public Map<String, Object> addExpenseDetail(ExpenseDetail expenseDetail, String loggedInUser) {
 
-            ValidationService.validate(expenseDetail.getExpenseId() ,"expense id");
-            ValidationService.validate(expenseDetail.getAmountPaid() ,"amount");
-            ValidationService.validate(expenseDetail.getOrganizationAccountId() ,"org account");
-            ValidationService.validate(loggedInUser ,"loggedInUser");
+        try {
+
+            ValidationService.validate(expenseDetail.getExpenseId(), "expense id");
+            ValidationService.validate(expenseDetail.getAmountPaid(), "amount");
+            ValidationService.validate(expenseDetail.getOrganizationAccountId(), "org account");
+            ValidationService.validate(loggedInUser, "loggedInUser");
 
             Optional<Expense> expenseOptional = expenseRepo.findById(expenseDetail.getExpenseId());
             if (expenseOptional.isEmpty())
                 throw new IllegalArgumentException("Invalid Expense!");
+
+
 
             Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(expenseDetail.getOrganizationAccountId());
             if (organizationAccountOptional.isEmpty())
@@ -209,7 +233,8 @@ public class ExpenseService {
             if (expenseDetail.getAmountPaid() + expense.getAmountPaid() > expense.getTotalAmount())
                 throw new IllegalArgumentException("Exceed to total Amount!");
 
-            expense.setAmountPaid(expense.getAmountPaid() + expenseDetail.getAmountPaid()) ;
+            double lastCreditAmount = expense.getCreditAmount();
+            expense.setAmountPaid(expense.getAmountPaid() + expenseDetail.getAmountPaid());
             expense.setCreditAmount(expense.getCreditAmount() - expenseDetail.getAmountPaid());
             expense.setPaymentStatus(getPaymentStatus(expense));
             expenseRepo.save(expense);
@@ -223,18 +248,29 @@ public class ExpenseService {
             organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
 
 
-
-
 //          SETTLING VENDOR ACCOUNT
             Optional<VendorAccount> accountOptional = vendorAccountRepo.findById(expense.getVendorAccountId());
             if (!accountOptional.isPresent())
                 throw new IllegalArgumentException("Invalid Vendor");
 
             VendorAccount vendorAccount = accountOptional.get();
-            vendorAccount.setTotalAmount(vendorAccount.getTotalAmount() + expense.getTotalAmount());
-            vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expense.getAmountPaid());
-            vendorAccount.setTotalCreditAmount(vendorAccount.getTotalCreditAmount() + expense.getCreditAmount());
+            vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expenseDetail.getAmountPaid());
+            vendorAccount.setTotalCreditAmount(vendorAccount.getTotalCreditAmount() - expenseDetail.getAmountPaid());
             vendorAccountRepo.save(vendorAccount);
+
+
+            VendorPayment vendorPayment = new VendorPayment();
+            vendorPayment.setAmountPaid(expenseDetail.getAmountPaid());
+            vendorPayment.setOrganizationAccountId(expenseDetail.getOrganizationAccountId());
+            vendorPayment.setCreditAmount(lastCreditAmount - expenseDetail.getAmountPaid());
+            vendorPayment.setProjectId(expense.getProjectId());
+            if (expense.getCreditAmount() - expenseDetail.getAmountPaid() > 0) {
+                vendorPayment.setTransactionType(TransactionType.DEBIT_CREDIT);
+            }else {
+                vendorPayment.setTransactionType(TransactionType.DEBIT);
+            }
+            vendorPayment.setVendorAccountId(expense.getVendorAccountId());
+            vendorAccountService.addPaymentHistory(vendorPayment, loggedInUser);
 
 
             expenseDetail.setExpenseTitle(expense.getExpenseTitle());
@@ -272,10 +308,50 @@ public class ExpenseService {
         }
     }
 
+
+
+    public Map<String, Object> updateExpenseType(ExpenseType expense, String loggedInUser) {
+
+        try {
+            ValidationService.validate(loggedInUser, "logged in user");
+            ValidationService.validate(expense.getOrganizationId(), "organization");
+            ValidationService.validate(expense.getName(), "expense type");
+
+
+            expense.setCreatedBy(loggedInUser);
+            expense.setUpdatedBy(loggedInUser);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.save(expense));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> getAllExpenseType(long orgId) {
 
         try {
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getExpenseTypeById(long id) {
+
+        try {
+
+            ValidationService.validate(id , "expense");
+
+            Optional<ExpenseType>  expenseType = expenseTypeRepo.findById(id);
+
+            if (expenseType.isEmpty())
+                throw new IllegalArgumentException("Invalid Expense Type");
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseType.get() );
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

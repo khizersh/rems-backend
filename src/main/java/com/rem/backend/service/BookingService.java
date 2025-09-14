@@ -162,8 +162,8 @@ public class BookingService {
 
         account.setCreatedBy(booking.getCreatedBy());
         account.setUpdatedBy(booking.getUpdatedBy());
-        account.setCreatedDate(LocalDateTime.now());
-        account.setUpdatedDate(LocalDateTime.now());
+        account.setCreatedDate(booking.getCreatedDate());
+        account.setUpdatedDate(booking.getUpdatedDate());
         account.setCreatedBy(loggedInUser);
         account.setUpdatedBy(loggedInUser);
 
@@ -203,8 +203,8 @@ public class BookingService {
             customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
             customerPayment.setCreatedBy(booking.getCreatedBy());
             customerPayment.setUpdatedBy(booking.getUpdatedBy());
-            customerPayment.setCreatedDate(LocalDateTime.now());
-            customerPayment.setUpdatedDate(LocalDateTime.now());
+            customerPayment.setCreatedDate(booking.getCreatedDate());
+            customerPayment.setUpdatedDate(booking.getUpdatedDate());
             customerPayment.setCustomerAccountId(customerAccountSaved.getId());
 
             customerPaymentRepo.save(customerPayment);
@@ -244,8 +244,8 @@ public class BookingService {
             customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
             customerPayment.setCreatedBy(booking.getCreatedBy());
             customerPayment.setUpdatedBy(booking.getUpdatedBy());
-            customerPayment.setCreatedDate(LocalDateTime.now());
-            customerPayment.setUpdatedDate(LocalDateTime.now());
+            customerPayment.setCreatedDate(booking.getCreatedDate());
+            customerPayment.setUpdatedDate(booking.getUpdatedDate());
             customerPayment.setCustomerAccountId(customerAccountSaved.getId());
 
             customerPaymentRepo.save(customerPayment);

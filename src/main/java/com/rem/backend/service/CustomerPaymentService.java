@@ -200,13 +200,13 @@ public class CustomerPaymentService {
             }
 
 
-            double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().mapToDouble(OrganizationAccountDetail::getAmount).sum();
-
-            if (receivingAccountAmount != customerPaidAmount)
-                throw new IllegalArgumentException("Receiving Amount is not matched!");
 
 
-            Map<String, Object> customerData = customerRepo.getAllDetailsByCustomerId(customerPayment.getOrganizationAccountDetails().get(0).getCustomerId());
+
+            Map<String, Object> customerData = customerRepo.getAllDetailsByCustomerId(
+                    customerPayment.getOrganizationAccountDetails().get(0).getCustomerId());
+
+
             String customerName = "", unitSerial = "", projectName = "";
             long projectId =  0l;
             if (customerData != null) {
@@ -216,14 +216,24 @@ public class CustomerPaymentService {
                 projectId = Long.valueOf(customerData.get("projectId").toString()) ;
 
             }
-            for (OrganizationAccountDetail organizationAccountDetail : customerPayment.getOrganizationAccountDetails()) {
-                organizationAccountDetail.setCustomerName(customerName);
-                organizationAccountDetail.setProjectName(projectName);
-                organizationAccountDetail.setUnitSerialNo(unitSerial);
-                organizationAccountDetail.setProjectId(projectId);
-                organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
-                organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+
+            double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().
+                    mapToDouble(OrganizationAccountDetail::getAmount).sum();
+
+            if (receivingAccountAmount > 0){
+                if (receivingAccountAmount != customerPaidAmount)
+                    throw new IllegalArgumentException("Receiving Amount is not matched!");
+
+                for (OrganizationAccountDetail organizationAccountDetail : customerPayment.getOrganizationAccountDetails()) {
+                    organizationAccountDetail.setCustomerName(customerName);
+                    organizationAccountDetail.setProjectName(projectName);
+                    organizationAccountDetail.setUnitSerialNo(unitSerial);
+                    organizationAccountDetail.setProjectId(projectId);
+                    organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
+                    organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+                }
             }
+
 
             double remainingAmount = totalAmount - customerPaidAmount;
 

@@ -37,6 +37,12 @@ public class ExpenseController {
         return expenseService.addExpenseType(expense , loggedInUser);
     }
 
+    @PostMapping("/updateExpenseType")
+    public Map updateExpenseType(@RequestBody ExpenseType expense , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return expenseService.updateExpenseType(expense , loggedInUser);
+    }
+
 
     @PostMapping("/addExpenseDetail")
     public Map addExpenseType(@RequestBody ExpenseDetail expense , HttpServletRequest request){
@@ -47,6 +53,12 @@ public class ExpenseController {
     @GetMapping("/getAllExpenseTypeByOrgId/{orgId}")
     public Map addExpenseType(@PathVariable long orgId){
         return expenseService.getAllExpenseType(orgId);
+    }
+
+
+    @GetMapping("/getExpenseTypeById/{orgId}")
+    public Map getExpenseTypeById(@PathVariable long orgId){
+        return expenseService.getExpenseTypeById(orgId);
     }
 
     @PostMapping("/getAllExpensesByIds")
