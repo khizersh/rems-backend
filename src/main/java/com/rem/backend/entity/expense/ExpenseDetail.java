@@ -17,11 +17,11 @@ public class ExpenseDetail {
     private long id;
 
     @Column(nullable = false)
-    private long expenseId;
+    private Long expenseId;
 
 
     @Column(nullable = false)
-    private long organizationAccountId;
+    private Long organizationAccountId;
 
     @Column(nullable = false)
     private double amountPaid;

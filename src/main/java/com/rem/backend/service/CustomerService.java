@@ -143,11 +143,11 @@ public class CustomerService {
 //            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
 //            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
 //            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
-            ValidationService.validate(customer.getOrganizationId(), "Organization ID");
+            ValidationService.validate(customer.getOrganizationId(), "Organization");
 //            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
-            ValidationService.validate(customer.getProjectId(), "Project ID");
-            ValidationService.validate(customer.getFloorId(), "Floor ID");
-            ValidationService.validate(customer.getUnitId(), "Unit ID");
+            ValidationService.validate(customer.getProjectId(), "Project");
+            ValidationService.validate(customer.getFloorId(), "Floor");
+            ValidationService.validate(customer.getUnitId(), "Unit");
             ValidationService.validate(customer.getCreatedBy(), "Created By");
             ValidationService.validate(customer.getUpdatedBy(), "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");

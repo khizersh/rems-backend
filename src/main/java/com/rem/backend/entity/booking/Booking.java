@@ -43,13 +43,13 @@ public class Booking {
     private LocalDateTime updatedDate;
 
     @Column(nullable = false)
-    private long organizationId;
+    private Long organizationId;
 
     @Column(nullable = false)
-    private long projectId;
+    private Long projectId;
 
     @Column(nullable = false)
-    private long floorId;
+    private Long floorId;
 
 
     @Transient

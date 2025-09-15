@@ -49,16 +49,16 @@ public class Customer implements Serializable {
     private String relationShipWithKin;
 
     @Column(nullable = false)
-    private long organizationId;
+    private Long organizationId;
 
     @Column(nullable = false)
-    private long projectId;
+    private Long projectId;
 
     @Column(nullable = false)
-    private long floorId;
+    private Long floorId;
 
     @Column(nullable = false)
-    private long unitId;
+    private Long unitId;
 
     @Column(nullable = false)
     private int age;

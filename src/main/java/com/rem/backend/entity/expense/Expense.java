@@ -21,11 +21,11 @@ public class Expense {
     private double amountPaid;
     private double creditAmount;
     private double totalAmount;
-    private long vendorAccountId;
-    private long organizationAccountId;
-    private long expenseTypeId;
-    private long organizationId;
-    private long projectId;
+    private Long vendorAccountId;
+    private Long organizationAccountId;
+    private Long expenseTypeId;
+    private Long organizationId;
+    private Long projectId;
     private String projectName;
     private String orgAccountTitle;
     private String  vendorName;
