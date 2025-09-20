@@ -13,15 +13,18 @@ import com.rem.backend.repository.FloorRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.List;
 
+import static com.rem.backend.utility.Utility.RESPONSE_CODE;
 import static com.rem.backend.utility.ValidationService.validatePaymentScheduler;
 
 @Service
@@ -142,6 +145,7 @@ public class UnitService {
     }
 
 
+    @Transactional
     public Map<String, Object> addOrUpdateUnit(Unit unit, String loggedInUser) {
         try {
 
@@ -171,13 +175,25 @@ public class UnitService {
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.BUILDER);
             paymentSchedule.setPaymentPlanType(unitSaved.getPaymentPlanType());
 
-            paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
+
+
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, unitSaved.getPaymentPlanType());
+            if (createPaymentScheduler != null) {
+                // Set type to CUSTOMER and associate with unit
+                PaymentSchedule savedSchedule = null;
+                if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
+                   throw new IllegalArgumentException(createPaymentScheduler.get("data").toString());
+                }
+
+            }
             return ResponseMapper.buildResponse(Responses.SUCCESS, unitSaved);
 
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }

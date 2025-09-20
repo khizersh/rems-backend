@@ -99,7 +99,8 @@ public class CustomerPaymentService {
             Optional<CustomerAccount> customerAccount = customerAccountRepo.findById(customerAccountId);
             if (customerAccount.isPresent()) {
 
-                Map<String, Object> customerDetail = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId());
+                Map<String, Object> customerDetail = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId()
+                        , customerAccount.get().getUnit().getId());
 
                 double grandTotal = customerPaymentDetails.stream()
                         .mapToDouble(CustomerPaymentDetail::getAmount)
@@ -126,16 +127,14 @@ public class CustomerPaymentService {
     }
 
 
-    public Map<String, Object> getPaymentDetailsByPaymentIdOnlyData(long customerPaymentId) {
+    public Map<String, Object> getPaymentDetailsByPaymentIdOnlyData(long customerPaymentId , CustomerPayment customerPayment) {
         try {
             ValidationService.validate(customerPaymentId, "customerPaymentId");
 
-            Optional<CustomerPayment> customerPaymentOptional = customerPaymentRepo.findById(customerPaymentId);
-            if (customerPaymentOptional.isEmpty()) {
+            if (customerPayment == null) {
                 return null;
             }
 
-            CustomerPayment customerPayment = customerPaymentOptional.get();
             List<CustomerPaymentDetail> paymentDetails = customerPaymentDetailRepo.findByCustomerPaymentId(customerPaymentId);
 
             Map<String, Object> response = new HashMap<>();
@@ -202,9 +201,16 @@ public class CustomerPaymentService {
 
 
 
+            Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findById(customerPayment.getCustomerAccountId());
+
+            if (customerAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Customer Account");
 
             Map<String, Object> customerData = customerRepo.getAllDetailsByCustomerId(
-                    customerPayment.getOrganizationAccountDetails().get(0).getCustomerId());
+                    customerAccountOptional.get().getCustomer().getCustomerId(),
+                    customerAccountOptional.get().getUnit().getId()
+
+            );
 
 
             String customerName = "", unitSerial = "", projectName = "";

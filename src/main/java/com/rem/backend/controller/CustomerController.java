@@ -83,4 +83,9 @@ public class CustomerController {
         return customerService.getFullDetailByCustomerId(request);
     }
 
+    @GetMapping("/getUnitListDetailsByCustomerId/{cId}")
+    public Map getUnitListDetailsByCustomerId(@PathVariable long cId) {
+        return customerService.getUnitListByCustomerId(cId);
+    }
+
 }

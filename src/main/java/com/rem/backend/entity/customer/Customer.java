@@ -52,25 +52,12 @@ public class Customer implements Serializable {
     private Long organizationId;
 
     @Column(nullable = false)
-    private Long projectId;
+    private long unitCount;
 
-    @Column(nullable = false)
-    private Long floorId;
-
-    @Column(nullable = false)
-    private Long unitId;
 
     @Column(nullable = false)
     private int age;
 
-    @Transient
-    private String projectName;
-
-    @Transient
-    private String floorNo;
-
-    @Transient
-    private String unitSerialNo;
 
     @Column(nullable = false)
     private String createdBy;

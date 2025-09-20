@@ -1,6 +1,7 @@
 package com.rem.backend.repository;
 
 import com.rem.backend.entity.booking.Booking;
+import com.rem.backend.entity.customer.Customer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +24,18 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Page<Booking> findByFloorId(Long projectId, Pageable pageable);
 
     Page<Booking> findByUnitId(Long unitId, Pageable pageable);
+    List<Booking> findByCustomerId(long customerId);
+
+    @Query("SELECT b.customer FROM Booking b WHERE b.projectId = :projectId")
+    Page<Customer> findCustomersByProjectId(@Param("projectId") Long projectId, Pageable pageable);
+
+    // Customers by Unit
+    @Query("SELECT b.customer FROM Booking b WHERE b.unit.id = :unitId")
+    Page<Customer> findCustomersByUnitId(@Param("unitId") Long unitId, Pageable pageable);
+
+    // Customers by Floor
+    @Query("SELECT b.customer FROM Booking b WHERE b.floorId = :floorId")
+    Page<Customer> findCustomersByFloorId(@Param("floorId") Long floorId, Pageable pageable);
 
 
     @Query(

@@ -17,19 +17,44 @@ import java.util.Optional;
 public interface CustomerRepo extends JpaRepository<Customer, Long> {
 
     Page<Customer> findByOrganizationId(long organizationId, Pageable pageable);
-    Page<Customer> findByProjectId(long organizationId, Pageable pageable);
-    Page<Customer> findByFloorId(long organizationId, Pageable pageable);
-    Page<Customer> findByUnitId(long organizationId, Pageable pageable);
+//    Page<Customer> findByProjectId(long organizationId, Pageable pageable);
+//    Page<Customer> findByFloorId(long organizationId, Pageable pageable);
+//    Page<Customer> findByUnitId(long organizationId, Pageable pageable);
+//    boolean existsByUnitId(long unitId);
     Optional<Customer> findByUserId(long userId);
-    boolean existsByUnitId(long unitId);
 
     @Query(value = "SELECT c.customer_id AS customerId, c.name AS name, c.unit_id AS unitId " +
             "FROM customer c WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))" , nativeQuery = true)
     List<Map<String , Object>> searchByName(String name);
 
-    @Query(value = "SELECT c.customer_id AS customerId, c.name AS name, c.unit_id AS unitId " +
+    @Query(value = "SELECT c.customer_id AS customerId, c.name AS name " +
             "FROM customer c ORDER BY c.created_date DESC" , nativeQuery = true)
     List<Map<String , Object>> findTop20ByOrderByCreatedDateDesc();
+
+
+//    @Query(
+//            value = """
+//        SELECT
+//            c.customer_id     AS customerId,
+//            c.national_id     AS nationalId,
+//            c.name            AS customerName,
+//            c.contact_no      AS contactNo,
+//            c.guardian_name   AS guardianName,
+//            c.address         AS customerAddress,
+//            p.name            AS projectName,
+//            p.project_id      AS projectId,
+//            f.floor           AS floorNo,
+//            u.serial_no       AS unitSerial,
+//            u.unit_type       AS unitType
+//        FROM customer c
+//        JOIN project p ON  f.project_id = p.project_id
+//        JOIN unit u    ON  u.id = :unitId
+//        JOIN floor f   ON u.floor_id = f.id
+//        WHERE c.customer_id = :customerId
+//        """,
+//            nativeQuery = true
+//    )
+//    Map<String, Object> getAllDetailsByCustomerId(@Param("customerId") long customerId , @Param("unitId") long unitId);
 
 
     @Query(
@@ -47,14 +72,16 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
             u.serial_no       AS unitSerial,
             u.unit_type       AS unitType
         FROM customer c
-        JOIN project p ON c.project_id = p.project_id
-        JOIN floor f   ON c.floor_id = f.id
-        JOIN unit u    ON c.unit_id = u.id
+        JOIN unit u    ON  u.id = :unitId
+        JOIN floor f   ON  u.floor_id = f.id
+        JOIN project p ON  f.project_id = p.project_id
         WHERE c.customer_id = :customerId
         """,
             nativeQuery = true
     )
-    Map<String, Object> getAllDetailsByCustomerId(@Param("customerId") long customerId);
+    Map<String, Object> getAllDetailsByCustomerId(@Param("customerId") long customerId ,
+                                                  @Param("unitId") long unitId);
+
 
 
     long countByCreatedDateAfterAndOrganizationId(LocalDateTime date, long orgId);

@@ -21,17 +21,34 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     Page<CustomerAccount> findByProject_ProjectId(Long projectId, Pageable pageable);
     Page<CustomerAccount> findByProject_OrganizationId(Long organizationId, Pageable pageable);
     Page<CustomerAccount> findByUnit_FloorId(Long floorId, Pageable pageable);
-
-    Optional<CustomerAccount> findByCustomer_CustomerId(Long customerId);
-
+    Page<CustomerAccount> findByCustomer_CustomerId(Long customerId , Pageable pageable);
 
 
 
-    @Query(value =  "SELECT ca.id AS accountId, c.name AS customerName , c.customer_id AS customerId FROM customer_account ca LEFT JOIN customer c ON ca.customer_id = c.customer_id where c.organization_id = :organizationId" , nativeQuery = true)
+
+    @Query(value =  "SELECT ca.id AS accountId, c.name AS customerName , c.customer_id AS customerId,  u.serial_no    " +
+            "AS unitSerial " +
+            "FROM customer_account ca LEFT JOIN customer c ON ca.customer_id = c.customer_id " +
+            " LEFT JOIN unit u ON ca.unit_id = u.id" +
+            " where c.organization_id = :organizationId" , nativeQuery = true)
     List<Map<String , Object>> findNameIdOrganization(Long organizationId);
 
 
-    @Query(value =  " SELECT c.name AS customerName, ca.id AS accountId, , c.customer_id AS customerId FROM customer_account ca JOIN customer c ON ca.customer_id = c.customer_id WHERE ca.project_id = :projectId;" , nativeQuery = true)
+
+    @Query(
+            value = """
+        SELECT 
+            c.name        AS customerName,
+            ca.id         AS accountId,
+            c.customer_id AS customerId,
+            u.serial_no   AS unitSerial
+        FROM customer_account ca
+        JOIN customer c ON ca.customer_id = c.customer_id
+        JOIN unit u     ON ca.unit_id = u.id
+        WHERE ca.project_id = :projectId
+        """,
+            nativeQuery = true
+    )
     List<Map<String , Object>> findNameIdProject(Long projectId);
 
 

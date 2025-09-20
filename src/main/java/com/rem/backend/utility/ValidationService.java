@@ -123,8 +123,14 @@ public class ValidationService {
             throw new IllegalArgumentException("Customer must be provided.");
         }
 
+        if (booking.getProjectId() == null) {
+            throw new IllegalArgumentException("Project must be provided.");
+        }
         if (booking.getUnit() == null && booking.getUnitId() == null) {
             throw new IllegalArgumentException("Unit must be provided.");
+        }
+        if (booking.getFloorId() == null) {
+            throw new IllegalArgumentException("Floor must be provided.");
         }
 
         PaymentSchedule paymentSchedule = booking.getPaymentSchedule();

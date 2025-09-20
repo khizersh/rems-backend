@@ -1,20 +1,16 @@
 package com.rem.backend.service;
 
-import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;
-import com.rem.backend.entity.customer.CustomerPaymentDetail;
 import com.rem.backend.repository.CustomerAccountRepo;
 import com.rem.backend.repository.CustomerRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -47,34 +43,17 @@ public class CustomerAccountService {
     }
 
 
-    public Map<String, Object> getByCustomerAndUnitId(Map<String , String > request) {
+    public Map<String, Object> getByCustomerId(long customerId, Pageable pageable) {
         try {
 
-            if (!request.containsKey("customerId") || !request.containsKey("unitId")) {
-                throw new IllegalArgumentException("Missing customerId or unitId in request");
-            }
-
-            String customerIdStr = request.get("customerId");
-            String unitIdStr = request.get("unitId");
-
-            long customerId;
-            long unitId;
-
-            try {
-                customerId = Long.parseLong(customerIdStr);
-                unitId = Long.parseLong(unitIdStr);
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("customerId and unitId must be valid numbers");
-            }
 
             ValidationService.validate(customerId, "customer ID");
-            ValidationService.validate(unitId, "unit ID");
 
-            Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(customerId , unitId);
+            Page<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerId(customerId , pageable);
             if(customerAccountOptional.isEmpty()){
                 throw new IllegalArgumentException("Customer Account Not Found!");
             }
-            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(customerId , unitId));
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOptional);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
@@ -98,10 +77,10 @@ public class CustomerAccountService {
 
     }
 
-    public Map<String , Object> getByCustomerId(Long customerId) {
-        ValidationService.validate(customerId, "Customer ID");
-        return  ResponseMapper.buildResponse(Responses.SUCCESS , customerAccountRepo.findByCustomer_CustomerId(customerId));
-    }
+//    public Map<String , Object> getByCustomerId(Long customerId) {
+//        ValidationService.validate(customerId, "Customer ID");
+//        return  ResponseMapper.buildResponse(Responses.SUCCESS , customerAccountRepo.findByCustomer_CustomerId(customerId));
+//    }
 
     public Page<CustomerAccount> getByUnitId(Long unitId, Pageable pageable) {
         ValidationService.validate(unitId, "Unit ID");

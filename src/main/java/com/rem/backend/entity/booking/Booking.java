@@ -21,12 +21,12 @@ public class Booking {
     private long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "customer_id")
+    @JoinColumn(name = "customer_id_mapping")
     @JsonIgnore
     private Customer customer;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "unit_id")
+    @JoinColumn(name = "unit_id_mapping")
     @JsonIgnore
     private Unit unit;
 
@@ -52,9 +52,24 @@ public class Booking {
     private Long floorId;
 
 
+    @Column(nullable = false)
+    private Long unitId;
+
+    @Column(nullable = false)
+    private Long customerId;
+
+
+    @Transient
+    private String projectName;
+
+    @Transient
+    private String floorNo;
+
+    @Transient
+    private String unitSerialNo;
+
     @Transient
     private double totalAmount;
-
 
     @Transient
     private PaymentSchedule paymentSchedule;
@@ -67,14 +82,6 @@ public class Booking {
 
     private String unitSerial;
 
-    @Transient
-    private int floorNo;
-
-    @Transient
-    private Long unitId;
-
-    @Transient
-    private Long customerId;
 
 
     @PrePersist

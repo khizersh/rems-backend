@@ -140,8 +140,6 @@ public class AnalyticsService {
             int currentYear = LocalDate.now().getYear();
             int lastYear = currentYear - 1;
 
-            System.out.println("currentYear :: "+ currentYear);
-
             List<Map<String, Object>> data = bookingRepository.findMonthlyBookingStatsNativeByAmount(currentYear, lastYear,
                     organizationId);
 

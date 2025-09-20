@@ -59,16 +59,20 @@ public class CustomerAccountController {
 
     @PostMapping("/getByCustomerId")
     public ResponseEntity<?> getByCustomerId(@RequestBody FilterPaginationRequest request) {
-        Map<String , Object> result = customerAccountService.getByCustomerId(request.getId());
+
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        Map<String , Object> result = customerAccountService.getByCustomerId(request.getId(), pageable);
         return ResponseEntity.ok(result);
     }
 
 
-    @PostMapping("/getByCustomerIdAndUnitId")
-    public ResponseEntity<?> getByCustomerIdAndUnitId(@RequestBody Map<String, String> request) {
-        Map<String, Object> result = customerAccountService.getByCustomerAndUnitId(request);
-        return ResponseEntity.ok(result);
-    }
+
 
     @PostMapping("/getByUnitId")
     public ResponseEntity<?> getByUnitId(@RequestBody FilterPaginationRequest request) {

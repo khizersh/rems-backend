@@ -63,31 +63,27 @@ public class BookingService {
             if (bookingRepository.existsByUnit_Id(booking.getUnitId()))
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "This unit is already booked!");
 
-            Customer customer = null;
-            if (booking.getCustomerId() != null) {
-                Optional<Customer> customerOptional = customerRepo.findById(booking.getCustomerId());
-                if (customerOptional.isPresent()) {
-                    customer = customerOptional.get();
-                }
-            } else {
-                Map<String, Object> createCustomer = customerService.createCustomer(booking.getCustomer(), loggedInUser);
-                if (!createCustomer.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
-                    return createCustomer;
-                }
-                customer = (Customer) createCustomer.get(DATA);
-            }
+
+            if (booking.getCustomerId() == null)
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
+
+            Optional<Customer> customerOptional = customerRepo.findById(booking.getCustomerId());
+            if (customerOptional.isEmpty())
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
+
+            Customer customer = customerOptional.get();
+            customer.setUnitCount(customer.getUnitCount() + 1);
+            customerRepo.save(customer);
             booking.setCustomer(customer);
 
             Optional<Unit> unitOptional = unitRepo.findById(booking.getUnitId());
             if (!unitOptional.isPresent()) {
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid selected unit!");
             }
+
             Unit unit = unitOptional.get();
             booking.setUnit(unit);
-            unit.setBooked(true);
 
-
-            Unit savedUnit = unitRepo.save(unit);
 
 
             PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
@@ -96,9 +92,13 @@ public class BookingService {
             paymentSchedule.setUnit(booking.getUnit());
             paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
 
+
+            unit.setBooked(true);
+            unit.setPaymentPlanType(paymentSchedule.getPaymentPlanType());
+            unitRepo.save(unit);
+
             Map<String, Object> createPaymentScheduler = paymentSchedulerService.createSchedule(paymentSchedule, paymentSchedule.getPaymentPlanType());
             if (createPaymentScheduler != null) {
-                PaymentSchedule savedSchedule = null;
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     return createPaymentScheduler;
                 }
@@ -144,7 +144,7 @@ public class BookingService {
         account.setUnit(booking.getUnit());
 
         if (booking.getUnit() != null) {
-            Optional<Project> projectOptional = projectRepo.findByProjectIdAndIsActiveTrue(booking.getCustomer().getProjectId());
+            Optional<Project> projectOptional = projectRepo.findByProjectIdAndIsActiveTrue(booking.getProjectId());
             if (projectOptional.isPresent())
                 account.setProject(projectOptional.get());
         }
@@ -328,7 +328,7 @@ public class BookingService {
                 if (optionalFloor.isPresent()) {
                     String projectName = projectRepo.findProjectNameById(optionalFloor.get().getProjectId());
                     booking.setProject(projectName);
-                    booking.setFloorNo(optionalFloor.get().getFloor());
+                    booking.setFloorNo(String.valueOf(optionalFloor.get().getFloor()));
                 }
 
 
@@ -369,12 +369,12 @@ public class BookingService {
                 customerMap.put("nextOFKinNationalId", customer.getNextOFKinNationalId());
                 customerMap.put("relationShipWithKin", customer.getRelationShipWithKin());
                 customerMap.put("organizationId", customer.getOrganizationId());
-                customerMap.put("projectId", customer.getProjectId());
-                customerMap.put("floorId", customer.getFloorId());
-                customerMap.put("unitId", customer.getUnitId());
-                customerMap.put("projectName", customer.getProjectName());
-                customerMap.put("floorNo", customer.getFloorNo());
-                customerMap.put("unitSerialNo", customer.getUnitSerialNo());
+                customerMap.put("projectId", booking.getProjectId());
+                customerMap.put("floorId", booking.getFloorId());
+                customerMap.put("unitId", booking.getUnit().getId());
+                customerMap.put("projectName", booking.getProjectName());
+                customerMap.put("floorNo", booking.getFloorNo());
+                customerMap.put("unitSerialNo", booking.getUnitSerialNo());
                 customerMap.put("createdBy", customer.getCreatedBy());
                 customerMap.put("updatedBy", customer.getUpdatedBy());
                 customerMap.put("createdDate", customer.getCreatedDate());
