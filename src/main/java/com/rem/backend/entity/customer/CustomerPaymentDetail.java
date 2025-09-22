@@ -1,5 +1,6 @@
 package com.rem.backend.entity.customer;
 
+import com.rem.backend.enums.CustomerPaymentReason;
 import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -16,7 +17,7 @@ public class CustomerPaymentDetail {
     private long id;
 
     @Column(nullable = false)
-    private long customerPaymentId;
+    private Long customerPaymentId;
 
     @Column(nullable = false)
     private double amount;
@@ -24,6 +25,16 @@ public class CustomerPaymentDetail {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType paymentType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CustomerPaymentReason customerPaymentReason;
+
+    @Column(nullable = true)
+    private String chequeNo;
+
+    @Column(nullable = true)
+    private LocalDateTime chequeDate;
 
     @Column(nullable = false)
     private String createdBy;

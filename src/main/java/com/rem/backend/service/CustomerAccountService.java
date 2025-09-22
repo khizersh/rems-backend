@@ -3,6 +3,7 @@ package com.rem.backend.service;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.repository.CustomerAccountRepo;
 import com.rem.backend.repository.CustomerRepo;
+import com.rem.backend.repository.FloorRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -20,6 +21,7 @@ public class CustomerAccountService {
 
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerRepo customerRepo;
+    private final FloorRepo floorRepo;
 
 
 
@@ -115,10 +117,12 @@ public class CustomerAccountService {
                     customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
             }
 
-//            customers.getContent().forEach(customerAccount -> {
-//
-//                Map<String, Object> customerDetail = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId());
-//
+            customers.getContent().forEach(customerAccount -> {
+
+               String floorNo = floorRepo.findFloorNoById(customerAccount.getUnit().getFloorId());
+
+               customerAccount.getUnit().setFloorNo(Integer.valueOf(floorNo));
+
 //                double grandTotal = customerPaymentDetails.stream()
 //                        .mapToDouble(CustomerPaymentDetail::getAmount)
 //                        .sum();
@@ -130,7 +134,7 @@ public class CustomerAccountService {
 //                response.put("balanceAmount", balanceAmount);
 //                customerAccount.setTotalPaidAmount();
 //                customerAccount.setTotalBalanceAmount();
-//            });
+            });
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, customers);
 

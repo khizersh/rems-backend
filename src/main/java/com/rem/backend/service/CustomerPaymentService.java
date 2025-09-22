@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -127,7 +128,7 @@ public class CustomerPaymentService {
     }
 
 
-    public Map<String, Object> getPaymentDetailsByPaymentIdOnlyData(long customerPaymentId , CustomerPayment customerPayment) {
+    public Map<String, Object> getPaymentDetailsByPaymentIdOnlyData(long customerPaymentId, CustomerPayment customerPayment) {
         try {
             ValidationService.validate(customerPaymentId, "customerPaymentId");
 
@@ -187,6 +188,12 @@ public class CustomerPaymentService {
 
                     ValidationService.validate(customerPaymentDetail.getPaymentType(), "paymentType");
                     ValidationService.validate(customerPaymentDetail.getAmount(), "detail amount");
+                    ValidationService.validate(customerPaymentDetail.getCustomerPaymentReason(), "payment reason");
+
+                    if (customerPaymentDetail.getPaymentType().equals(PaymentType.CHEQUE)) {
+                        ValidationService.validate(customerPaymentDetail.getChequeNo(), "cheque no");
+                        ValidationService.validate(customerPaymentDetail.getChequeDate(), "cheque date");
+                    }
                     customerPaymentDetail.setCustomerPaymentId(customerPayment.getId());
                     customerPaymentDetail.setCreatedBy(loggedInUser);
                     customerPaymentDetail.setUpdatedBy(loggedInUser);
@@ -197,8 +204,6 @@ public class CustomerPaymentService {
 
                 paymentType = PaymentType.CUSTOM;
             }
-
-
 
 
             Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findById(customerPayment.getCustomerAccountId());
@@ -214,19 +219,19 @@ public class CustomerPaymentService {
 
 
             String customerName = "", unitSerial = "", projectName = "";
-            long projectId =  0l;
+            long projectId = 0l;
             if (customerData != null) {
                 customerName = customerData.get("customerName").toString();
                 projectName = customerData.get("projectName").toString();
                 unitSerial = customerData.get("unitSerial").toString();
-                projectId = Long.valueOf(customerData.get("projectId").toString()) ;
+                projectId = Long.valueOf(customerData.get("projectId").toString());
 
             }
 
             double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().
                     mapToDouble(OrganizationAccountDetail::getAmount).sum();
 
-            if (receivingAccountAmount > 0){
+            if (receivingAccountAmount > 0) {
                 if (receivingAccountAmount != customerPaidAmount)
                     throw new IllegalArgumentException("Receiving Amount is not matched!");
 
@@ -294,6 +299,41 @@ public class CustomerPaymentService {
 
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, payments);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    @Transactional
+    public Map<String, Object> updateCustomerPaymentDetail(CustomerPaymentDetail customerPayment, String loggedInUser) {
+        try {
+            ValidationService.validate(customerPayment.getId(), "customer Payment");
+            ValidationService.validate(customerPayment.getCustomerPaymentReason(), "reason");
+            ValidationService.validate(customerPayment.getPaymentType(), "payment type");
+
+
+            if (customerPayment.getPaymentType().equals(PaymentType.CHEQUE)) {
+                ValidationService.validate(customerPayment.getChequeNo(), "cheque no");
+                ValidationService.validate(customerPayment.getChequeDate(), "cheque date");
+            }
+
+            if (!customerPaymentDetailRepo.existsById(customerPayment.getId()))
+                throw new IllegalArgumentException("Invalid Payment!");
+
+
+            customerPayment.setUpdatedBy(loggedInUser);
+            customerPayment.setUpdatedDate(LocalDateTime.now());
+
+
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerPaymentDetailRepo.save(customerPayment));
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());

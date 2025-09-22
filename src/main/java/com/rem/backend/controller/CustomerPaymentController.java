@@ -2,6 +2,7 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.customer.CustomerPayment;
+import com.rem.backend.entity.customer.CustomerPaymentDetail;
 import com.rem.backend.service.CustomerPaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -40,6 +41,14 @@ public class CustomerPaymentController {
     public ResponseEntity<?> payInstallment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         Map<String, Object> projectPage = customerPaymentService.updateCustomerPayment(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @PostMapping("/updatePayment")
+    public ResponseEntity<?> updatePayment(@RequestBody CustomerPaymentDetail customerPaymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> projectPage = customerPaymentService.updateCustomerPaymentDetail(customerPaymentRequest, loggedInUser);
         return ResponseEntity.ok(projectPage);
     }
 
