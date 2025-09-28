@@ -75,11 +75,53 @@ public class ValidationService {
         }
     }
 
+//    public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
+//        if (payments == null || payments.isEmpty() && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+//            throw new IllegalArgumentException("Month-wise payments list cannot be null or empty.");
+//        }
+//
+//        payments.sort(Comparator.comparingInt(MonthWisePayment::getFromMonth));
+//
+//        int expectedStart = 1;
+//
+//        for (MonthWisePayment payment : payments) {
+//            int from = payment.getFromMonth();
+//            int to = payment.getToMonth();
+//
+//            if
+//
+//            if (from < 0) {
+//                throw new IllegalArgumentException("Invalid From Month");
+//            }
+//            if (to < 0) {
+//                throw new IllegalArgumentException("Invalid From Month");
+//            }
+//
+//
+//            if (from >= to) {
+//                throw new IllegalArgumentException("Invalid range: fromMonth must be less than toMonth.");
+//            }
+//
+//
+//            if (to > durationInMonths) {
+//                throw new IllegalArgumentException("toMonth cannot be greater than durationInMonths: " + durationInMonths);
+//            }
+//
+//            expectedStart = to;
+//        }
+//
+//        if (expectedStart != durationInMonths) {
+//            throw new IllegalArgumentException("Duration in months must match month wise payment: " + durationInMonths);
+//        }
+//    }
+
+
     public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
-        if (payments == null || payments.isEmpty() && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+        if ((payments == null || payments.isEmpty()) && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
             throw new IllegalArgumentException("Month-wise payments list cannot be null or empty.");
         }
 
+        // Sort ranges by starting month
         payments.sort(Comparator.comparingInt(MonthWisePayment::getFromMonth));
 
         int expectedStart = 1;
@@ -88,31 +130,40 @@ public class ValidationService {
             int from = payment.getFromMonth();
             int to = payment.getToMonth();
 
-            if (from < 0) {
-                throw new IllegalArgumentException("Invalid From Month");
+            // ✅ Basic validation
+            if (from <= 0) {
+                throw new IllegalArgumentException("Invalid fromMonth: must be > 0.");
             }
-            if (to < 0) {
-                throw new IllegalArgumentException("Invalid From Month");
+            if (to <= 0) {
+                throw new IllegalArgumentException("Invalid toMonth: must be > 0.");
             }
-
-
             if (from >= to) {
                 throw new IllegalArgumentException("Invalid range: fromMonth must be less than toMonth.");
             }
-
-
             if (to > durationInMonths) {
-                throw new IllegalArgumentException("toMonth cannot be greater than durationInMonths: " + durationInMonths);
+                throw new IllegalArgumentException("toMonth cannot exceed total duration (" + durationInMonths + ")");
             }
 
-            expectedStart = to;
+            // ✅ Overlap check — this is the key part:
+            if (from != expectedStart) {
+                throw new IllegalArgumentException(
+                        "Invalid range: expected fromMonth = " + expectedStart + " but got " + from +
+                                ". Ranges must be continuous and non-overlapping."
+                );
+            }
+
+            // ✅ Set next expected start (to + 1)
+            expectedStart = to + 1;
         }
 
-        if (expectedStart != durationInMonths) {
-            throw new IllegalArgumentException("Duration in months must match month wise payment: " + durationInMonths);
+        // ✅ Final check: last range must end at duration
+        if (expectedStart - 1 != durationInMonths) {
+            throw new IllegalArgumentException(
+                    "Invalid schedule: total months covered is " + (expectedStart - 1) +
+                            " but expected " + durationInMonths
+            );
         }
     }
-
 
     public static void validateBooking(Booking booking) {
         if (booking == null) {
@@ -159,7 +210,7 @@ public class ValidationService {
 
         PaymentSchedule paymentSchedule = reqeust;
 
-        paymentSchedule.setTotalAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+        paymentSchedule.setTotalAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount());
         if (paymentSchedule != null) {
             // Basic checks before deeper validation
 //            if (paymentSchedule.getDurationInMonths() <= 0) {

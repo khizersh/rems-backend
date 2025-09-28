@@ -121,7 +121,7 @@ public class ProjectService {
 
 
                         PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
-                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount());
                         Unit unitSaved = unitRepo.save(unit);
 
                         paymentSchedule.setCreatedBy(loggedInUser);
@@ -258,7 +258,7 @@ public class ProjectService {
 
                         PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
 
-                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+                        unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount());
 
                         Unit unitSaved = unitRepo.save(unit);
 

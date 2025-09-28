@@ -27,25 +27,29 @@ public class PaymentSchedule {
     @Column(nullable = false)
     private double actualAmount;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double miscellaneousAmount = 0.0;
+
+
+    @Column(nullable = false )
+    private double developmentAmount = 0.0;
 
     @Column(nullable = false)
     private double totalAmount;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double downPayment = 0.0;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double quarterlyPayment = 0.0;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double halfYearlyPayment = 0.0;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double yearlyPayment = 0.0;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private double onPossessionPayment = 0.0;
 
     @Enumerated(EnumType.STRING)

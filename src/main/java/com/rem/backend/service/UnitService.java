@@ -145,6 +145,22 @@ public class UnitService {
     }
 
 
+
+    public Map<String, Object> getAllUnitIdSerialByFloor(long floorId) {
+        try {
+            ValidationService.validate(floorId, "floor id");
+            List<Unit> units = unitRepo.findByFloorId(floorId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, units);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     @Transactional
     public Map<String, Object> addOrUpdateUnit(Unit unit, String loggedInUser) {
         try {
@@ -159,7 +175,7 @@ public class UnitService {
 
             PaymentSchedule paymentSchedule = unit.getPaymentSchedule();
 
-            unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount());
+            unit.setAmount(paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount());
 
 
             Unit unitSaved = unitRepo.save(unit);

@@ -32,6 +32,9 @@ public class CustomerAccount {
     private double miscellaneousAmount;
 
     @Column(nullable = false)
+    private double developmentAmount;
+
+    @Column(nullable = false)
     private double downPayment;
 
     @Column(nullable = false)
@@ -61,11 +64,11 @@ public class CustomerAccount {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Unit unit;
 
-    @Transient
-    private double totalPaidAmount;
+    @Column(nullable = false)
+    private Double totalPaidAmount = 0.0;
 
-    @Transient
-    private double totalBalanceAmount;
+    @Column(nullable = false)
+    private Double totalBalanceAmount = 0.0;
 
     @Transient
     private List<CustomerPayment> customerPayments;

@@ -42,6 +42,13 @@ public class UnitController {
         return ResponseEntity.ok(projectPage);
     }
 
+
+    @GetMapping("/getAllIdSerialByFloorId/{floorId}")
+    public ResponseEntity<?> getAllUnitIdSerialByFloorId(@PathVariable long floorId) {
+        Map<String , Object> projectPage = unitService.getAllUnitIdSerialByFloor(floorId);
+        return ResponseEntity.ok(projectPage);
+    }
+
     @GetMapping("/getDetailsById/{unitId}")
     public ResponseEntity<?> getUnitDetailsById(@PathVariable long unitId) {
         Map<String , Object> projectPage = unitService.getUnitByUnitId(unitId);

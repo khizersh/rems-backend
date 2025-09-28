@@ -30,6 +30,23 @@ public class CustomerAccountService {
         return customerAccountRepo.findByProject_ProjectId(projectId, pageable);
     }
 
+
+    public Map<String , Object> getById(Long accountId) {
+        try{
+        ValidationService.validate(accountId, "Account");
+        Optional<CustomerAccount>  customerAccount = customerAccountRepo.findById(accountId);
+        if (customerAccount.isEmpty())
+            throw new IllegalArgumentException("Invalid Account");
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS , customerAccount.get());
+        }catch (IllegalArgumentException e){
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER , e.getMessage());
+        }catch (Exception e){
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE , e.getMessage());
+        }
+
+    }
+
     public Map<String, Object> getNameIdByOrganizationId(Long organizationId) {
         try {
             ValidationService.validate(organizationId, "Organization ID");

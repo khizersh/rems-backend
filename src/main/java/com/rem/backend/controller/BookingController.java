@@ -31,6 +31,13 @@ public class BookingController {
     }
 
 
+    @PostMapping("/update")
+    public Map updateBooking(@RequestBody Booking booking, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return bookingService.updateBooking(booking, loggedInUser);
+    }
+
+
     @GetMapping("/getDetailById/{id}")
     public Map getDetailsForPrintBooking(@PathVariable long id){
         return bookingService.getDetailsById(id);

@@ -131,6 +131,79 @@ public class BookingService {
 
     }
 
+    @Transactional
+    public Map<String, Object> updateBooking(Booking booking, String loggedInUser) {
+
+        try {
+            booking.setCreatedBy(loggedInUser);
+            booking.setUpdatedBy(loggedInUser);
+            validateBooking(booking);
+
+
+
+            if (booking.getCustomerId() == null)
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
+
+            Optional<Customer> customerOptional = customerRepo.findById(booking.getCustomerId());
+            if (customerOptional.isEmpty())
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
+
+            Customer customer = customerOptional.get();
+            booking.setCustomer(customer);
+
+            Optional<Unit> unitOptional = unitRepo.findById(booking.getUnitId());
+            if (!unitOptional.isPresent()) {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid selected unit!");
+            }
+
+            Unit unit = unitOptional.get();
+            booking.setUnit(unit);
+
+
+
+            PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
+            paymentSchedule.setCreatedBy(loggedInUser);
+            paymentSchedule.setUpdatedBy(loggedInUser);
+            paymentSchedule.setUnit(booking.getUnit());
+            paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
+
+
+            unit.setPaymentPlanType(paymentSchedule.getPaymentPlanType());
+            unitRepo.save(unit);
+
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.updateSchedule(paymentSchedule, paymentSchedule.getPaymentPlanType());
+            if (createPaymentScheduler != null) {
+                if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
+                    return createPaymentScheduler;
+                }
+                createPaymentScheduler.get(DATA);
+            }
+
+
+            Optional<Floor> optionalFloor = floorRepo.findById(unit.getFloorId());
+
+            if (optionalFloor.isPresent()) {
+                booking.setProjectId(optionalFloor.get().getProjectId());
+            }
+
+            booking.setUnitSerial(unit.getSerialNo());
+            booking.setCreatedBy(loggedInUser);
+            booking.setUpdatedBy(loggedInUser);
+            booking.setFloorId(unit.getFloorId());
+            Booking bookingSaved = bookingRepository.save(booking);
+            updateCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
+    }
 
     public void createCustomerAccount(Booking booking, String loggedInUser, PaymentPlanType paymentPlanType) {
         if (booking == null || booking.getPaymentSchedule() == null) {
@@ -152,9 +225,12 @@ public class BookingService {
         account.setDurationInMonths(schedule.getDurationInMonths());
         account.setActualAmount(schedule.getActualAmount());
         account.setMiscellaneousAmount(schedule.getMiscellaneousAmount());
+        account.setDevelopmentAmount(schedule.getDevelopmentAmount());
         account.setDownPayment(schedule.getDownPayment());
 
 
+        account.setTotalAmount(schedule.getTotalAmount());
+        account.setTotalBalanceAmount(schedule.getTotalAmount());
         account.setTotalAmount(schedule.getTotalAmount());
         account.setQuarterlyPayment(schedule.getQuarterlyPayment());
         account.setHalfYearly(schedule.getHalfYearlyPayment());
@@ -168,7 +244,7 @@ public class BookingService {
         account.setUpdatedBy(loggedInUser);
 
 
-        double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount());
+        double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount() + schedule.getDevelopmentAmount());
 
         if (paymentPlanType.equals(PaymentPlanType.ONE_TIME_PAYMENT)) {
             schedule.setDownPayment(totalAmount);
@@ -177,7 +253,7 @@ public class BookingService {
 
         double monthlySum = monthlyPaymentSum(schedule);
         double collectedAmount = Math.ceil(schedule.getDownPayment() +
-                schedule.getOnPossessionPayment() + monthlySum);
+                schedule.getOnPossessionPayment() +  monthlySum);
 
 
         if (totalAmount != collectedAmount) {
@@ -186,104 +262,129 @@ public class BookingService {
 
         CustomerAccount customerAccountSaved = customerAccountRepo.save(account);
 
-        int serialNoStart = 1;
+//        int serialNoStart = 1;
 
 
-        if (schedule.getDownPayment() > 0) {
-//            serialNoStart  = 2;
+//        if (schedule.getDownPayment() > 0) {
+////            serialNoStart  = 2;
+//
+//
+////        insert entry in customer_payment for a down payment
+//            CustomerPayment customerPayment = new CustomerPayment();
+//            customerPayment.setSerialNo(0);
+//            customerPayment.setAmount(schedule.getDownPayment());
+//            customerPayment.setReceivedAmount(0);
+//            customerPayment.setRemainingAmount(schedule.getDownPayment());
+//            customerPayment.setPaymentType(PaymentType.CASH);
+//            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
+//            customerPayment.setCreatedBy(booking.getCreatedBy());
+//            customerPayment.setUpdatedBy(booking.getUpdatedBy());
+//            customerPayment.setCreatedDate(booking.getCreatedDate());
+//            customerPayment.setUpdatedDate(booking.getUpdatedDate());
+//            customerPayment.setCustomerAccountId(customerAccountSaved.getId());
+//
+//            customerPaymentRepo.save(customerPayment);
+//        }
 
-
-//        insert entry in customer_payment for a down payment
-            CustomerPayment customerPayment = new CustomerPayment();
-            customerPayment.setSerialNo(0);
-            customerPayment.setAmount(schedule.getDownPayment());
-            customerPayment.setReceivedAmount(0);
-            customerPayment.setRemainingAmount(schedule.getDownPayment());
-            customerPayment.setPaymentType(PaymentType.CASH);
-            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
-            customerPayment.setCreatedBy(booking.getCreatedBy());
-            customerPayment.setUpdatedBy(booking.getUpdatedBy());
-            customerPayment.setCreatedDate(booking.getCreatedDate());
-            customerPayment.setUpdatedDate(booking.getUpdatedDate());
-            customerPayment.setCustomerAccountId(customerAccountSaved.getId());
-
-            customerPaymentRepo.save(customerPayment);
-        }
-
-
-        for (int i = 0; i < schedule.getDurationInMonths(); i++) {
-            int serialNo = i + serialNoStart;
-            Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
-                    .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
-                    .findFirst();
-
-            if (monthWisePaymentOptional.isEmpty()) {
-                throw new IllegalArgumentException("Invalid Month wise customerPayment!");
-            }
-            double amount = monthWisePaymentOptional.get().getAmount();
-
-            // Add special amounts based on serialNo
-            if (serialNo % 3 == 0 && schedule.getQuarterlyPayment() != 0) {
-                amount += schedule.getQuarterlyPayment();
-            }
-
-            if (serialNo % 6 == 0 && schedule.getHalfYearlyPayment() != 0) {
-                amount += schedule.getHalfYearlyPayment();
-            }
-
-            if (serialNo % 12 == 0 && schedule.getYearlyPayment() != 0) {
-                amount += schedule.getYearlyPayment();
-            }
-
-            CustomerPayment customerPayment = new CustomerPayment();
-            customerPayment.setSerialNo(serialNo);
-            customerPayment.setAmount(amount);
-            customerPayment.setReceivedAmount(0);
-            customerPayment.setRemainingAmount(amount);
-            customerPayment.setPaymentType(PaymentType.CASH);
-            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
-            customerPayment.setCreatedBy(booking.getCreatedBy());
-            customerPayment.setUpdatedBy(booking.getUpdatedBy());
-            customerPayment.setCreatedDate(booking.getCreatedDate());
-            customerPayment.setUpdatedDate(booking.getUpdatedDate());
-            customerPayment.setCustomerAccountId(customerAccountSaved.getId());
-
-            customerPaymentRepo.save(customerPayment);
-
-        }
+//
+//        for (int i = 0; i < schedule.getDurationInMonths(); i++) {
+//            int serialNo = i + serialNoStart;
+//            Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
+//                    .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
+//                    .findFirst();
+//
+//            if (monthWisePaymentOptional.isEmpty()) {
+//                throw new IllegalArgumentException("Invalid Month wise customerPayment!");
+//            }
+//            double amount = monthWisePaymentOptional.get().getAmount();
+//
+//            // Add special amounts based on serialNo
+//            if (serialNo % 3 == 0 && schedule.getQuarterlyPayment() != 0) {
+//                amount += schedule.getQuarterlyPayment();
+//            }
+//
+//            if (serialNo % 6 == 0 && schedule.getHalfYearlyPayment() != 0) {
+//                amount += schedule.getHalfYearlyPayment();
+//            }
+//
+//            if (serialNo % 12 == 0 && schedule.getYearlyPayment() != 0) {
+//                amount += schedule.getYearlyPayment();
+//            }
+//
+//            CustomerPayment customerPayment = new CustomerPayment();
+//            customerPayment.setSerialNo(serialNo);
+//            customerPayment.setAmount(amount);
+//            customerPayment.setReceivedAmount(0);
+//            customerPayment.setRemainingAmount(amount);
+//            customerPayment.setPaymentType(PaymentType.CASH);
+//            customerPayment.setPaymentStatus(PaymentStatus.UNPAID);
+//            customerPayment.setCreatedBy(booking.getCreatedBy());
+//            customerPayment.setUpdatedBy(booking.getUpdatedBy());
+//            customerPayment.setCreatedDate(booking.getCreatedDate());
+//            customerPayment.setUpdatedDate(booking.getUpdatedDate());
+//            customerPayment.setCustomerAccountId(customerAccountSaved.getId());
+//
+//            customerPaymentRepo.save(customerPayment);
+//
+//        }
 
 
     }
 
-    public double monthlyPaymentSum(PaymentSchedule schedule) {
-        double sum = 0.0;
-        for (int i = 0; i < schedule.getDurationInMonths(); i++) {
-            int serialNo = i + 1;
-            Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
-                    .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
-                    .findFirst();
 
-            if (monthWisePaymentOptional.isEmpty()) {
-                throw new IllegalArgumentException("Invalid Month wise payment!");
-            }
-            double amount = monthWisePaymentOptional.get().getAmount();
-
-            // Add special amounts based on serialNo
-            if (serialNo % 3 == 0 && schedule.getQuarterlyPayment() != 0) {
-                amount += schedule.getQuarterlyPayment();
-            }
-
-            if (serialNo % 6 == 0 && schedule.getHalfYearlyPayment() != 0) {
-                amount += schedule.getHalfYearlyPayment();
-            }
-
-            if (serialNo % 12 == 0 && schedule.getYearlyPayment() != 0) {
-                amount += schedule.getYearlyPayment();
-            }
-            sum += amount;
+    public void updateCustomerAccount(Booking booking, String loggedInUser, PaymentPlanType paymentPlanType) {
+        if (booking == null || booking.getPaymentSchedule() == null) {
+            throw new IllegalArgumentException("Booking or its PaymentSchedule cannot be null");
         }
-        return sum;
+
+        PaymentSchedule schedule = booking.getPaymentSchedule();
+
+        Optional<CustomerAccount>  accountOptional = customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(booking.getCustomerId() , booking.getUnitId());
+        if (accountOptional.isEmpty())
+            throw new IllegalArgumentException("Invalid Account");
+
+        CustomerAccount account = accountOptional.get();
+
+        account.setDurationInMonths(schedule.getDurationInMonths());
+        account.setActualAmount(schedule.getActualAmount());
+        account.setMiscellaneousAmount(schedule.getMiscellaneousAmount());
+        account.setDevelopmentAmount(schedule.getDevelopmentAmount());
+        account.setDownPayment(schedule.getDownPayment());
+
+
+        account.setTotalAmount(schedule.getTotalAmount());
+        account.setTotalBalanceAmount(schedule.getTotalAmount() - account.getTotalPaidAmount());
+        account.setTotalPaidAmount(account.getTotalPaidAmount());
+        account.setQuarterlyPayment(schedule.getQuarterlyPayment());
+        account.setHalfYearly(schedule.getHalfYearlyPayment());
+        account.setOnPosessionAmount(schedule.getOnPossessionPayment());
+
+        account.setUpdatedBy(booking.getUpdatedBy());
+        account.setCreatedDate(booking.getCreatedDate());
+        account.setCreatedBy(loggedInUser);
+        account.setUpdatedBy(loggedInUser);
+
+
+        double totalAmount = Math.ceil(schedule.getActualAmount() + schedule.getMiscellaneousAmount() + schedule.getDevelopmentAmount());
+
+        if (paymentPlanType.equals(PaymentPlanType.ONE_TIME_PAYMENT)) {
+            schedule.setDownPayment(totalAmount);
+            schedule.setDurationInMonths(0);
+        }
+
+        double monthlySum = monthlyPaymentSum(schedule);
+        double collectedAmount = Math.ceil(schedule.getDownPayment() +
+                schedule.getOnPossessionPayment() +  monthlySum);
+
+
+        if (totalAmount != collectedAmount) {
+            throw new IllegalArgumentException("Amounts not matched!");
+        }
+
+        customerAccountRepo.save(account);
+
     }
+
 
 
     public Map<String, Object> getBookingsByIds(long id, String filteredBy, Pageable pageable) {

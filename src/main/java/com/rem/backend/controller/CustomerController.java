@@ -83,6 +83,12 @@ public class CustomerController {
         return customerService.getFullDetailByCustomerId(request);
     }
 
+
+    @GetMapping("/getByAccountId/{accountId}")
+    public Map getCustomerDetailByAccount(@PathVariable long accountId) {
+        return customerService.getFullDetailByCustomerAccountId(accountId);
+    }
+
     @GetMapping("/getUnitListDetailsByCustomerId/{cId}")
     public Map getUnitListDetailsByCustomerId(@PathVariable long cId) {
         return customerService.getUnitListByCustomerId(cId);

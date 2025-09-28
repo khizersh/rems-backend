@@ -23,7 +23,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
 //    boolean existsByUnitId(long unitId);
     Optional<Customer> findByUserId(long userId);
 
-    @Query(value = "SELECT c.customer_id AS customerId, c.name AS name, c.unit_id AS unitId " +
+    @Query(value = "SELECT c.customer_id AS customerId, c.name AS name " +
             "FROM customer c WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))" , nativeQuery = true)
     List<Map<String , Object>> searchByName(String name);
 

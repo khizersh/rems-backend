@@ -19,4 +19,10 @@ public class PaymentScheduleController {
         return paymentSchedulerService.getPaymentscheduleByUnitId(request);
     }
 
+
+    @PostMapping("/getByCustomerAccount")
+    public Map getPaymentScheduleByCustomerAccount(@RequestBody Map<String , String> request){
+        return paymentSchedulerService.getPaymentScheduleByCustomerAccountId(request);
+    }
+
 }

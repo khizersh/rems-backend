@@ -6,6 +6,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -14,6 +15,22 @@ import java.util.Optional;
 public interface PaymentScheduleRepository extends JpaRepository<PaymentSchedule , Long> {
 
     Optional<PaymentSchedule> findByUnitIdAndPaymentScheduleType(Long unitId , PaymentScheduleType paymentScheduleType);
+
+
+    @Query(value = """
+        SELECT ps 
+        FROM PaymentSchedule ps 
+        WHERE ps.unit.id = (
+            SELECT ca.unit.id 
+            FROM CustomerAccount ca 
+            WHERE ca.id = :customerAccountId
+        )
+        AND ps.paymentScheduleType = :paymentScheduleType
+    """)
+    PaymentSchedule findByCustomerAccountIdAndPaymentScheduleType(
+            @Param("customerAccountId") Long customerAccountId,
+            @Param("paymentScheduleType") PaymentScheduleType paymentScheduleType
+    );
 
     void deleteByUnit_Id(long id);
 }

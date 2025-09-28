@@ -96,6 +96,36 @@ public class CustomerService {
     }
 
 
+
+    public Map<String, Object> getFullDetailByCustomerAccountId(long customerAccountId) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            ValidationService.validate(customerAccountId, "customerAccountId");
+
+
+
+
+            Optional<CustomerAccount> customerAccount =
+                    customerAccountRepo.findById(customerAccountId);
+
+            if (customerAccount.isEmpty())
+                throw new IllegalArgumentException("Invalid Account");
+
+            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId() ,
+                    customerAccount.get().getUnit().getId());
+
+            response.put("customer", customer);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     public Map<String, Object> getFullDetailByCustomer(long customerId) {
         try {
 

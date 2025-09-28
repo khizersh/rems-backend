@@ -42,6 +42,12 @@ public class CustomerAccountController {
     }
 
 
+    @GetMapping("/getById/{id}")
+    public Map<String, Object> getById(@PathVariable long id) {
+        return customerAccountService.getById(id);
+    }
+
+
     @PostMapping("/getByProjectId")
     public ResponseEntity<?> getByProjectId(@RequestBody FilterPaginationRequest request) {
         ValidationService.validate(request.getId(), "Project ID");
