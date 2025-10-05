@@ -139,8 +139,8 @@ public class ExpenseService {
 
                 Project project = projectOptional.get();
                 expense.setProjectName(project.getName());
-                project.setConstructionAmount(project.getConstructionAmount() + expense.getAmountPaid());
-                project.setTotalAmount(project.getTotalAmount() + expense.getAmountPaid());
+                project.setConstructionAmount(project.getConstructionAmount() + expense.getTotalAmount());
+                project.setTotalAmount(project.getTotalAmount() + expense.getTotalAmount());
                 project.setUpdatedBy(loggedInUser);
                 projectRepo.save(project);
             }

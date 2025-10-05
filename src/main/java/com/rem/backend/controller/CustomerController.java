@@ -2,6 +2,8 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.customer.Customer;
+import com.rem.backend.entity.organization.Organization;
+import com.rem.backend.repository.OrganizationRepo;
 import com.rem.backend.service.CustomerService;
 import com.rem.backend.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,6 +26,8 @@ public class CustomerController {
 
     private final CustomerService customerService;
     private final EmailService emailService;
+    private final OrganizationRepo organizationRepo;
+
 
     @GetMapping("/{id}")
     public Map getCustomerById(@PathVariable long id) {
@@ -57,9 +61,17 @@ public class CustomerController {
     }
 
 
+    @PostMapping("/sendCredentialEmail")
+    public Map sendCredentialEmail(@RequestBody Customer customer){
+        return customerService.sendCredentialEmail(customer );
+    }
+
+
     @GetMapping("/email")
     public ResponseEntity<?> test() {
-        emailService.sendEmailAsync("khizeroff61@gmail.com" , "username" , "password");
+
+        Organization organization = organizationRepo.findById(1l).get();
+        emailService.sendEmailAsync("khizeroff61@gmail.com" , "username" , "password" , organization );
         return ResponseEntity.ok("Success");
     }
 

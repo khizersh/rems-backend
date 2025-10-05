@@ -71,7 +71,7 @@ public class Customer implements Serializable {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
-    @Transient
+    @Column(nullable = true)
     private String email;
 
     @Transient

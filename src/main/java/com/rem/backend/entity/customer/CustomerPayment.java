@@ -41,6 +41,8 @@ public class CustomerPayment {
     @Column(nullable = false)
     private long customerAccountId;
 
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean isPaymentAddedToAccount = false;
 
 
     @Transient

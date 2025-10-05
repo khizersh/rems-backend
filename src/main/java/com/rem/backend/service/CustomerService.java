@@ -4,6 +4,7 @@ import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
+import com.rem.backend.entity.organization.Organization;
 import com.rem.backend.enums.RoleType;
 import com.rem.backend.repository.*;
 import com.rem.backend.usermanagement.entity.Role;
@@ -42,6 +43,7 @@ public class CustomerService {
     private final BookingRepository bookingRepository;
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerPaymentRepo customerPaymentRepo;
+    private final OrganizationRepo organizationRepo;
 
     public Map<String, Object> getCustomerById(long id) {
         try {
@@ -51,9 +53,15 @@ public class CustomerService {
 
             if (customerOptional.isPresent()) {
                 Customer customer = customerOptional.get();
-//                customer.setProjectName(projectRepo.findProjectNameById(customer.getProjectId()));
-//                customer.setFloorNo(floorRepo.findFloorNoById(customer.getFloorId()));
-//                customer.setUnitSerialNo(unitRepo.findUnitSerialById(customer.getUnitId()));
+
+                Optional<User> userOptional = userRepo.findById(customer.getUserId());
+                if (userOptional.isEmpty())
+                    throw new IllegalArgumentException("Invalid User");
+
+                User user = userOptional.get();
+
+                customer.setEmail(user.getEmail());
+
                 return ResponseMapper.buildResponse(Responses.SUCCESS, customer);
 
             }
@@ -75,14 +83,14 @@ public class CustomerService {
             ValidationService.validate(customerPaymentId, "customerPaymentId");
 
             Optional<CustomerPayment> customerPaymentOptional = customerPaymentRepo.findById(Long.valueOf(customerPaymentId));
-            Map<String, Object> response = customerPaymentService.getPaymentDetailsByPaymentIdOnlyData(Long.valueOf(customerPaymentId) , customerPaymentOptional.get());
+            Map<String, Object> response = customerPaymentService.getPaymentDetailsByPaymentIdOnlyData(Long.valueOf(customerPaymentId), customerPaymentOptional.get());
             if (response == null)
                 response = new HashMap<>();
 
             Optional<CustomerAccount> customerAccount =
                     customerAccountRepo.findById(customerPaymentOptional.get().getCustomerAccountId());
 
-            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId) ,
+            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId),
                     customerAccount.get().getUnit().getId());
 
             response.put("customer", customer);
@@ -96,14 +104,11 @@ public class CustomerService {
     }
 
 
-
     public Map<String, Object> getFullDetailByCustomerAccountId(long customerAccountId) {
 
         Map<String, Object> response = new HashMap<>();
         try {
             ValidationService.validate(customerAccountId, "customerAccountId");
-
-
 
 
             Optional<CustomerAccount> customerAccount =
@@ -112,7 +117,7 @@ public class CustomerService {
             if (customerAccount.isEmpty())
                 throw new IllegalArgumentException("Invalid Account");
 
-            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId() ,
+            Map<String, Object> customer = customerRepo.getAllDetailsByCustomerId(customerAccount.get().getCustomer().getCustomerId(),
                     customerAccount.get().getUnit().getId());
 
             response.put("customer", customer);
@@ -131,7 +136,7 @@ public class CustomerService {
 
             ValidationService.validate(customerId, "customerId");
 
-            Map<String, Object> response = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId) , 1);
+            Map<String, Object> response = customerRepo.getAllDetailsByCustomerId(Long.valueOf(customerId), 1);
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, e.getMessage());
@@ -184,23 +189,10 @@ public class CustomerService {
         try {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
-//            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
-//            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
-//            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
             ValidationService.validate(customer.getOrganizationId(), "Organization");
-//            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
-//            ValidationService.validate(customer.getProjectId(), "Project");
-//            ValidationService.validate(customer.getFloorId(), "Floor");
-//            ValidationService.validate(customer.getUnitId(), "Unit");
             ValidationService.validate(customer.getCreatedBy(), "Created By");
             ValidationService.validate(customer.getUpdatedBy(), "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
-
-//            boolean unitAlreadyAssigned = customerRepo.existsByUnitId(customer.getUnitId());
-//            if (unitAlreadyAssigned) {
-//                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "This unit is already assigned to another customer.");
-//            }
-
 
             if (customer.getUserId() != null) {
                 Optional<User> userOptional = userRepo.findById(customer.getUserId());
@@ -221,8 +213,12 @@ public class CustomerService {
                 user.setUpdatedBy(loggedInUser);
                 User userSaved = userRepo.save(user);
 
+                Optional<Organization> organization = organizationRepo.findById(customer.getOrganizationId());
+                if (organization.isEmpty())
+                    throw new IllegalArgumentException("Invalid Organization");
+
                 if (user.getEmail() != null || !user.getEmail().isBlank())
-                    emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword());
+                    emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword(), organization.get());
 
                 customer.setUserId(userSaved.getId());
 
@@ -254,6 +250,44 @@ public class CustomerService {
     }
 
 
+    public Map<String , Object> sendCredentialEmail(Customer customer){
+        try {
+
+            ValidationService.validate(customer.getName(), "Customer name");
+            ValidationService.validate(customer.getNationalId(), "National ID");
+            ValidationService.validate(customer.getOrganizationId(), "Organization");
+            ValidationService.validate(customer.getUserId(), "Organization");
+
+            Optional<Organization> organization = organizationRepo.findById(customer.getOrganizationId());
+            if (organization.isEmpty())
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Organization!");
+
+            Optional<User> userOptional = userRepo.findById(customer.getUserId());
+            if (userOptional.isEmpty())
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid user selected!");
+
+
+            User user = userOptional.get();
+
+            if (user.getEmail() != null || !user.getEmail().isBlank())
+                emailService.sendEmailAsync(user.getEmail(), user.getUsername(), user.getPassword(), organization.get());
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Email send successfully!");
+
+
+
+        }catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     @Transactional
     public Map<String, Object> updateCustomer(Customer customer, String loggedInUser) {
         try {
@@ -263,13 +297,16 @@ public class CustomerService {
             ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
             ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
             ValidationService.validate(customer.getOrganizationId(), "Organization ID");
-//            ValidationService.validate(customer.getProjectId(), "Project ID");
-//            ValidationService.validate(customer.getFloorId(), "Floor ID");
-//            ValidationService.validate(customer.getUnitId(), "Unit ID");
             ValidationService.validate(loggedInUser, "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
             ValidationService.validate(customer.getGuardianName(), "Guardian Name");
 
+            if (customer.getEmail() != null) {
+                Optional<User> userOptional = userRepo.findById(customer.getUserId());
+                User user = userOptional.get();
+                user.setEmail(customer.getEmail());
+                userRepo.save(user);
+            }
 
             customer.setUpdatedBy(loggedInUser);
             Customer savedCustomer = customerRepo.save(customer);

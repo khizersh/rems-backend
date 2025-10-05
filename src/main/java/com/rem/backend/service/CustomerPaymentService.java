@@ -179,6 +179,9 @@ public class CustomerPaymentService {
 
             customerPayment.setSerialNo(0);
 
+            double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().
+                    mapToDouble(OrganizationAccountDetail::getAmount).sum();
+
             if (customerPayment.getCustomerPaymentDetails().size() > 0)
                 customerPayment.setPaymentType(PaymentType.CUSTOM);
 
@@ -189,11 +192,14 @@ public class CustomerPaymentService {
             customerPayment.setCustomerAccountId(customerPayment.getCustomerAccountId());
 
 
+            if (receivingAccountAmount > 0)
+                customerPayment.setPaymentAddedToAccount(true);
+
+            customerPayment.setAmount(currentPaidAmount);
             customerPayment.setAmount(currentPaidAmount);
             customerPayment.setCreatedBy(loggedInUser);
             customerPayment.setUpdatedBy(loggedInUser);
             customerPayment = customerPaymentRepo.save(customerPayment);
-
 
 
             if (customerPayment.getCustomerPaymentDetails().size() > 0) {
@@ -241,8 +247,6 @@ public class CustomerPaymentService {
 
             }
 
-            double receivingAccountAmount = customerPayment.getOrganizationAccountDetails().stream().
-                    mapToDouble(OrganizationAccountDetail::getAmount).sum();
 
             if (receivingAccountAmount > 0) {
                 if (receivingAccountAmount != currentPaidAmount)
@@ -260,9 +264,89 @@ public class CustomerPaymentService {
 
 
             customerAccount.setTotalPaidAmount(customerAccount.getTotalPaidAmount() + currentPaidAmount);
-            customerAccount.setTotalBalanceAmount( customerAccount.getTotalBalanceAmount() - currentPaidAmount);
+            customerAccount.setTotalBalanceAmount(customerAccount.getTotalBalanceAmount() - currentPaidAmount);
             customerAccountRepo.save(customerAccount);
 
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOp);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    @Transactional
+    public Map<String, Object> addCustomerPaymentToOrgAccount(CustomerPayment customerPaymentRequest, String loggedInUser) {
+        try {
+            ValidationService.validate(customerPaymentRequest.getId(), "customer payment");
+            ValidationService.validate(customerPaymentRequest.getOrganizationAccountDetails(), "receiving account");
+            Optional<CustomerAccount> customerAccountOp = customerAccountRepo.findById(customerPaymentRequest.getCustomerAccountId());
+
+
+            Optional<CustomerPayment> customerPaymentOptional = customerPaymentRepo.findById(customerPaymentRequest.getId());
+
+            if (customerPaymentOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid customer payment");
+
+            CustomerPayment customerPayment = customerPaymentOptional.get();
+
+            if (customerPayment.isPaymentAddedToAccount())
+                throw new IllegalArgumentException("Already posted to accounts");
+
+
+            double receivingAccountAmount = customerPaymentRequest.getOrganizationAccountDetails().stream().
+                    mapToDouble(OrganizationAccountDetail::getAmount).sum();
+
+            if (receivingAccountAmount > 0)
+                customerPayment.setPaymentAddedToAccount(true);
+
+            customerPayment.setUpdatedBy(loggedInUser);
+
+
+            Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findById(customerPaymentRequest.getCustomerAccountId());
+
+            if (customerAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Customer Account");
+
+            Map<String, Object> customerData = customerRepo.getAllDetailsByCustomerId(
+                    customerAccountOptional.get().getCustomer().getCustomerId(),
+                    customerAccountOptional.get().getUnit().getId()
+
+            );
+
+
+            String customerName = "", unitSerial = "", projectName = "";
+            long projectId = 0l;
+            if (customerData != null) {
+                customerName = customerData.get("customerName").toString();
+                projectName = customerData.get("projectName").toString();
+                unitSerial = customerData.get("unitSerial").toString();
+                projectId = Long.valueOf(customerData.get("projectId").toString());
+
+            }
+
+
+            if (receivingAccountAmount > 0) {
+                if (receivingAccountAmount != customerPayment.getAmount())
+                    throw new IllegalArgumentException("Amount is not matched!");
+
+                for (OrganizationAccountDetail organizationAccountDetail : customerPaymentRequest.getOrganizationAccountDetails()) {
+                    organizationAccountDetail.setCustomerName(customerName);
+                    organizationAccountDetail.setProjectName(projectName);
+                    organizationAccountDetail.setUnitSerialNo(unitSerial);
+                    organizationAccountDetail.setProjectId(projectId);
+                    organizationAccountDetail.setCustomerPaymentId(customerPaymentRequest.getId());
+                    organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
+                    organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+                }
+            }
+
+
+            customerPaymentRepo.save(customerPayment);
             return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOp);
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
@@ -407,7 +491,8 @@ public class CustomerPaymentService {
 //                        customerPaidAmount -= defaultPayment.getRemainingAmount();
 //
 //                    } else {
-////                        partially amount deductable
+
+    /// /                        partially amount deductable
 //                        defaultPayment.setReceivedAmount(customerPaidAmount);
 //                        defaultPayment.setRemainingAmount(defaultPayment.getRemainingAmount() - customerPaidAmount);
 //                        defaultPayment.setPaymentStatus(PENDING);
@@ -431,8 +516,6 @@ public class CustomerPaymentService {
 //            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
 //        }
 //    }
-
-
     @Transactional
     public Map<String, Object> updateCustomerPaymentDetail(CustomerPaymentDetail customerPayment, String loggedInUser) {
         try {
@@ -454,8 +537,6 @@ public class CustomerPaymentService {
             customerPayment.setUpdatedDate(LocalDateTime.now());
 
 
-
-
             return ResponseMapper.buildResponse(Responses.SUCCESS, customerPaymentDetailRepo.save(customerPayment));
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
@@ -467,5 +548,48 @@ public class CustomerPaymentService {
         }
     }
 
+
+    @Transactional
+    public Map<String, Object> deleteUnpostedPayment(CustomerPayment request, String loggedInUser) {
+        try {
+            ValidationService.validate(request.getId(), "customer Payment");
+
+
+            Optional<CustomerPayment> customerPaymentOptional = customerPaymentRepo.findById(request.getId());
+
+            if (customerPaymentOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Payment");
+
+            CustomerPayment customerPayment = customerPaymentOptional.get();
+            if (customerPayment.isPaymentAddedToAccount())
+                throw new IllegalArgumentException("Payment already posted in account, cannot be deleted!");
+
+
+            Optional<CustomerAccount> customerAccountOptional = customerAccountRepo.findById(customerPayment.getCustomerAccountId());
+            if (customerAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Customer Account");
+
+            CustomerAccount customerAccount = customerAccountOptional.get();
+            customerAccount.setTotalPaidAmount(customerAccount.getTotalPaidAmount() - customerPayment.getAmount());
+            customerAccount.setTotalBalanceAmount(customerAccount.getTotalBalanceAmount() + customerPayment.getAmount());
+
+            customerAccountRepo.save(customerAccount);
+
+            List<CustomerPaymentDetail> customerPaymentDetails = customerPaymentDetailRepo.findByCustomerPaymentId(request.getId());
+            customerPaymentDetailRepo.deleteAll(customerPaymentDetails);
+
+            customerPaymentRepo.deleteById(request.getId());
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Deleted Successfully!");
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
 
 }

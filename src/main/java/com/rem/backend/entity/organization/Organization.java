@@ -16,6 +16,8 @@ public class Organization {
     private String name;
     @Column(nullable = false)
     private String address;
+    @Column(nullable = false)
+    private String contactNo;
     @Column(nullable = true)
     private String logo;
     @Column(columnDefinition = "TINYINT(1) DEFAULT 1")

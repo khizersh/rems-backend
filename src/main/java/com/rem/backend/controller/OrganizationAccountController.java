@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
+import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.service.OrganizationAccountService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +45,14 @@ public class OrganizationAccountController {
     public Map addOrganizationAccountDetail(@RequestBody OrganizationAccountDetail  organizationAccountDetail , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return organizationAccountService.addOrgAcctDetail(organizationAccountDetail , loggedInUser);
+    }
+
+
+
+    @PostMapping("/transferAmount")
+    public Map transferAmount(@RequestBody TransferFundRequest transferFundRequest , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return organizationAccountService.transferFund(transferFundRequest , loggedInUser);
     }
 
     @PostMapping("/getAccountDetailByAcctId")

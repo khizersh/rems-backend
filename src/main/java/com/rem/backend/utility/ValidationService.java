@@ -137,7 +137,7 @@ public class ValidationService {
             if (to <= 0) {
                 throw new IllegalArgumentException("Invalid toMonth: must be > 0.");
             }
-            if (from >= to) {
+            if (from > to) {
                 throw new IllegalArgumentException("Invalid range: fromMonth must be less than toMonth.");
             }
             if (to > durationInMonths) {

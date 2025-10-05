@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.TransactionType;
@@ -119,6 +120,65 @@ public class OrganizationAccountService {
     }
 
 
+    public Map<String, Object> transferFund(TransferFundRequest transferFundRequest , String loggedInUser) {
+        try {
+            ValidationService.validate(loggedInUser, "loggedInUser");
+            ValidationService.validate(transferFundRequest.getFromAccountId(), "From Account");
+            ValidationService.validate(transferFundRequest.getToAccountId(), "To Account");
+            ValidationService.validate(transferFundRequest.getAmount(), "Amount");
+
+
+
+            Optional<OrganizationAccount> fromAcccountOpt = organizationAccountRepo.findById(transferFundRequest.getFromAccountId());
+            if (fromAcccountOpt.isEmpty())
+                throw new IllegalArgumentException("Invalid From Account");
+
+
+            Optional<OrganizationAccount> toAcccountOpt = organizationAccountRepo.findById(transferFundRequest.getToAccountId());
+            if (toAcccountOpt.isEmpty())
+                throw new IllegalArgumentException("To From Account");
+
+            OrganizationAccount fromAccount = fromAcccountOpt.get();
+            OrganizationAccount toAccount = toAcccountOpt.get();
+
+            if (fromAccount.getTotalAmount() < toAccount.getTotalAmount())
+                throw new IllegalArgumentException("Invalid Amount");
+
+
+            fromAccount.setTotalAmount(fromAccount.getTotalAmount() - transferFundRequest.getAmount());
+            toAccount.setTotalAmount(toAccount.getTotalAmount() + transferFundRequest.getAmount());
+
+            OrganizationAccountDetail fromAccountDetail = new OrganizationAccountDetail();
+            fromAccountDetail.setOrganizationAcctId(fromAccount.getId());
+            fromAccountDetail.setAmount(transferFundRequest.getAmount());
+            fromAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"" );
+            fromAccountDetail.setTransactionType(TransactionType.DEBIT);
+            fromAccountDetail.setCreatedBy(loggedInUser);
+            fromAccountDetail.setUpdatedBy(loggedInUser);
+            organizationAccountDetailRepo.save(fromAccountDetail);
+
+
+            OrganizationAccountDetail toAccountDetail = new OrganizationAccountDetail();
+            toAccountDetail.setOrganizationAcctId(toAccount.getId());
+            toAccountDetail.setAmount(transferFundRequest.getAmount());
+            toAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"" );
+            toAccountDetail.setTransactionType(TransactionType.CREDIT);
+            toAccountDetail.setCreatedBy(loggedInUser);
+            toAccountDetail.setUpdatedBy(loggedInUser);
+            organizationAccountDetailRepo.save(toAccountDetail);
+
+            organizationAccountRepo.save(fromAccount);
+            organizationAccountRepo.save(toAccount);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully updated!");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     public OrganizationAccount deductFromOrgAcct(OrganizationAccountDetail organizationAccountDetail , String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
@@ -129,7 +189,6 @@ public class OrganizationAccountService {
 
             if (!projectOptional.isPresent())
                 throw new IllegalArgumentException("Invalid Project");
-
 
 
             organizationAccountDetail.setProjectName(projectOptional.get().getName());

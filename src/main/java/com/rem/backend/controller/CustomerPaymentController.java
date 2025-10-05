@@ -45,10 +45,26 @@ public class CustomerPaymentController {
     }
 
 
+    @PostMapping("/addPaymentToOrgAccount")
+    public ResponseEntity<?> addPaymentToOrganizationAccount(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> projectPage = customerPaymentService.addCustomerPaymentToOrgAccount(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
     @PostMapping("/updatePayment")
     public ResponseEntity<?> updatePayment(@RequestBody CustomerPaymentDetail customerPaymentRequest, HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         Map<String, Object> projectPage = customerPaymentService.updateCustomerPaymentDetail(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @PostMapping("/deleteUnPostedPayment")
+    public ResponseEntity<?> deleteUnPostedPayment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> projectPage = customerPaymentService.deleteUnpostedPayment(customerPaymentRequest, loggedInUser);
         return ResponseEntity.ok(projectPage);
     }
 
@@ -64,4 +80,6 @@ public class CustomerPaymentController {
         Map<String, Object> projectPage = customerPaymentService.getAllPaymentDetailsByAccountId(customerAccountId);
         return ResponseEntity.ok(projectPage);
     }
+
+
 }
