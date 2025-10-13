@@ -1,6 +1,7 @@
 package com.rem.backend.entity.expense;
 
 
+import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -28,10 +29,13 @@ public class Expense {
     private Long projectId;
     private String projectName;
     private String orgAccountTitle;
-    private String  vendorName;
-    private String  expenseTitle;
+    private String vendorName;
+    private String expenseTitle;
+    private String comments = "Miscellaneous Expense";
 
 
+    @Column(nullable = false)
+    private ExpenseType expenseType;
 
     @Column(nullable = false)
     private PaymentStatus paymentStatus;

@@ -99,60 +99,72 @@ public class ExpenseService {
 
         try {
             ValidationService.validate(loggedInUser, "logged in user");
-            ValidationService.validate(expense.getExpenseTypeId(), "expense type");
+//            ValidationService.validate(expense.getExpenseTypeId(), "expense type");
+            ValidationService.validate(expense.getExpenseType(), "expense type");
             ValidationService.validate(expense.getAmountPaid(), "amount paid");
             ValidationService.validate(expense.getTotalAmount(), "total amount");
             ValidationService.validate(expense.getOrganizationId(), "organization id");
             ValidationService.validate(expense.getOrganizationAccountId(), "organization account id");
-            ValidationService.validate(expense.getCreditAmount(), "credit amount");
+//            ValidationService.validate(expense.getCreditAmount(), "credit amount");
 
-
-            Optional<VendorAccount> accountOptional = vendorAccountRepo.findById(expense.getVendorAccountId());
-            if (!accountOptional.isPresent())
-                throw new IllegalArgumentException("Invalid Vendor");
-
-
-            VendorAccount vendorAccount = accountOptional.get();
-            vendorAccount.setTotalAmount(vendorAccount.getTotalAmount() + expense.getTotalAmount());
-            vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expense.getAmountPaid());
-            vendorAccount.setTotalCreditAmount(vendorAccount.getTotalCreditAmount() + expense.getCreditAmount());
-            vendorAccountRepo.save(vendorAccount);
-
-
-            Optional<ExpenseType> expenseTypeOptional = expenseTypeRepo.findById(expense.getExpenseTypeId());
-            if (!expenseTypeOptional.isPresent())
-                throw new IllegalArgumentException("Invalid Expense Type");
 
             OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
-            organizationAccountDetail.setProjectId(expense.getProjectId());
-            organizationAccountDetail.setComments("Purchasing from " + accountOptional.get().getName() + " for " + expenseTypeOptional.get().getName());
+
+            if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
+
+                ValidationService.validate(expense.getProjectId(), "Project");
+                ValidationService.validate(expense.getVendorAccountId(), "Vendor");
+
+                Optional<VendorAccount> accountOptional = vendorAccountRepo.findById(expense.getVendorAccountId());
+                if (!accountOptional.isPresent())
+                    throw new IllegalArgumentException("Invalid Vendor");
+
+
+                VendorAccount vendorAccount = accountOptional.get();
+                vendorAccount.setTotalAmount(vendorAccount.getTotalAmount() + expense.getTotalAmount());
+                vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expense.getAmountPaid());
+                vendorAccount.setTotalCreditAmount(vendorAccount.getTotalCreditAmount() + expense.getCreditAmount());
+                vendorAccountRepo.save(vendorAccount);
+
+
+                Optional<ExpenseType> expenseTypeOptional = expenseTypeRepo.findById(expense.getExpenseTypeId());
+                if (!expenseTypeOptional.isPresent())
+                    throw new IllegalArgumentException("Invalid Expense Type");
+
+
+                if (expense.getProjectId() > 0l) {
+                    Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
+                    if (!projectOptional.isPresent())
+                        throw new IllegalArgumentException("Invalid Project!");
+
+
+                    Project project = projectOptional.get();
+                    expense.setProjectName(project.getName());
+                    project.setConstructionAmount(project.getConstructionAmount() + expense.getTotalAmount());
+                    project.setTotalAmount(project.getTotalAmount() + expense.getTotalAmount());
+                    project.setUpdatedBy(loggedInUser);
+                    projectRepo.save(project);
+                }
+                expense.setVendorName(accountOptional.get().getName());
+                expense.setExpenseTitle(expenseTypeOptional.get().getName());
+                organizationAccountDetail.setProjectId(expense.getProjectId());
+
+            } else {
+                expense.setExpenseTitle("Miscellaneous Expense");
+
+            }
+
+
+            organizationAccountDetail.setComments(expense.getComments());
             organizationAccountDetail.setAmount(expense.getAmountPaid());
             organizationAccountDetail.setOrganizationAcctId(expense.getOrganizationAccountId());
             OrganizationAccount organizationAccount = organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
             expense.setOrgAccountTitle(organizationAccount.getName());
 
-            if (expense.getProjectId() > 0l) {
-                Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
-                if (!projectOptional.isPresent())
-                    throw new IllegalArgumentException("Invalid Project!");
 
-
-                Project project = projectOptional.get();
-                expense.setProjectName(project.getName());
-                project.setConstructionAmount(project.getConstructionAmount() + expense.getTotalAmount());
-                project.setTotalAmount(project.getTotalAmount() + expense.getTotalAmount());
-                project.setUpdatedBy(loggedInUser);
-                projectRepo.save(project);
-            }
-
-
-            expense.setVendorName(accountOptional.get().getName());
-            expense.setExpenseTitle(expenseTypeOptional.get().getName());
             expense.setUpdatedBy(loggedInUser);
             expense.setCreatedBy(loggedInUser);
             expense.setPaymentStatus(getPaymentStatus(expense));
-
-
             expense = expenseRepo.save(expense);
 
             ExpenseDetail expenseDetail = new ExpenseDetail();
@@ -160,7 +172,7 @@ public class ExpenseService {
             expenseDetail.setAmountPaid(expense.getAmountPaid());
             expenseDetail.setOrganizationAccountId(expense.getOrganizationAccountId());
             expenseDetail.setOrganizationAccountTitle(organizationAccount.getName());
-            expenseDetail.setExpenseTitle(expenseTypeOptional.get().getName());
+            expenseDetail.setExpenseTitle(expense.getExpenseTitle());
             expenseDetail.setUpdatedBy(loggedInUser);
             expenseDetail.setCreatedBy(loggedInUser);
             expenseDetailRepo.save(expenseDetail);
@@ -174,9 +186,9 @@ public class ExpenseService {
             vendorPayment.setProjectId(expense.getProjectId());
             if (expense.getCreditAmount() == 0) {
                 vendorPayment.setTransactionType(TransactionType.DEBIT);
-            }else if(expense.getAmountPaid() == 0){
+            } else if (expense.getAmountPaid() == 0) {
                 vendorPayment.setTransactionType(TransactionType.CREDIT);
-            }else{
+            } else {
                 vendorPayment.setTransactionType(TransactionType.DEBIT_CREDIT);
             }
             vendorPayment.setVendorAccountId(expense.getVendorAccountId());
@@ -187,6 +199,7 @@ public class ExpenseService {
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
@@ -220,7 +233,6 @@ public class ExpenseService {
             Optional<Expense> expenseOptional = expenseRepo.findById(expenseDetail.getExpenseId());
             if (expenseOptional.isEmpty())
                 throw new IllegalArgumentException("Invalid Expense!");
-
 
 
             Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(expenseDetail.getOrganizationAccountId());
@@ -266,7 +278,7 @@ public class ExpenseService {
             vendorPayment.setProjectId(expense.getProjectId());
             if (expense.getCreditAmount() - expenseDetail.getAmountPaid() > 0) {
                 vendorPayment.setTransactionType(TransactionType.DEBIT_CREDIT);
-            }else {
+            } else {
                 vendorPayment.setTransactionType(TransactionType.DEBIT);
             }
             vendorPayment.setVendorAccountId(expense.getVendorAccountId());
@@ -309,7 +321,6 @@ public class ExpenseService {
     }
 
 
-
     public Map<String, Object> updateExpenseType(ExpenseType expense, String loggedInUser) {
 
         try {
@@ -344,14 +355,14 @@ public class ExpenseService {
 
         try {
 
-            ValidationService.validate(id , "expense");
+            ValidationService.validate(id, "expense");
 
-            Optional<ExpenseType>  expenseType = expenseTypeRepo.findById(id);
+            Optional<ExpenseType> expenseType = expenseTypeRepo.findById(id);
 
             if (expenseType.isEmpty())
                 throw new IllegalArgumentException("Invalid Expense Type");
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseType.get() );
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseType.get());
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

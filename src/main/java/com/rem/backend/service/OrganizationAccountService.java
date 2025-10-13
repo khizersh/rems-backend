@@ -61,10 +61,10 @@ public class OrganizationAccountService {
     }
 
 
-    public Map<String, Object> getOrgAccountDetailByOrgAcctId(long orgAcctId , Pageable pageable) {
+    public Map<String, Object> getOrgAccountDetailByOrgAcctId(long orgAcctId, Pageable pageable) {
         try {
             ValidationService.validate(orgAcctId, "orgId");
-            Page<OrganizationAccountDetail> accountDetails = organizationAccountDetailRepo.findByOrganizationAcctId(orgAcctId , pageable);
+            Page<OrganizationAccountDetail> accountDetails = organizationAccountDetailRepo.findByOrganizationAcctId(orgAcctId, pageable);
             return ResponseMapper.buildResponse(Responses.SUCCESS, accountDetails);
 
         } catch (IllegalArgumentException e) {
@@ -75,7 +75,7 @@ public class OrganizationAccountService {
     }
 
 
-    public Map<String, Object> addAccountByOrg(OrganizationAccount organizationAccount , String loggedInUser) {
+    public Map<String, Object> addAccountByOrg(OrganizationAccount organizationAccount, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(organizationAccount.getAccountNo(), "orgId");
@@ -93,7 +93,7 @@ public class OrganizationAccountService {
     }
 
 
-    public Map<String, Object> addOrgAcctDetail(OrganizationAccountDetail organizationAccountDetail , String loggedInUser) {
+    public Map<String, Object> addOrgAcctDetail(OrganizationAccountDetail organizationAccountDetail, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(organizationAccountDetail.getOrganizationAcctId(), "organization account");
@@ -120,13 +120,12 @@ public class OrganizationAccountService {
     }
 
 
-    public Map<String, Object> transferFund(TransferFundRequest transferFundRequest , String loggedInUser) {
+    public Map<String, Object> transferFund(TransferFundRequest transferFundRequest, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(transferFundRequest.getFromAccountId(), "From Account");
             ValidationService.validate(transferFundRequest.getToAccountId(), "To Account");
             ValidationService.validate(transferFundRequest.getAmount(), "Amount");
-
 
 
             Optional<OrganizationAccount> fromAcccountOpt = organizationAccountRepo.findById(transferFundRequest.getFromAccountId());
@@ -151,7 +150,7 @@ public class OrganizationAccountService {
             OrganizationAccountDetail fromAccountDetail = new OrganizationAccountDetail();
             fromAccountDetail.setOrganizationAcctId(fromAccount.getId());
             fromAccountDetail.setAmount(transferFundRequest.getAmount());
-            fromAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"" );
+            fromAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"");
             fromAccountDetail.setTransactionType(TransactionType.DEBIT);
             fromAccountDetail.setCreatedBy(loggedInUser);
             fromAccountDetail.setUpdatedBy(loggedInUser);
@@ -161,7 +160,7 @@ public class OrganizationAccountService {
             OrganizationAccountDetail toAccountDetail = new OrganizationAccountDetail();
             toAccountDetail.setOrganizationAcctId(toAccount.getId());
             toAccountDetail.setAmount(transferFundRequest.getAmount());
-            toAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"" );
+            toAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"");
             toAccountDetail.setTransactionType(TransactionType.CREDIT);
             toAccountDetail.setCreatedBy(loggedInUser);
             toAccountDetail.setUpdatedBy(loggedInUser);
@@ -179,7 +178,7 @@ public class OrganizationAccountService {
     }
 
 
-    public OrganizationAccount deductFromOrgAcct(OrganizationAccountDetail organizationAccountDetail , String loggedInUser) {
+    public OrganizationAccount deductFromOrgAcct(OrganizationAccountDetail organizationAccountDetail, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(organizationAccountDetail.getOrganizationAcctId(), "organization account");
@@ -187,11 +186,10 @@ public class OrganizationAccountService {
 
             Optional<Project> projectOptional = projectRepo.findByProjectIdAndIsActiveTrue(organizationAccountDetail.getProjectId());
 
-            if (!projectOptional.isPresent())
-                throw new IllegalArgumentException("Invalid Project");
+            if (projectOptional.isPresent())
+                organizationAccountDetail.setProjectName(projectOptional.get().getName());
 
 
-            organizationAccountDetail.setProjectName(projectOptional.get().getName());
             organizationAccountDetail.setCreatedBy(loggedInUser);
             organizationAccountDetail.setUpdatedBy(loggedInUser);
             organizationAccountDetail.setTransactionType(TransactionType.DEBIT);
