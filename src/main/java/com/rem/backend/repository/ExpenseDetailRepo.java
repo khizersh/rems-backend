@@ -1,6 +1,7 @@
 package com.rem.backend.repository;
 
 import com.rem.backend.entity.expense.ExpenseDetail;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,4 +12,7 @@ public interface ExpenseDetailRepo extends JpaRepository<ExpenseDetail , Long> {
 
 
     List<ExpenseDetail> findByExpenseId(long expenseId);
+
+    @Transactional
+    void deleteByExpenseId(Long expenseId);
 }

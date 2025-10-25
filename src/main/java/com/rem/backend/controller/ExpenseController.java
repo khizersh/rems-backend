@@ -43,6 +43,19 @@ public class ExpenseController {
         return expenseService.updateExpenseType(expense , loggedInUser);
     }
 
+    @PostMapping("/updateExpense")
+    public Map updateExpense(@RequestBody Expense expense , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return expenseService.updateExpense(expense , loggedInUser);
+    }
+
+
+    @GetMapping("/deleteById/{expenseId}")
+    public Map updateExpense(@PathVariable long expenseId , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return expenseService.deleteExpense(expenseId , loggedInUser);
+    }
+
 
     @PostMapping("/addExpenseDetail")
     public Map addExpenseType(@RequestBody ExpenseDetail expense , HttpServletRequest request){
@@ -77,6 +90,13 @@ public class ExpenseController {
     @GetMapping("/getExpenseDetailByExpenseId/{expenseId}")
     public ResponseEntity<?> getExpensesByIds(@PathVariable long expenseId) {
         Map<String , Object> expensePage = expenseService.getExpenseDetails(expenseId);
+        return ResponseEntity.ok(expensePage);
+    }
+
+
+    @GetMapping("/geExpenseById/{expenseId}")
+    public ResponseEntity<?> geExpenseById(@PathVariable long expenseId) {
+        Map<String , Object> expensePage = expenseService.getExpenseById(expenseId);
         return ResponseEntity.ok(expensePage);
     }
 

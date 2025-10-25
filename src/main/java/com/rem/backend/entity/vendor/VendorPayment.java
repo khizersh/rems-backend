@@ -32,6 +32,10 @@ public class VendorPayment {
     @Column(nullable = false)
     private double materialAmount;
 
+
+    @Column(nullable = true )
+    private long expenseId = 0;
+
     @Column(nullable = false)
     private TransactionType transactionType;
 
