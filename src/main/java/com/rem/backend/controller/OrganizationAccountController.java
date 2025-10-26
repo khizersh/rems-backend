@@ -1,5 +1,6 @@
 package com.rem.backend.controller;
 
+import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
@@ -65,6 +66,20 @@ public class OrganizationAccountController {
                         : Sort.by(request.getSortBy()).descending());
 
         Map<String , Object> projectPage = organizationAccountService.getOrgAccountDetailByOrgAcctId(request.getId(), pageable);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @PostMapping("/getAccountDetailByDateRange")
+    public ResponseEntity<?> getAccountDetailByDateRange(@RequestBody DateRangeRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        Map<String , Object> projectPage = organizationAccountService.getAccountDetailsByDateRangeAndByAccount(request, pageable);
         return ResponseEntity.ok(projectPage);
     }
 }

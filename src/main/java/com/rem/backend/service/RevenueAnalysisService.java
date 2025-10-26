@@ -107,8 +107,8 @@ public class RevenueAnalysisService {
             ValidationService.validate(request.getStartDate(), "start date");
             ValidationService.validate(request.getEndDate(), "end date");
 
-            LocalDateTime startDate = Utility.getLocalDateTimeByString(request.getStartDate());
-            LocalDateTime endDate = Utility.getLocalDateTimeByString(request.getEndDate());
+            LocalDateTime startDate = Utility.getStartOfDay(request.getStartDate());
+            LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
 
             Double sum = 0.0;
 
@@ -159,8 +159,8 @@ public class RevenueAnalysisService {
             ValidationService.validate(request.getStartDate(), "start date");
             ValidationService.validate(request.getEndDate(), "end date");
 
-            LocalDateTime startDate = Utility.getLocalDateTimeByString(request.getStartDate());
-            LocalDateTime endDate = Utility.getLocalDateTimeByString(request.getEndDate());
+            LocalDateTime startDate = Utility.getStartOfDay(request.getStartDate());
+            LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
             List<Map<String, Object>> list = bookingRepository.findMonthlySalesByOrganizationAndDateRange(request.getOrganizationId() , startDate , endDate);
             return ResponseMapper.buildResponse(Responses.SUCCESS, list);
 

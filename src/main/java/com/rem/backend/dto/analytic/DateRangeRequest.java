@@ -8,6 +8,7 @@ import lombok.Data;
 public class DateRangeRequest {
 
     private long organizationId;
+    private long filteredId;
     private String startDate;
     private String endDate;
     private TransactionType transactionType;

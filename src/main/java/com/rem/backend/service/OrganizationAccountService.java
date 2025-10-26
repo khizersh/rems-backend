@@ -1,5 +1,7 @@
 package com.rem.backend.service;
 
+import com.rem.backend.dto.analytic.DateRangeRequest;
+import com.rem.backend.dto.analytic.OrganizationAccountDetailProjection;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
@@ -9,6 +11,7 @@ import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
+import com.rem.backend.utility.Utility;
 import com.rem.backend.utility.ValidationService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,6 +19,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +45,49 @@ public class OrganizationAccountService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+    public Map<String, Object> getAccountDetailsByDateRangeAndByAccount(DateRangeRequest request , Pageable pageable) {
+        Page<OrganizationAccountDetailProjection>  response = null;
+        try {
+            ValidationService.validate(request.getOrganizationId(), "organization id");
+            ValidationService.validate(request.getStartDate(), "start date");
+            ValidationService.validate(request.getEndDate(), "end date");
+            ValidationService.validate(request.getFilteredBy(), "filtered By");
+
+            LocalDateTime startDate = Utility.getStartOfDay(request.getStartDate());
+            LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
+
+
+            if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
+                response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRange(
+                        request.getOrganizationId(),
+                        startDate,
+                        endDate,
+                        pageable);
+
+            } else {
+
+                ValidationService.validate(request.getFilteredId(), "Account");
+                response = organizationAccountDetailRepo.
+                        findAllByOrgAndAccountAndDateRange(
+                                request.getOrganizationId(),
+                                request.getFilteredId(),
+                                startDate,
+                                endDate,
+                                pageable
+                        );
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
 
 
     public Map<String, Object> getOrgAccountsById(long acctId) {

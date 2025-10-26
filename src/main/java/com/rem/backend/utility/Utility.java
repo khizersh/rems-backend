@@ -4,6 +4,7 @@ import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
@@ -21,10 +22,17 @@ public class Utility {
         return LocalDateTime.now().minusDays(days);
     }
 
-    public static LocalDateTime getLocalDateTimeByString(String input) {
+
+    public static LocalDateTime getStartOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
         LocalDate date = LocalDate.parse(input, formatter);
-        return date.atStartOfDay();
+        return date.atStartOfDay(); // 00:00:00
+    }
+
+    public static LocalDateTime getEndOfDay(String input) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
+        LocalDate date = LocalDate.parse(input, formatter);
+        return date.atTime(LocalTime.MAX); // 23:59:59.999999999
     }
 
 

@@ -48,6 +48,9 @@ public class OrganizationAccountDetail {
 
     private long expenseId;
 
+    @Transient
+    private String accountName;
+
     @Column(nullable = false)
     private String createdBy;
 
