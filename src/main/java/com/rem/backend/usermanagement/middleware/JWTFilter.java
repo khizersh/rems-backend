@@ -30,9 +30,19 @@ public class JWTFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        return path.equals("/api/user/login"); // Skip JWT check for login
-    }
 
+        // Base endpoints to skip JWT check
+        String[] excludedPaths = {
+                "/api/user/login",
+                "/api/user/send-reset-link",
+                "/api/user/verify-reset-link",
+                "/api/user/change-password",
+        };
+
+        // Allow endpoints that either match exactly OR start with any excluded path (for path variables)
+        return java.util.Arrays.stream(excludedPaths)
+                .anyMatch(path::startsWith);
+    }
 
 
     @Override

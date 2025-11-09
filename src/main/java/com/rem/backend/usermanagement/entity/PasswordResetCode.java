@@ -2,39 +2,25 @@ package com.rem.backend.usermanagement.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Entity
-@Table( name = "users",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "username")
-        })
+@Table(name = "password_reset_codes")
 @Data
-public class User {
+public class PasswordResetCode {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
 
-    @Column(nullable = false)
-    private String username;
     @Column(nullable = false)
     private String email;
-    @Column(nullable = false)
-    private String password;
-    @Column(nullable = false)
-    private long organizationId;
-    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
-    private boolean isActive = true;
-
-    @Transient
-    private Set<UserRoles> roles;
 
     @Column(nullable = false)
-    private String createdBy;
+    private String code;
 
-    @Column(nullable = false)
-    private String updatedBy;
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean isExpired = false;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;
@@ -52,5 +38,4 @@ public class User {
     protected void onUpdate() {
         this.updatedDate = LocalDateTime.now();
     }
-
 }

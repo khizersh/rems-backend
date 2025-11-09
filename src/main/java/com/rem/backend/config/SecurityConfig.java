@@ -32,6 +32,9 @@ public class SecurityConfig  {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless authentication
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/api/user/login").permitAll() // Make login public
+                        .requestMatchers("/api/user/send-reset-link/**").permitAll() // Make login public
+                        .requestMatchers("/api/user/change-password/**").permitAll() // Make login public
+                        .requestMatchers("/api/user/verify-reset-link/**").permitAll() // Make login public
                         .requestMatchers("/public/**").permitAll() // Any public routes
                         .anyRequest().authenticated() // Protect all other routes
                 )
