@@ -329,11 +329,16 @@ public class CustomerService {
             if (request.containsKey("name")) {
                 name = request.get("name").toString();
             }
+
+            long orgId = 0;
+            if (request.containsKey("orgId")) {
+                orgId = Long.valueOf(request.get("orgId").toString()) ;
+            }
             List<Map<String, Object>> customers;
             if (name != null && !name.trim().isEmpty()) {
-                customers = customerRepo.searchByName(name);
+                customers = customerRepo.searchByName(name , orgId);
             } else {
-                customers = customerRepo.findTop20ByOrderByCreatedDateDesc();
+                customers = customerRepo.findTop20ByOrderByCreatedDateDesc(orgId);
             }
             return ResponseMapper.buildResponse(Responses.SUCCESS, customers);
         } catch (Exception e) {

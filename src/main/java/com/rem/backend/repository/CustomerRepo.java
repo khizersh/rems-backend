@@ -24,12 +24,12 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
     Optional<Customer> findByUserId(long userId);
 
     @Query(value = "SELECT c.customer_id AS customerId, c.name AS name " +
-            "FROM customer c WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))" , nativeQuery = true)
-    List<Map<String , Object>> searchByName(String name);
+            "FROM customer c WHERE LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%')) and c.organization_id = :orgId" , nativeQuery = true)
+    List<Map<String , Object>> searchByName(String name, long orgId);
 
     @Query(value = "SELECT c.customer_id AS customerId, c.name AS name " +
-            "FROM customer c ORDER BY c.created_date DESC" , nativeQuery = true)
-    List<Map<String , Object>> findTop20ByOrderByCreatedDateDesc();
+            "FROM customer c where c.organization_id = :orgId ORDER BY c.created_date DESC" , nativeQuery = true)
+    List<Map<String , Object>> findTop20ByOrderByCreatedDateDesc(long orgId);
 
 
 //    @Query(
