@@ -82,7 +82,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
 
     @Query(value = """
-    SELECT SUM(cp.received_amount)
+    SELECT SUM(cp.amount)
     FROM customer_payment cp
     JOIN customer_account ca ON cp.customer_account_id = ca.id
     JOIN project p ON ca.project_id = p.project_id
@@ -94,8 +94,11 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
 
 
+
+
+
     @Query(value = """
-    SELECT SUM(cp.received_amount)
+    SELECT SUM(cp.amount)
     FROM customer_payment cp
     JOIN customer_account ca ON cp.customer_account_id = ca.id
     JOIN project p ON ca.project_id = p.project_id
@@ -111,13 +114,23 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
     @Query(value = """
             SELECT
-            SUM(cp.amount) - SUM(cp.received_amount) AS totalReceivable
-            FROM customer_payment cp
-            JOIN customer_account ca ON cp.customer_account_id = ca.id
+            SUM(ca.total_balance_amount)  AS totalReceivable
+            FROM customer_account ca
             JOIN project p ON ca.project_id = p.project_id
             WHERE p.organization_id = :organizationId
 """, nativeQuery = true)
     Double getTotalReceiveableAmountByOrganizationId(@Param("organizationId") Long organizationId);
+
+
+//    @Query(value = """
+//            SELECT
+//            SUM(cp.amount) - SUM(cp.received_amount) AS totalReceivable
+//            FROM customer_payment cp
+//            JOIN customer_account ca ON cp.customer_account_id = ca.id
+//            JOIN project p ON ca.project_id = p.project_id
+//            WHERE p.organization_id = :organizationId
+//""", nativeQuery = true)
+//    Double getTotalReceiveableAmountByOrganizationId(@Param("organizationId") Long organizationId);
 
 
 
