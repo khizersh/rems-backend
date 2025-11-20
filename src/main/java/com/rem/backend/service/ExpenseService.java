@@ -14,12 +14,16 @@ import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.util.*;
+
+import static com.rem.backend.utility.Utility.getPaymentStatus;
 
 @Service
 @AllArgsConstructor
@@ -35,6 +39,7 @@ public class ExpenseService {
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
     private final VendorAccountService vendorAccountService;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
+    private final OrganizationAccoutRepo organizationAccountRepo;
 
 
     public Map<String, Object> getExpenseList(long id, long id2, String filteredBy, Pageable pageable) {
@@ -97,6 +102,8 @@ public class ExpenseService {
 
     }
 
+
+    @Transactional
     public Map<String, Object> addExpense(Expense expense, String loggedInUser) {
 
         try {
@@ -109,6 +116,18 @@ public class ExpenseService {
 
 
             OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
+
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(expense.getOrganizationAccountId());
+
+            if (!organizationAccountOptional.isPresent())
+                throw new IllegalArgumentException("Invalid Account");
+
+
+            OrganizationAccount organizationAccountValidate = organizationAccountOptional.get();
+            double remainingAmount = organizationAccountValidate.getTotalAmount() - expense.getAmountPaid();
+
+            if (remainingAmount < 0)
+                throw new IllegalArgumentException("Not Enough Funds for this account");
 
             if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
@@ -153,6 +172,8 @@ public class ExpenseService {
                 expense.setExpenseTitle("Miscellaneous Expense");
 
             }
+
+
 
             expense.setUpdatedBy(loggedInUser);
             expense.setCreatedBy(loggedInUser);
@@ -202,8 +223,10 @@ public class ExpenseService {
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
@@ -228,6 +251,10 @@ public class ExpenseService {
                 throw new IllegalArgumentException("Invalid Expense!");
 
             Expense oldExpense = expenseOptional.get();
+
+            if (oldExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.HISTORICAL))
+                throw new IllegalArgumentException("Historical expense cannot be edited!");
+
 
             if (!newExpense.getExpenseType().equals(oldExpense.getExpenseType())) {
                 isExpenseTypeChanges = true;
@@ -621,6 +648,9 @@ public class ExpenseService {
 
           Expense expense = expenseOptional.get();
 
+          if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.HISTORICAL))
+              throw new IllegalArgumentException("Historical Expense cannot be deleted!");
+
           ValidationService.validate(expense.getId(), "Expense");
           ValidationService.validate(loggedInUser, "logged in user");
           ValidationService.validate(expense.getExpenseType(), "newExpense type");
@@ -689,19 +719,7 @@ public class ExpenseService {
       }
     }
 
-    public PaymentStatus getPaymentStatus(Expense expense) {
 
-        if (expense.getAmountPaid() == expense.getTotalAmount())
-            return PaymentStatus.PAID;
-
-        if (expense.getAmountPaid() == 0)
-            return PaymentStatus.UNPAID;
-
-        if (expense.getCreditAmount() > 0)
-            return PaymentStatus.PENDING;
-
-        return PaymentStatus.PENDING;
-    }
 
 
     // PAYING BACK TO VENDOR

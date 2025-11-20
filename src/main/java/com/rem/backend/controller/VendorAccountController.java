@@ -28,6 +28,20 @@ public class VendorAccountController {
     }
 
 
+
+    @PostMapping("/updateAccount")
+    public Map updateVendorAccount(@RequestBody VendorAccount vendorAccount , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return vendorAccountService.updateVendorAccount(vendorAccount, loggedInUser);
+    }
+
+
+    @GetMapping("/deleteById/{vendorId}")
+    public Map deleteVendorAccount(@PathVariable Long vendorId ){
+        return vendorAccountService.deleteVendorAccount(vendorId);
+    }
+
+
     @PostMapping("/getVendorAccountsByOrgId")
     public ResponseEntity<?> getAccountByOrgId(@RequestBody CommonPaginationRequest request){
         Pageable pageable = PageRequest.of(
@@ -49,9 +63,9 @@ public class VendorAccountController {
     }
 
 
-    @GetMapping("/getById/{orgId}")
-    public ResponseEntity<?> getVendorsById(@PathVariable long orgId){
-        Map<String , Object> projectPage = vendorAccountService.getAccountById(orgId);
+    @GetMapping("/getById/{vendorId}")
+    public ResponseEntity<?> getVendorsById(@PathVariable long vendorId){
+        Map<String , Object> projectPage = vendorAccountService.getAccountById(vendorId);
         return ResponseEntity.ok(projectPage);
     }
 

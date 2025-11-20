@@ -18,7 +18,11 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 
     Page<Expense> findAllByVendorAccountId(long vendorAccountId, Pageable pageable);
 
+    List<Expense> findAllByVendorAccountId(long vendorAccountId);
+
     Page<Expense> findAllByProjectId(long projectId, Pageable pageable);
+
+    List<Expense> findByVendorAccountIdAndCreditAmountGreaterThan(Long vendorAccountId, double creditAmount);
 
     List<Expense> findAllByProjectId(long projectId);
 

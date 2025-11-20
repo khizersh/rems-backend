@@ -148,15 +148,18 @@ public class OrganizationAccountService {
             ValidationService.validate(organizationAccountDetail.getCustomerAccountId(), "customer account");
             ValidationService.validate(organizationAccountDetail.getCustomerPaymentDetailId(), "customer payment");
             ValidationService.validate(organizationAccountDetail.getAmount(), "orgId");
-            organizationAccountDetail.setCreatedBy(loggedInUser);
-            organizationAccountDetail.setUpdatedBy(loggedInUser);
+
             Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(organizationAccountDetail.getOrganizationAcctId());
             if (!organizationAccountOptional.isPresent())
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Account");
 
 
+
             OrganizationAccount organizationAccount = organizationAccountOptional.get();
             organizationAccount.setTotalAmount(organizationAccount.getTotalAmount() + organizationAccountDetail.getAmount());
+
+            organizationAccountDetail.setCreatedBy(loggedInUser);
+            organizationAccountDetail.setUpdatedBy(loggedInUser);
             organizationAccountRepo.save(organizationAccount);
             return ResponseMapper.buildResponse(Responses.SUCCESS, organizationAccountDetailRepo.save(organizationAccountDetail));
 
@@ -199,7 +202,7 @@ public class OrganizationAccountService {
             fromAccountDetail.setOrganizationAcctId(fromAccount.getId());
             fromAccountDetail.setAmount(transferFundRequest.getAmount());
             fromAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"");
-            fromAccountDetail.setTransactionType(TransactionType.DEBIT);
+            fromAccountDetail.setTransactionType(TransactionType.CREDIT);
             fromAccountDetail.setCreatedBy(loggedInUser);
             fromAccountDetail.setUpdatedBy(loggedInUser);
             organizationAccountDetailRepo.save(fromAccountDetail);
@@ -209,7 +212,7 @@ public class OrganizationAccountService {
             toAccountDetail.setOrganizationAcctId(toAccount.getId());
             toAccountDetail.setAmount(transferFundRequest.getAmount());
             toAccountDetail.setComments("Internal fund transfer from account " + "\"" + fromAccount.getName() + "\"" + " to account " + "\"" + toAccount.getName() + "\"");
-            toAccountDetail.setTransactionType(TransactionType.CREDIT);
+            toAccountDetail.setTransactionType(TransactionType.DEBIT);
             toAccountDetail.setCreatedBy(loggedInUser);
             toAccountDetail.setUpdatedBy(loggedInUser);
             organizationAccountDetailRepo.save(toAccountDetail);
@@ -223,6 +226,7 @@ public class OrganizationAccountService {
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
+
     }
 
 
@@ -240,7 +244,7 @@ public class OrganizationAccountService {
 
             organizationAccountDetail.setCreatedBy(loggedInUser);
             organizationAccountDetail.setUpdatedBy(loggedInUser);
-            organizationAccountDetail.setTransactionType(TransactionType.DEBIT);
+            organizationAccountDetail.setTransactionType(TransactionType.CREDIT);
             Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(organizationAccountDetail.getOrganizationAcctId());
 
             if (!organizationAccountOptional.isPresent())

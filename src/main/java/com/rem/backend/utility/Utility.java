@@ -1,6 +1,8 @@
 package com.rem.backend.utility;
+import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -64,6 +66,21 @@ public class Utility {
             sum += amount;
         }
         return sum;
+    }
+
+
+    public static PaymentStatus getPaymentStatus(Expense expense) {
+
+        if (expense.getAmountPaid() == expense.getTotalAmount())
+            return PaymentStatus.PAID;
+
+        if (expense.getAmountPaid() == 0)
+            return PaymentStatus.UNPAID;
+
+        if (expense.getCreditAmount() > 0)
+            return PaymentStatus.PENDING;
+
+        return PaymentStatus.PENDING;
     }
 
 

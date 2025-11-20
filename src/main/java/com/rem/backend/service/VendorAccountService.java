@@ -1,23 +1,27 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
-import com.rem.backend.repository.OrganizationAccoutRepo;
-import com.rem.backend.repository.VendorAccountDetailRepo;
-import com.rem.backend.repository.VendorAccountRepo;
+import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.rem.backend.utility.Utility.getPaymentStatus;
 
 @Service
 @AllArgsConstructor
@@ -26,6 +30,8 @@ public class VendorAccountService {
     private final VendorAccountRepo vendorAccountRepository;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final OrganizationAccoutRepo organizationAccoutRepo;
+    private final ExpenseRepo expenseRepo;
+    private final ExpenseDetailRepo expenseDetailRepo;
 
 
     public Map<String, Object> getAllVendorAccounts(long orgId, Pageable pageable) {
@@ -80,12 +86,11 @@ public class VendorAccountService {
 
             Page<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
 
-            vendorAccounts.getContent().forEach(payment ->{
-                    payment.setOrganizationAccount(organizationAccountOptional.get().getName());
-                    payment.setVendorAccount(accountOptional.get().getName());
+            vendorAccounts.getContent().forEach(payment -> {
+                        payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                        payment.setVendorAccount(accountOptional.get().getName());
                     }
             );
-
 
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
@@ -128,6 +133,7 @@ public class VendorAccountService {
     }
 
     // ✅ Create a vendor account
+    @Transactional
     public Map<String, Object> createVendorAccount(VendorAccount vendorAccount, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
@@ -137,7 +143,154 @@ public class VendorAccountService {
             vendorAccount.setCreatedBy(loggedInUser);
             vendorAccount.setUpdatedBy(loggedInUser);
 
+            vendorAccount = vendorAccountRepository.save(vendorAccount);
+
+            Expense expense = new Expense();
+            expense.setVendorAccountId(vendorAccount.getId());
+            expense.setOrganizationId(vendorAccount.getOrganizationId());
+            expense.setVendorName(vendorAccount.getName());
+            expense.setComments("Historical expense added during system onboarding");
+            expense.setExpenseTitle("Historical expense added during system onboarding");
+            expense.setExpenseType(ExpenseType.HISTORICAL);
+            expense.setExpenseTypeId(0l);
+            expense.setOrganizationAccountId(0l);
+            expense.setProjectId(0l);
+            expense.setCreditAmount(vendorAccount.getTotalCreditAmount());
+            expense.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            expense.setTotalAmount(vendorAccount.getTotalCreditAmount() + vendorAccount.getTotalAmountPaid());
+            expense.setCreatedBy(loggedInUser);
+            expense.setUpdatedBy(loggedInUser);
+            expense.setPaymentStatus(getPaymentStatus(expense));
+
+            expense = expenseRepo.save(expense);
+
+            vendorAccount.setHistoryExpenseId(expense.getId());
+            vendorAccountRepository.save(vendorAccount);
+
+            ExpenseDetail expenseDetail = new ExpenseDetail();
+            expenseDetail.setExpenseTitle(expense.getExpenseTitle());
+            expenseDetail.setExpenseId(expense.getId());
+            expenseDetail.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            expenseDetail.setOrganizationAccountTitle("");
+            expenseDetail.setOrganizationAccountId(0l);
+            expenseDetail.setUpdatedBy(loggedInUser);
+            expenseDetail.setCreatedBy(loggedInUser);
+
+            expenseDetailRepo.save(expenseDetail);
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccount);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    // ✅ Update a vendor account
+    public Map<String, Object> updateVendorAccount(VendorAccount vendorAccount, String loggedInUser) {
+        try {
+            ValidationService.validate(loggedInUser, "loggedInUser");
+            ValidationService.validate(vendorAccount.getId(), "vendor account");
+            ValidationService.validate(vendorAccount.getName(), "name");
+            ValidationService.validate(vendorAccount.getOrganizationId(), "organization");
+
+            Optional<VendorAccount> vendorAccountOptional = vendorAccountRepository.findById(vendorAccount.getId());
+
+
+            if (vendorAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Vendor Account!");
+
+            VendorAccount account = vendorAccountOptional.get();
+
+            if (vendorAccount.getOrganizationId() != account.getOrganizationId())
+                throw new IllegalArgumentException("Invalid Call!");
+
+
+            if (isContainsTransactionHistory(vendorAccount.getId(), vendorAccount.getHistoryExpenseId()))
+                throw new IllegalArgumentException("Cannot be edited because it has transaction history");
+
+            if (vendorAccount.getHistoryExpenseId() != null) {
+                Optional<Expense> expenseOptional = expenseRepo.findById(vendorAccount.getHistoryExpenseId());
+                if (expenseOptional.isPresent()) {
+                    Expense expense = expenseOptional.get();
+                    expense.setCreditAmount(vendorAccount.getTotalCreditAmount());
+                    expense.setAmountPaid(vendorAccount.getTotalAmountPaid());
+                    expense.setTotalAmount(vendorAccount.getTotalAmountPaid() + vendorAccount.getTotalCreditAmount());
+                    expense.setPaymentStatus(getPaymentStatus(expense));
+                    expense.setUpdatedBy(loggedInUser);
+                    expense = expenseRepo.save(expense);
+
+                    List<ExpenseDetail> expenseDetailList = expenseDetailRepo.findByExpenseId(expense.getId());
+
+                    for (ExpenseDetail expenseDetail : expenseDetailList) {
+                        expenseDetail.setAmountPaid(vendorAccount.getTotalAmountPaid());
+                        expenseDetail.setOrganizationAccountId(0l);
+                        expenseDetail.setUpdatedBy(loggedInUser);
+                        expenseDetailRepo.save(expenseDetail);
+
+                    }
+
+
+                }
+
+            }
+
+            vendorAccount.setCreatedBy(loggedInUser);
+            vendorAccount.setUpdatedBy(loggedInUser);
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccountRepository.save(vendorAccount));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public boolean isContainsTransactionHistory(long id, Long historyExpenseId) {
+        try {
+            List<Expense> expenseList = expenseRepo.findAllByVendorAccountId(id);
+            List<Expense> expenseFilteredList = expenseList;
+
+            if (historyExpenseId != null)
+                expenseFilteredList = expenseList.stream().filter(expense -> expense.getId() != historyExpenseId).toList();
+
+            return expenseFilteredList.size() > 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+
+    // ✅ Update a vendor account
+    public Map<String, Object> deleteVendorAccount(Long vendorId) {
+        try {
+            ValidationService.validate(vendorId, "vendor account");
+
+            Optional<VendorAccount> vendorAccountOptional = vendorAccountRepository.findById(vendorId);
+
+            if (vendorAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Vendor Account!");
+
+
+            if (isContainsTransactionHistory(vendorId, vendorAccountOptional.get().getHistoryExpenseId()))
+                throw new IllegalArgumentException("Cannot be deleted because it has transaction history");
+
+            vendorAccountRepository.deleteById(vendorId);
+
+            if (vendorAccountOptional.get().getHistoryExpenseId() != null) {
+                expenseRepo.deleteById(vendorAccountOptional.get().getHistoryExpenseId());
+                List<ExpenseDetail> expenseDetails = expenseDetailRepo.findByExpenseId(vendorAccountOptional.get().getHistoryExpenseId());
+                expenseDetailRepo.deleteAllInBatch(expenseDetails);
+
+            }
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully deleted!");
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

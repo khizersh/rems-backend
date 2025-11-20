@@ -55,8 +55,12 @@ public class Expense {
 
     @PrePersist
     protected void onCreate() {
-        this.createdDate = LocalDateTime.now();
-        this.updatedDate = LocalDateTime.now();
+        if (this.createdDate == null) {
+            this.createdDate = LocalDateTime.now();
+        }
+        if (this.updatedDate == null) {
+            this.updatedDate = LocalDateTime.now();
+        }
     }
 
     @PreUpdate

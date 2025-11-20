@@ -158,10 +158,10 @@ public class CustomerService {
                     customers = bookingRepository.findCustomersByProjectId(id, pageable);
                     break;
                 case "floor":
-                    customers = bookingRepository.findCustomersByUnitId(id, pageable);
+                    customers = bookingRepository.findCustomersByFloorId(id, pageable);
                     break;
                 case "unit":
-                    customers = bookingRepository.findCustomersByFloorId(id, pageable);
+                    customers = bookingRepository.findCustomersByUnitId(id, pageable);
                     break;
                 default:
                     customers = customerRepo.findByOrganizationId(id, pageable);
@@ -190,8 +190,8 @@ public class CustomerService {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
             ValidationService.validate(customer.getOrganizationId(), "Organization");
-            ValidationService.validate(customer.getCreatedBy(), "Created By");
-            ValidationService.validate(customer.getUpdatedBy(), "Updated By");
+            ValidationService.validate(loggedInUser, "Created By");
+            ValidationService.validate(loggedInUser, "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
 
             if (customer.getUserId() != null) {
@@ -293,13 +293,10 @@ public class CustomerService {
         try {
             ValidationService.validate(customer.getName(), "Customer name");
             ValidationService.validate(customer.getNationalId(), "National ID");
-            ValidationService.validate(customer.getNextOFKinName(), "Next of kin name");
-            ValidationService.validate(customer.getNextOFKinNationalId(), "Next of kin National ID");
-            ValidationService.validate(customer.getRelationShipWithKin(), "Relation with kin");
-            ValidationService.validate(customer.getOrganizationId(), "Organization ID");
+            ValidationService.validate(customer.getOrganizationId(), "Organization");
+            ValidationService.validate(loggedInUser, "Created By");
             ValidationService.validate(loggedInUser, "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
-            ValidationService.validate(customer.getGuardianName(), "Guardian Name");
 
             if (customer.getEmail() != null) {
                 Optional<User> userOptional = userRepo.findById(customer.getUserId());
