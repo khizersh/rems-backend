@@ -1,7 +1,10 @@
 package com.rem.backend.utility;
+
 import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.entity.paymentschedule.MonthSpecificPayment;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentStatus;
 
 import java.time.LocalDate;
@@ -40,30 +43,37 @@ public class Utility {
 
     public static double monthlyPaymentSum(PaymentSchedule schedule) {
         double sum = 0.0;
-        for (int i = 0; i < schedule.getDurationInMonths(); i++) {
-            int serialNo = i + 1;
-            Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
-                    .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
-                    .findFirst();
 
-            if (monthWisePaymentOptional.isEmpty()) {
-                throw new IllegalArgumentException("Invalid Month wise payment!");
+        if (schedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+            for (MonthSpecificPayment payment : schedule.getMonthSpecificPaymentList()){
+                sum += payment.getAmount();
             }
-            double amount = monthWisePaymentOptional.get().getAmount();
+        } else if (schedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
+            for (int i = 0; i < schedule.getDurationInMonths(); i++) {
+                int serialNo = i + 1;
+                Optional<MonthWisePayment> monthWisePaymentOptional = schedule.getMonthWisePaymentList().stream()
+                        .filter(payment -> serialNo >= payment.getFromMonth() && serialNo <= payment.getToMonth())
+                        .findFirst();
 
-            // Add special amounts based on serialNo
-            if (serialNo % 3 == 0 && schedule.getQuarterlyPayment() != 0) {
-                amount += schedule.getQuarterlyPayment();
-            }
+                if (monthWisePaymentOptional.isEmpty()) {
+                    throw new IllegalArgumentException("Invalid Month wise payment!");
+                }
+                double amount = monthWisePaymentOptional.get().getAmount();
 
-            if (serialNo % 6 == 0 && schedule.getHalfYearlyPayment() != 0) {
-                amount += schedule.getHalfYearlyPayment();
-            }
+                // Add special amounts based on serialNo
+                if (serialNo % 3 == 0 && schedule.getQuarterlyPayment() != 0) {
+                    amount += schedule.getQuarterlyPayment();
+                }
 
-            if (serialNo % 12 == 0 && schedule.getYearlyPayment() != 0) {
-                amount += schedule.getYearlyPayment();
+                if (serialNo % 6 == 0 && schedule.getHalfYearlyPayment() != 0) {
+                    amount += schedule.getHalfYearlyPayment();
+                }
+
+                if (serialNo % 12 == 0 && schedule.getYearlyPayment() != 0) {
+                    amount += schedule.getYearlyPayment();
+                }
+                sum += amount;
             }
-            sum += amount;
         }
         return sum;
     }
@@ -82,7 +92,6 @@ public class Utility {
 
         return PaymentStatus.PENDING;
     }
-
 
 
 }

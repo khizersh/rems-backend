@@ -2,6 +2,8 @@ package com.rem.backend.enums;
 
 public enum PaymentPlanType {
 
-    INSTALLMENT,
-    ONE_TIME_PAYMENT
+
+    ONE_TIME_PAYMENT,
+    INSTALLMENT_RANGE,   // Existing range-based installment (e.g., 1–10, 11–20 months)
+    INSTALLMENT_SPECIFIC
 }

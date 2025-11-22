@@ -1,6 +1,7 @@
 package com.rem.backend.utility;
 
 import com.rem.backend.entity.booking.Booking;
+import com.rem.backend.entity.paymentschedule.MonthSpecificPayment;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.enums.PaymentPlanType;
@@ -8,6 +9,8 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.Validation;
+import org.springframework.util.StringUtils;
+
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -76,7 +79,7 @@ public class ValidationService {
     }
 
 //    public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
-//        if (payments == null || payments.isEmpty() && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+//        if (payments == null || payments.isEmpty() && paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
 //            throw new IllegalArgumentException("Month-wise payments list cannot be null or empty.");
 //        }
 //
@@ -116,8 +119,32 @@ public class ValidationService {
 //    }
 
 
+    public static void validateMonthSpecificPayments(List<MonthSpecificPayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
+        if ((payments == null || payments.isEmpty()) && paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+            throw new IllegalArgumentException("Month specific payments list cannot be null or empty.");
+        }
+
+        for (MonthSpecificPayment payment : payments) {
+
+
+            if (!StringUtils.hasText(payment.getMonth()) ) {
+                throw new IllegalArgumentException("Invalid Month");
+            }
+            if (!StringUtils.hasText(payment.getYear()) ) {
+                throw new IllegalArgumentException("Invalid Year");
+            }
+            if (payment.getAmount() <= 0) {
+                throw new IllegalArgumentException("Invalid " + payment.getMonth() + " amount");
+            }
+
+        }
+
+
+    }
+
+
     public static void validateMonthWisePayments(List<MonthWisePayment> payments, int durationInMonths, PaymentPlanType paymentPlanType) {
-        if ((payments == null || payments.isEmpty()) && paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+        if ((payments == null || payments.isEmpty()) && paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
             throw new IllegalArgumentException("Month-wise payments list cannot be null or empty.");
         }
 

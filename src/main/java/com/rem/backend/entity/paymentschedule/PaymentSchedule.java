@@ -69,6 +69,10 @@ public class PaymentSchedule {
     @Transient
     private List<MonthWisePayment> monthWisePaymentList;
 
+
+    @Transient
+    private List<MonthSpecificPayment> monthSpecificPaymentList;
+
     @Column(nullable = false)
     private String createdBy;
 

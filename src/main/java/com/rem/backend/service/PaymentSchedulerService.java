@@ -1,9 +1,11 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.paymentschedule.MonthSpecificPayment;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
+import com.rem.backend.repository.MonthSpecificPaymentRepo;
 import com.rem.backend.repository.MonthWisePaymentRepo;
 import com.rem.backend.repository.PaymentScheduleRepository;
 import com.rem.backend.utility.ResponseMapper;
@@ -16,8 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.rem.backend.utility.Utility.monthlyPaymentSum;
-import static com.rem.backend.utility.ValidationService.validateMonthWisePayments;
-import static com.rem.backend.utility.ValidationService.validatePaymentSchedule;
+import static com.rem.backend.utility.ValidationService.*;
 
 @Service
 @AllArgsConstructor
@@ -25,6 +26,7 @@ public class PaymentSchedulerService {
 
     private final PaymentScheduleRepository paymentScheduleRepository;
     private final MonthWisePaymentRepo monthWisePaymentRepo;
+    private final MonthSpecificPaymentRepo monthSpecificPaymentRepo;
 
     public void deleteByUnitId(long unitID) {
         try {
@@ -40,9 +42,13 @@ public class PaymentSchedulerService {
 
             double totalAmount = paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount();
             paymentSchedule.setTotalAmount(totalAmount);
-            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
+            }else if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                validateMonthSpecificPayments(paymentSchedule.getMonthSpecificPaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
             }
+
             validatePaymentSchedule(paymentSchedule);
             paymentSchedule.setPaymentPlanType(paymentPlanType);
             PaymentSchedule paymentScheduleSaved = paymentScheduleRepository.save(paymentSchedule);
@@ -53,6 +59,7 @@ public class PaymentSchedulerService {
                 paymentSchedule.setDurationInMonths(0);
             }
 
+
             double monthlySum = monthlyPaymentSum(paymentSchedule);
             double collectedAmount = Math.ceil(paymentSchedule.getDownPayment() +
                     paymentSchedule.getOnPossessionPayment() + monthlySum);
@@ -62,10 +69,15 @@ public class PaymentSchedulerService {
                 throw new IllegalArgumentException("Amounts not matched!");
             }
 
-            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 for (MonthWisePayment payment : paymentSchedule.getMonthWisePaymentList()) {
                     payment.setPaymentScheduleId(paymentScheduleSaved.getId());
                     monthWisePaymentRepo.save(payment);
+                }
+            } else if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                for (MonthSpecificPayment payment : paymentSchedule.getMonthSpecificPaymentList()) {
+                    payment.setPaymentScheduleId(paymentScheduleSaved.getId());
+                    monthSpecificPaymentRepo.save(payment);
                 }
             }
 
@@ -86,7 +98,7 @@ public class PaymentSchedulerService {
 
             double totalAmount = paymentSchedule.getActualAmount() + paymentSchedule.getMiscellaneousAmount() + paymentSchedule.getDevelopmentAmount();
             paymentSchedule.setTotalAmount(totalAmount);
-            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
             }
             validatePaymentSchedule(paymentSchedule);
@@ -125,7 +137,7 @@ public class PaymentSchedulerService {
                 monthWisePaymentRepo.deleteAll(toDelete);
             }
 
-            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT)) {
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 for (MonthWisePayment payment : updatedList) {
                     payment.setPaymentScheduleId(paymentScheduleSaved.getId());
                     monthWisePaymentRepo.save(payment);
@@ -242,8 +254,16 @@ public class PaymentSchedulerService {
             PaymentSchedule paymentSchedule = null;
             if (paymentScheduleOptional.isPresent()) {
                 paymentSchedule = paymentScheduleOptional.get();
-                List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
-                paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                    List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                }
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                    List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                }
+
             }
 
 
