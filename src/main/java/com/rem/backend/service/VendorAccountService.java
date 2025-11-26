@@ -224,7 +224,7 @@ public class VendorAccountService {
                     expense.setUpdatedBy(loggedInUser);
                     expense = expenseRepo.save(expense);
 
-                    List<ExpenseDetail> expenseDetailList = expenseDetailRepo.findByExpenseId(expense.getId());
+                    List<ExpenseDetail> expenseDetailList = expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(expense.getId());
 
                     for (ExpenseDetail expenseDetail : expenseDetailList) {
                         expenseDetail.setAmountPaid(vendorAccount.getTotalAmountPaid());
@@ -284,7 +284,7 @@ public class VendorAccountService {
 
             if (vendorAccountOptional.get().getHistoryExpenseId() != null) {
                 expenseRepo.deleteById(vendorAccountOptional.get().getHistoryExpenseId());
-                List<ExpenseDetail> expenseDetails = expenseDetailRepo.findByExpenseId(vendorAccountOptional.get().getHistoryExpenseId());
+                List<ExpenseDetail> expenseDetails = expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(vendorAccountOptional.get().getHistoryExpenseId());
                 expenseDetailRepo.deleteAllInBatch(expenseDetails);
 
             }

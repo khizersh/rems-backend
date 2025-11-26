@@ -3,6 +3,7 @@ package com.rem.backend.entity.expense;
 
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.PaymentStatus;
+import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -51,6 +52,18 @@ public class Expense {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+
+
+    @Transient
+    private PaymentType paymentType;
+
+    @Transient
+    private String paymentDocNo;
+
+    @Transient
+    private LocalDateTime paymentDocDate;
+
 
 
     @PrePersist

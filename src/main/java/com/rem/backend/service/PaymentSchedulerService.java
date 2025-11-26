@@ -168,8 +168,15 @@ public class PaymentSchedulerService {
             PaymentSchedule paymentSchedule = null;
             if (paymentScheduleOptional.isPresent()) {
                 paymentSchedule = paymentScheduleOptional.get();
-                List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
-                paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                    List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                }
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                    List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                }
             }
 
 
@@ -196,8 +203,16 @@ public class PaymentSchedulerService {
                     findByCustomerAccountIdAndPaymentScheduleType(Long.valueOf(request.get("id").toString()), type);
 
             if (paymentSchedule != null) {
-                List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
-                paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+
+
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                    List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                }
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                    List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                }
             }
 
 

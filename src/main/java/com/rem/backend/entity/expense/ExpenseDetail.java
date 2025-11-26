@@ -1,5 +1,6 @@
 package com.rem.backend.entity.expense;
 
+import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -33,13 +34,24 @@ public class ExpenseDetail {
     @Column(nullable = false)
     private String expenseTitle;
 
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private PaymentType paymentType;
+
     @Column(nullable = false)
     private String createdBy;
+
+    @Column(nullable = true)
+    private String paymentDocNo;
+
+    @Column(nullable = true)
+    private LocalDateTime paymentDocDate;
 
     @Column(nullable = false)
     private String updatedBy;
 
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private LocalDateTime createdDate;
 
     @Column(nullable = false)

@@ -8,6 +8,7 @@ import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.PaymentStatus;
+import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.*;
 import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
@@ -86,7 +87,7 @@ public class ExpenseService {
                 throw new IllegalArgumentException("Invalid Expense");
 
             Expense expense = expenseOptional.get();
-            expenseDetails = expenseDetailRepo.findByExpenseId(expenseId);
+            expenseDetails = expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(expenseId);
 
             Map<String, Object> data = new HashMap<>();
             data.put("expense", expense);
@@ -112,6 +113,7 @@ public class ExpenseService {
             ValidationService.validate(expense.getAmountPaid(), "amount paid");
             ValidationService.validate(expense.getTotalAmount(), "total amount");
             ValidationService.validate(expense.getOrganizationId(), "organization id");
+            ValidationService.validate(expense.getPaymentType(), "payment type");
             ValidationService.validate(expense.getOrganizationAccountId(), "organization account id");
 
 
@@ -194,6 +196,17 @@ public class ExpenseService {
             expenseDetail.setAmountPaid(expense.getAmountPaid());
             expenseDetail.setOrganizationAccountId(expense.getOrganizationAccountId());
             expenseDetail.setOrganizationAccountTitle(organizationAccount.getName());
+            expenseDetail.setExpenseTitle(expense.getExpenseTitle());
+            expenseDetail.setPaymentType(expense.getPaymentType());
+            expenseDetail.setPaymentDocNo(expense.getPaymentDocNo());
+            expenseDetail.setPaymentDocDate(expense.getPaymentDocDate());
+
+            if (!expenseDetail.getPaymentType().equals(PaymentType.CHEQUE) &&
+                    !expenseDetail.getPaymentType().equals(PaymentType.PAY_ORDER)){
+                expenseDetail.setPaymentDocDate(null);
+                expenseDetail.setPaymentDocNo(null);
+            }
+
             expenseDetail.setExpenseTitle(expense.getExpenseTitle());
             expenseDetail.setUpdatedBy(loggedInUser);
             expenseDetail.setCreatedBy(loggedInUser);
@@ -791,6 +804,12 @@ public class ExpenseService {
             expenseDetail.setOrganizationAccountTitle(organizationAccount.getName());
             expenseDetail.setCreatedBy(loggedInUser);
             expenseDetail.setUpdatedBy(loggedInUser);
+
+            if (!expenseDetail.getPaymentType().equals(PaymentType.CHEQUE) &&
+                    !expenseDetail.getPaymentType().equals(PaymentType.PAY_ORDER)){
+                expenseDetail.setPaymentDocDate(null);
+                expenseDetail.setPaymentDocNo(null);
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetailRepo.save(expenseDetail));
         } catch (IllegalArgumentException e) {

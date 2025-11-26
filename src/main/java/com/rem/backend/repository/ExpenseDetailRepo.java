@@ -11,7 +11,7 @@ import java.util.List;
 public interface ExpenseDetailRepo extends JpaRepository<ExpenseDetail , Long> {
 
 
-    List<ExpenseDetail> findByExpenseId(long expenseId);
+    List<ExpenseDetail> findByExpenseIdOrderByCreatedDateDesc(long expenseId);
 
     @Transactional
     void deleteByExpenseId(Long expenseId);
