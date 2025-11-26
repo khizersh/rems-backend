@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 
+import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.service.BookingService;
@@ -55,5 +56,10 @@ public class BookingController {
 
         Map<String , Object> projectPage = bookingService.getBookingsByIds(request.getId(), request.getFilteredBy(), pageable);
         return ResponseEntity.ok(projectPage);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<?> cancelBooking(@RequestBody BookingCancellationRequest cancellationRequest){
+        return null;
     }
 }
