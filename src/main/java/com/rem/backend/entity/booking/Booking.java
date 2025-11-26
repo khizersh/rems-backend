@@ -51,13 +51,13 @@ public class Booking {
     @Column(nullable = false)
     private Long floorId;
 
-
     @Column(nullable = false)
     private Long unitId;
 
     @Column(nullable = false)
     private Long customerId;
 
+    private String status;
 
     @Transient
     private String projectName;
