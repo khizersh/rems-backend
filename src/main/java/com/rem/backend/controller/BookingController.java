@@ -3,7 +3,9 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
+import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;
+import com.rem.backend.service.BookingCancellationService;
 import com.rem.backend.service.BookingService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -23,6 +25,7 @@ import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final BookingCancellationService bookingCancellationService;
 
 
     @PostMapping("/add")
@@ -58,8 +61,10 @@ public class BookingController {
         return ResponseEntity.ok(projectPage);
     }
 
-    @PostMapping("/{id}/cancel")
-    public ResponseEntity<?> cancelBooking(@RequestBody BookingCancellationRequest cancellationRequest){
-        return null;
+
+    @PostMapping("/{bookingId}/cancel")
+    public ResponseEntity<?> cancelBooking(@PathVariable long bookingId, @RequestBody BookingCancellationRequest cancellationRequest){
+        CustomerPayableDto customerPayableDto = bookingCancellationService.cancelBooking(bookingId, cancellationRequest);
+        return ResponseEntity.ok(customerPayableDto);
     }
 }
