@@ -56,7 +56,8 @@ public class Booking {
     @Column(nullable = false)
     private Long customerId;
 
-    private String status;
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean isActive;
 
     @Transient
     private String projectName;

@@ -6,6 +6,7 @@ import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentStatus;
+import com.rem.backend.dto.booking.BookingCancellationRequest;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -92,6 +93,18 @@ public class Utility {
 
         return PaymentStatus.PENDING;
     }
+
+
+    public static double calculateFee(double deposited, BookingCancellationRequest.CustomerPayableFeesDto fee) {
+        double value = Double.parseDouble(fee.getValue());
+
+        return switch (fee.getType().toLowerCase()) {
+            case "percentile" -> deposited * (value / 100.0);
+            case "fixed" -> value;
+            default -> 0; // or throw exception if you want validation
+        };
+    }
+
 
 
 }

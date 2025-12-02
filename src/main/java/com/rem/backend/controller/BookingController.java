@@ -67,4 +67,6 @@ public class BookingController {
         CustomerPayableDto customerPayableDto = bookingCancellationService.cancelBooking(bookingId, cancellationRequest);
         return ResponseEntity.ok(customerPayableDto);
     }
+
+
 }

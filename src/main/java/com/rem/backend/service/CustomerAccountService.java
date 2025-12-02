@@ -27,7 +27,7 @@ public class CustomerAccountService {
 
     public Page<CustomerAccount> getByProjectId(Long projectId, Pageable pageable) {
         ValidationService.validate(projectId, "Project ID");
-        return customerAccountRepo.findByProject_ProjectId(projectId, pageable);
+        return customerAccountRepo.findByProject_ProjectIdAndIsActiveTrue(projectId, pageable);
     }
 
 
@@ -68,7 +68,7 @@ public class CustomerAccountService {
 
             ValidationService.validate(customerId, "customer ID");
 
-            Page<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerId(customerId , pageable);
+            Page<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerIdAndIsActiveTrue(customerId , pageable);
             if(customerAccountOptional.isEmpty()){
                 throw new IllegalArgumentException("Customer Account Not Found!");
             }
@@ -103,11 +103,11 @@ public class CustomerAccountService {
 
     public Page<CustomerAccount> getByUnitId(Long unitId, Pageable pageable) {
         ValidationService.validate(unitId, "Unit ID");
-        return customerAccountRepo.findByUnit_Id(unitId, pageable);
+        return customerAccountRepo.findByUnit_IdAndIsActiveTrue(unitId, pageable);
     }
 
     public Page<CustomerAccount> getByOrganizationId(Long organizationId, Pageable pageable) {
-        return customerAccountRepo.findByProject_OrganizationId(organizationId, pageable);
+        return customerAccountRepo.findByProject_OrganizationIdAndIsActiveTrue(organizationId, pageable);
     }
 
 
@@ -122,16 +122,16 @@ public class CustomerAccountService {
             ValidationService.validate(id, "id");
             switch (filteredBy) {
                 case "organization":
-                    customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
+                    customers = customerAccountRepo.findByProject_OrganizationIdAndIsActiveTrue(id, pageable);
                     break;
                 case "project":
-                    customers = customerAccountRepo.findByProject_ProjectId(id, pageable);
+                    customers = customerAccountRepo.findByProject_ProjectIdAndIsActiveTrue(id, pageable);
                     break;
                 case "floor":
-                    customers = customerAccountRepo.findByUnit_FloorId(id, pageable);
+                    customers = customerAccountRepo.findByUnit_FloorIdAndIsActiveTrue(id, pageable);
                     break;
                 default:
-                    customers = customerAccountRepo.findByProject_OrganizationId(id, pageable);
+                    customers = customerAccountRepo.findByProject_OrganizationIdAndIsActiveTrue(id, pageable);
             }
 
             customers.getContent().forEach(customerAccount -> {

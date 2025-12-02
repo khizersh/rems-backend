@@ -346,7 +346,7 @@ public class CustomerService {
 
     public Map<String, Object> getUnitListByCustomerId(long customerId) {
         try {
-            List<Booking> bookingList = bookingRepository.findByCustomerId(customerId);
+            List<Booking> bookingList = bookingRepository.findByCustomerIdAndIsActiveTrue(customerId);
             List<Map<String, Object>> result = bookingList.stream()
                     .map(booking -> {
                         Map<String, Object> data = new HashMap<>();

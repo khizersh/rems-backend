@@ -85,6 +85,9 @@ public class CustomerAccount {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean isActive;
+
     @PrePersist
     protected void onCreate() {
         if (this.createdDate == null) {

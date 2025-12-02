@@ -1,13 +1,18 @@
 package com.rem.backend.entity.customerpayable;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "customer_payable_details")
+@Getter
+@Setter
 public class CustomerPayableDetail {
 
     @Id
@@ -19,15 +24,23 @@ public class CustomerPayableDetail {
     private CustomerPayable customerPayable;
 
     @Column(nullable = false)
-    private String type; // REFUND, DEDUCTION, INSTALLMENT_REFUND, MAINTENANCE_FEE, CANCELLATION_CHARGE
+    private String paymentType;
 
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private String description; // Optional text explaining the entry
+    private String chequeNo;
+
+    private LocalDateTime chequeDate;
+
+    private String createdBy;
+    private String updatedBy;
 
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    private LocalDateTime createdDate;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedDate;
 }
+
 
