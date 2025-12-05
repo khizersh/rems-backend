@@ -395,19 +395,19 @@ public class BookingService {
             // Fetch bookings based on filter
             switch (filteredBy) {
                 case "organization":
-                    bookings = bookingRepository.findByOrganizationId(id, pageable);
+                    bookings = bookingRepository.findByOrganizationIdAndIsActiveTrue(id, pageable);
                     break;
                 case "project":
-                    bookings = bookingRepository.findByProjectId(id, pageable);
+                    bookings = bookingRepository.findByProjectIdAndIsActiveTrue(id, pageable);
                     break;
                 case "floor":
-                    bookings = bookingRepository.findByFloorId(id, pageable);
+                    bookings = bookingRepository.findByFloorIdAndIsActiveTrue(id, pageable);
                     break;
                 case "unit":
-                    bookings = bookingRepository.findByUnitId(id, pageable);
+                    bookings = bookingRepository.findByUnitIdAndIsActiveTrue(id, pageable);
                     break;
                 default:
-                    bookings = bookingRepository.findByOrganizationId(id, pageable);
+                    bookings = bookingRepository.findByOrganizationIdAndIsActiveTrue(id, pageable);
                     break;
             }
 

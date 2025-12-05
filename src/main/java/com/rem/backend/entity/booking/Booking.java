@@ -3,7 +3,6 @@ package com.rem.backend.entity.booking;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
-import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -51,13 +50,14 @@ public class Booking {
     @Column(nullable = false)
     private Long floorId;
 
-
     @Column(nullable = false)
     private Long unitId;
 
     @Column(nullable = false)
     private Long customerId;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private boolean isActive;
 
     @Transient
     private String projectName;

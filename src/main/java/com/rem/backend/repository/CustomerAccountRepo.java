@@ -18,11 +18,11 @@ import java.util.Optional;
 public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Long> {
 
 
-    Page<CustomerAccount> findByUnit_Id(Long unitId, Pageable pageable);
-    Page<CustomerAccount> findByProject_ProjectId(Long projectId, Pageable pageable);
-    Page<CustomerAccount> findByProject_OrganizationId(Long organizationId, Pageable pageable);
-    Page<CustomerAccount> findByUnit_FloorId(Long floorId, Pageable pageable);
-    Page<CustomerAccount> findByCustomer_CustomerId(Long customerId , Pageable pageable);
+    Page<CustomerAccount> findByUnit_IdAndIsActiveTrue(Long unitId, Pageable pageable);
+    Page<CustomerAccount> findByProject_ProjectIdAndIsActiveTrue(Long projectId, Pageable pageable);
+    Page<CustomerAccount> findByProject_OrganizationIdAndIsActiveTrue(Long organizationId, Pageable pageable);
+    Page<CustomerAccount> findByUnit_FloorIdAndIsActiveTrue(Long floorId, Pageable pageable);
+    Page<CustomerAccount> findByCustomer_CustomerIdAndIsActiveTrue(Long customerId , Pageable pageable);
 
 
 
@@ -31,7 +31,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
             "AS unitSerial " +
             "FROM customer_account ca LEFT JOIN customer c ON ca.customer_id = c.customer_id " +
             " LEFT JOIN unit u ON ca.unit_id = u.id" +
-            " where c.organization_id = :organizationId" , nativeQuery = true)
+            " where c.organization_id = :organizationId and ca.isActive = true" , nativeQuery = true)
     List<Map<String , Object>> findNameIdOrganization(Long organizationId);
 
 
@@ -47,6 +47,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
         JOIN customer c ON ca.customer_id = c.customer_id
         JOIN unit u     ON ca.unit_id = u.id
         WHERE ca.project_id = :projectId
+        and ca.isActive = true
         """,
             nativeQuery = true
     )
@@ -68,6 +69,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     JOIN project p ON ca.project_id = p.project_id
     WHERE p.organization_id = :organizationId
     AND ca.created_date >= :fromDate
+    and ca.isActive = true
 """, nativeQuery = true)
     Double getTotalAmountByOrganizationIdAndCreatedAfter(
             @Param("organizationId") Long organizationId,
@@ -79,6 +81,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     FROM customer_account ca
     JOIN project p ON ca.project_id = p.project_id
     WHERE p.project_id = :projectId
+    and ca.isActive = true
 """, nativeQuery = true)
     Double getTotalAmountSaleByProjectId(
             @Param("projectId") Long projectId
@@ -91,6 +94,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     JOIN customer_account ca ON cp.customer_account_id = ca.id
     JOIN project p ON ca.project_id = p.project_id
     WHERE p.project_id = :projectId
+    and ca.isActive = true
 """, nativeQuery = true)
     Double getTotalAmountReceivedByProjectId(
             @Param("projectId") Long projectId
@@ -108,6 +112,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     JOIN project p ON ca.project_id = p.project_id
     WHERE p.organization_id = :organizationId
     AND cp.created_date >= :fromDate
+    and ca.isActive = true
 """, nativeQuery = true)
     Double getTotalReceivedAmountByOrganizationIdAndDate(
             @Param("organizationId") Long organizationId,
@@ -122,6 +127,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
             FROM customer_account ca
             JOIN project p ON ca.project_id = p.project_id
             WHERE p.organization_id = :organizationId
+            and ca.isActive = true
 """, nativeQuery = true)
     Double getTotalReceiveableAmountByOrganizationId(@Param("organizationId") Long organizationId);
 
