@@ -6,6 +6,7 @@ import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -100,6 +102,45 @@ public class VendorAccountService {
         }
     }
 
+
+    public Map<String, Object> getVendorDetailsByAccountWithoutPagination(long acctId) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+
+            Optional<VendorAccount> accountOptional = vendorAccountRepository.findById(acctId);
+            if (accountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Vendor Account");
+
+
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(accountOptional.get().getOrganizationId());
+            if (organizationAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Organization Account");
+
+
+            List<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountIdOrderByIdDesc(acctId);
+
+            vendorAccounts.forEach(payment -> {
+                        payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                        payment.setVendorAccount(accountOptional.get().getName());
+                    }
+            );
+
+            VendorAccount account = accountOptional.get();
+
+            response.put("list", vendorAccounts);
+            response.put("totalPaid", account.getTotalAmountPaid());
+            response.put("totalCredit", account.getTotalCreditAmount());
+            response.put("totalAmount", account.getTotalAmount());
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     // ✅ Get all vendor accounts by name or get all
     public Map<String, Object> getAllVendorAccountsFilter(String nameFilter) {
         try {
@@ -144,6 +185,22 @@ public class VendorAccountService {
             vendorAccount.setUpdatedBy(loggedInUser);
 
             vendorAccount = vendorAccountRepository.save(vendorAccount);
+
+            VendorPayment payment = new VendorPayment();
+
+            payment.setVendorAccountId(vendorAccount.getId());
+            payment.setUpdatedBy(loggedInUser);
+            payment.setCreatedBy(loggedInUser);
+            payment.setVendorAccount(vendorAccount.getName());
+            payment.setCreditAmount(vendorAccount.getTotalCreditAmount());
+            payment.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            if (vendorAccount.getTotalAmountPaid() == vendorAccount.getTotalAmount())
+                payment.setTransactionType(TransactionType.DEBIT);
+            else if (vendorAccount.getTotalCreditAmount() == vendorAccount.getTotalAmount())
+                payment.setTransactionType(TransactionType.CREDIT);
+            else payment.setTransactionType(TransactionType.DEBIT_CREDIT);
+            vendorAccountDetailRepo.save(payment);
+
 
             Expense expense = new Expense();
             expense.setVendorAccountId(vendorAccount.getId());

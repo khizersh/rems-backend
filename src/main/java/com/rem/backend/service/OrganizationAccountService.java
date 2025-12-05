@@ -46,8 +46,8 @@ public class OrganizationAccountService {
         }
     }
 
-    public Map<String, Object> getAccountDetailsByDateRangeAndByAccount(DateRangeRequest request , Pageable pageable) {
-        Page<OrganizationAccountDetailProjection>  response = null;
+    public Map<String, Object> getAccountDetailsByDateRangeAndByAccount(DateRangeRequest request, Pageable pageable) {
+        Page<OrganizationAccountDetailProjection> response = null;
         try {
             ValidationService.validate(request.getOrganizationId(), "organization id");
             ValidationService.validate(request.getStartDate(), "start date");
@@ -89,6 +89,47 @@ public class OrganizationAccountService {
     }
 
 
+    public Map<String, Object> getAccountDetailsByDateRangeAndByAccountWithoutPagination(DateRangeRequest request) {
+        List<OrganizationAccountDetailProjection> response = null;
+        try {
+            ValidationService.validate(request.getOrganizationId(), "organization id");
+            ValidationService.validate(request.getStartDate(), "start date");
+            ValidationService.validate(request.getEndDate(), "end date");
+            ValidationService.validate(request.getFilteredBy(), "filtered By");
+
+            LocalDateTime startDate = Utility.getStartOfDay(request.getStartDate());
+            LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
+
+
+            if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
+                response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRangeWithoutPagination(
+                        request.getOrganizationId(),
+                        startDate,
+                        endDate
+                );
+
+            } else {
+
+                ValidationService.validate(request.getFilteredId(), "Account");
+                response = organizationAccountDetailRepo.
+                        findAllByOrgAndAccountAndDateRangeWithoutPagination(
+                                request.getOrganizationId(),
+                                request.getFilteredId(),
+                                startDate,
+                                endDate
+                        );
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
 
     public Map<String, Object> getOrgAccountsById(long acctId) {
         try {
@@ -123,6 +164,33 @@ public class OrganizationAccountService {
     }
 
 
+    public Map<String, Object> getOrgAccountDetailByOrgAcctIdWithoutPagination(long orgAcctId) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            ValidationService.validate(orgAcctId, "orgId");
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(orgAcctId);
+
+            if (organizationAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Account");
+
+            OrganizationAccount account = organizationAccountOptional.get();
+
+
+            List<OrganizationAccountDetail> accountDetails = organizationAccountDetailRepo.findByOrganizationAcctIdOrderByIdDesc(orgAcctId);
+
+            response.put("account", account);
+            response.put("list", accountDetails);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> addAccountByOrg(OrganizationAccount organizationAccount, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
@@ -152,7 +220,6 @@ public class OrganizationAccountService {
             Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(organizationAccountDetail.getOrganizationAcctId());
             if (!organizationAccountOptional.isPresent())
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Account");
-
 
 
             OrganizationAccount organizationAccount = organizationAccountOptional.get();

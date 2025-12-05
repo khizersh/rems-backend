@@ -19,6 +19,7 @@ import java.util.Optional;
 public interface OrganizationAccountDetailRepo extends JpaRepository<OrganizationAccountDetail, Long > {
 
     Page<OrganizationAccountDetail> findByOrganizationAcctId(long orgAcctId , Pageable pageable);
+    List<OrganizationAccountDetail> findByOrganizationAcctIdOrderByIdDesc(long orgAcctId);
 
     Optional<OrganizationAccountDetail> findByExpenseId(long expenseId);
 
@@ -53,6 +54,31 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
 
 
     @Query("""
+    SELECT a.name AS accountName,
+           d.transactionType AS transactionType,
+           d.amount AS amount,
+           d.comments AS comments,
+           d.projectName AS projectName,
+           d.customerName AS customerName,
+           d.unitSerialNo AS unitSerialNo,
+           d.createdBy AS createdBy,
+           d.updatedBy AS updatedBy,
+           d.createdDate AS createdDate,
+           d.updatedDate AS updatedDate
+    FROM OrganizationAccountDetail d
+    JOIN OrganizationAccount a ON d.organizationAcctId = a.id
+    WHERE a.organizationId = :organizationId
+      AND d.createdDate BETWEEN :startDate AND :endDate
+    ORDER BY d.createdDate DESC
+""")
+    List<OrganizationAccountDetailProjection> findAllByOrganizationIdAndDateRangeWithoutPagination(
+            @Param("organizationId") long organizationId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+
+    @Query("""
      SELECT a.name AS accountName,
            d.transactionType AS transactionType,
            d.amount AS amount,
@@ -77,5 +103,32 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             Pageable pageable
+    );
+
+
+    @Query("""
+     SELECT a.name AS accountName,
+           d.transactionType AS transactionType,
+           d.amount AS amount,
+           d.comments AS comments,
+           d.projectName AS projectName,
+           d.customerName AS customerName,
+           d.unitSerialNo AS unitSerialNo,
+           d.createdBy AS createdBy,
+           d.updatedBy AS updatedBy,
+           d.createdDate AS createdDate,
+           d.updatedDate AS updatedDate
+        FROM OrganizationAccountDetail d
+        JOIN OrganizationAccount a ON d.organizationAcctId = a.id
+        WHERE a.organizationId = :organizationId
+          AND a.id = :organizationAcctId
+          AND d.createdDate BETWEEN :startDate AND :endDate
+        ORDER BY d.createdDate DESC
+    """)
+    List<OrganizationAccountDetailProjection> findAllByOrgAndAccountAndDateRangeWithoutPagination(
+            @Param("organizationId") long organizationId,
+            @Param("organizationAcctId") Long organizationAcctId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
     );
 }

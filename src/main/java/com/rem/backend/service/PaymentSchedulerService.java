@@ -1,13 +1,14 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.customer.Customer;
+import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.paymentschedule.MonthSpecificPayment;
 import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
-import com.rem.backend.repository.MonthSpecificPaymentRepo;
-import com.rem.backend.repository.MonthWisePaymentRepo;
-import com.rem.backend.repository.PaymentScheduleRepository;
+import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -27,6 +28,9 @@ public class PaymentSchedulerService {
     private final PaymentScheduleRepository paymentScheduleRepository;
     private final MonthWisePaymentRepo monthWisePaymentRepo;
     private final MonthSpecificPaymentRepo monthSpecificPaymentRepo;
+    private final UnitRepo unitRepo;
+    private final CustomerRepo customerRepo;
+
 
     public void deleteByUnitId(long unitID) {
         try {
@@ -45,7 +49,7 @@ public class PaymentSchedulerService {
 
             if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
-            }else if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+            } else if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
                 validateMonthSpecificPayments(paymentSchedule.getMonthSpecificPaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
             }
 
@@ -154,7 +158,7 @@ public class PaymentSchedulerService {
     }
 
 
-    public Map<String, Object> getPaymentscheduleByUnitId(Map<String, String> request) {
+    public Map<String, Object> getPaymentscheduleByUnitIdAndScheduleType(Map<String, String> request) {
 
         try {
 
@@ -169,18 +173,94 @@ public class PaymentSchedulerService {
             if (paymentScheduleOptional.isPresent()) {
                 paymentSchedule = paymentScheduleOptional.get();
 
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                     List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                } else {
+                    paymentSchedule.setMonthWisePaymentList(Collections.emptyList());
                 }
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
                     List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                } else {
+                    paymentSchedule.setMonthSpecificPaymentList(Collections.emptyList());
                 }
             }
 
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, paymentSchedule);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
+    }
+
+
+    public Map<String, Object> getPaymentscheduleByUnitId(long unitId) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+
+
+            ValidationService.validate(unitId, "unitId");
+
+            Map unitOptional = unitRepo.findUnitDetails(unitId);
+            response.put("unit", unitOptional);
+
+            if (unitOptional == null)
+                throw new IllegalArgumentException("Invalid Unit");
+
+            if (Boolean.valueOf(unitOptional.get("booked").toString()) == true) {
+                Optional<Customer> customerOptional = customerRepo.getCustomerByUnitId(unitId);
+                if (customerOptional.isEmpty())
+                    throw new IllegalArgumentException("Customer not found against this booking!");
+
+                response.put("customerData", customerOptional.get());
+            }
+
+
+
+
+
+            Optional<PaymentSchedule> paymentScheduleOptionalBuilder = paymentScheduleRepository.
+                    findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.BUILDER);
+
+            if (paymentScheduleOptionalBuilder.isPresent()) {
+                PaymentSchedule paymentSchedule = paymentScheduleOptionalBuilder.get();
+
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
+                    List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                }
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                    List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                }
+                response.put("builder", paymentSchedule);
+            }
+
+            Optional<PaymentSchedule> paymentScheduleOptionalCustomer = paymentScheduleRepository.
+                    findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.CUSTOMER);
+
+            if (paymentScheduleOptionalCustomer.isPresent()) {
+                PaymentSchedule paymentSchedule = paymentScheduleOptionalCustomer.get();
+
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
+                    List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
+                }
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                    List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
+                    paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
+                }
+                response.put("customer", paymentSchedule);
+            }
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
@@ -205,11 +285,11 @@ public class PaymentSchedulerService {
             if (paymentSchedule != null) {
 
 
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                     List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
                 }
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
                     List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
                 }
@@ -270,11 +350,11 @@ public class PaymentSchedulerService {
             if (paymentScheduleOptional.isPresent()) {
                 paymentSchedule = paymentScheduleOptional.get();
 
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                     List<MonthWisePayment> monthWisePaymentList = monthWisePaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthWisePaymentList(monthWisePaymentList);
                 }
-                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)){
+                if (paymentSchedule.getPaymentPlanType().equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
                     List<MonthSpecificPayment> monthSpecificPaymentList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentSchedule.getId());
                     paymentSchedule.setMonthSpecificPaymentList(monthSpecificPaymentList);
                 }

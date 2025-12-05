@@ -70,6 +70,13 @@ public class OrganizationAccountController {
     }
 
 
+    @GetMapping("/getAccountDetailByAcctIdPrint/{accountId}")
+    public ResponseEntity<?> getProjectsByOrganization(@PathVariable long accountId) {
+        Map<String , Object> projectPage = organizationAccountService.getOrgAccountDetailByOrgAcctIdWithoutPagination(accountId);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
     @PostMapping("/getAccountDetailByDateRange")
     public ResponseEntity<?> getAccountDetailByDateRange(@RequestBody DateRangeRequest request) {
         Pageable pageable = PageRequest.of(
@@ -80,6 +87,13 @@ public class OrganizationAccountController {
                         : Sort.by(request.getSortBy()).descending());
 
         Map<String , Object> projectPage = organizationAccountService.getAccountDetailsByDateRangeAndByAccount(request, pageable);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @PostMapping("/getAccountDetailByDateRangePrint")
+    public ResponseEntity<?> getAccountDetailByDateRangeWithoutPagination(@RequestBody DateRangeRequest request) {
+        Map<String , Object> projectPage = organizationAccountService.getAccountDetailsByDateRangeAndByAccountWithoutPagination(request);
         return ResponseEntity.ok(projectPage);
     }
 }

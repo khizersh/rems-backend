@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface VendorAccountDetailRepo extends JpaRepository<VendorPayment, Long> {
 
     Page<VendorPayment> findByVendorAccountId(long acctId , Pageable pageable);
-    List<VendorPayment> findByVendorAccountId(long acctId );
+    List<VendorPayment> findByVendorAccountIdOrderByIdDesc(long acctId );
     Optional<VendorPayment> findByExpenseId(long expenseID );
     @Transactional
     void deleteByExpenseId(Long expenseId);

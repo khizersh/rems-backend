@@ -21,6 +21,19 @@ public interface UnitRepo extends JpaRepository<Unit, Long> {
 
     int countByFloorId(Long floorId);
 
+    @Query("""
+    SELECT u.id AS id,
+           u.serialNo AS serialNo,
+           u.isBooked AS booked,
+           f.floor AS floorNo,
+           p.name AS projectName
+    FROM Unit u
+    JOIN Floor f ON u.floorId = f.id
+    JOIN Project p ON f.projectId = p.id
+    WHERE u.id = :unitId
+""")
+    Map<String , Object> findUnitDetails(@Param("unitId") long unitId);
+
     @Query(value = "SELECT u.serial_no FROM unit u WHERE u.id = :id" , nativeQuery = true)
     String findUnitSerialById(long id);
 

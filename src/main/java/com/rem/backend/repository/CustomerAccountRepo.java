@@ -1,5 +1,6 @@
 package com.rem.backend.repository;
 
+import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -56,6 +57,9 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
     Page<CustomerAccount> findAllByOrderByCreatedDateDesc(Pageable pageable);
 
     Optional<CustomerAccount> findByCustomer_CustomerIdAndUnit_Id(Long customerId, Long unitId);
+
+
+
 
 
     @Query(value = """

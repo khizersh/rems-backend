@@ -16,7 +16,13 @@ public class PaymentScheduleController {
 
     @PostMapping("/getByUnit")
     public Map getPaymentScheduleByUnit(@RequestBody Map<String , String> request){
-        return paymentSchedulerService.getPaymentscheduleByUnitId(request);
+        return paymentSchedulerService.getPaymentscheduleByUnitIdAndScheduleType(request);
+    }
+
+
+    @GetMapping("/getByUnit/{unitId}")
+    public Map getPaymentScheduleByUnit(@PathVariable long unitId){
+        return paymentSchedulerService.getPaymentscheduleByUnitId(unitId);
     }
 
 

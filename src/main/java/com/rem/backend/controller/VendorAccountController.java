@@ -84,4 +84,11 @@ public class VendorAccountController {
     }
 
 
+    @GetMapping("/getHistoryByAccountIdPrint/{vendorAcctId}")
+    public ResponseEntity<?> getAccountDetailsByVendorAcctIdPrint(@PathVariable long vendorAcctId){
+        Map<String , Object> projectPage = vendorAccountService.getVendorDetailsByAccountWithoutPagination(vendorAcctId);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
 }

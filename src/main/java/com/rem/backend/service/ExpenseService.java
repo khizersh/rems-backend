@@ -769,7 +769,7 @@ public class ExpenseService {
 //          SETTLING ORG ACCOUNT
             OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
             organizationAccountDetail.setProjectId(expense.getProjectId());
-            organizationAccountDetail.setComments("Paying Debt of" + expense.getVendorName() + " for " + expense.getExpenseTitle());
+            organizationAccountDetail.setComments("Paying Debt of " + expense.getVendorName() + " for " + expense.getExpenseTitle());
             organizationAccountDetail.setAmount(expenseDetail.getAmountPaid());
             organizationAccountDetail.setOrganizationAcctId(expenseDetail.getOrganizationAccountId());
             organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
