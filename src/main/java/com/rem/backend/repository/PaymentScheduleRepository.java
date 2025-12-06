@@ -14,7 +14,7 @@ import java.util.Optional;
 @Repository
 public interface PaymentScheduleRepository extends JpaRepository<PaymentSchedule , Long> {
 
-    Optional<PaymentSchedule> findByUnitIdAndPaymentScheduleType(Long unitId , PaymentScheduleType paymentScheduleType);
+    Optional<PaymentSchedule> findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(Long unitId , PaymentScheduleType paymentScheduleType);
 
 
     @Query(value = """
@@ -26,6 +26,7 @@ public interface PaymentScheduleRepository extends JpaRepository<PaymentSchedule
             WHERE ca.id = :customerAccountId
         )
         AND ps.paymentScheduleType = :paymentScheduleType
+        AND ps.isActive = true
     """)
     PaymentSchedule findByCustomerAccountIdAndPaymentScheduleType(
             @Param("customerAccountId") Long customerAccountId,

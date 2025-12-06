@@ -3,16 +3,12 @@ package com.rem.backend.service;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;
-import com.rem.backend.entity.customer.CustomerPayment;
-import com.rem.backend.entity.paymentschedule.MonthWisePayment;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
-import com.rem.backend.enums.PaymentStatus;
-import com.rem.backend.enums.PaymentType;
 import com.rem.backend.repository.*;
 import com.rem.backend.usermanagement.entity.User;
 import com.rem.backend.usermanagement.repository.UserRepo;
@@ -21,13 +17,11 @@ import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
-import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.rem.backend.utility.Utility.*;
@@ -60,7 +54,7 @@ public class BookingService {
             validateBooking(booking);
 
 
-            if (bookingRepository.existsByUnit_Id(booking.getUnitId()))
+            if (bookingRepository.existsByUnit_IdAndIsActiveTrue(booking.getUnitId()))
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "This unit is already booked!");
 
 
@@ -339,7 +333,7 @@ public class BookingService {
 
         PaymentSchedule schedule = booking.getPaymentSchedule();
 
-        Optional<CustomerAccount>  accountOptional = customerAccountRepo.findByCustomer_CustomerIdAndUnit_Id(booking.getCustomerId() , booking.getUnitId());
+        Optional<CustomerAccount>  accountOptional = customerAccountRepo.findByCustomer_CustomerIdAndUnit_IdAndIsActiveTrue(booking.getCustomerId() , booking.getUnitId());
         if (accountOptional.isEmpty())
             throw new IllegalArgumentException("Invalid Account");
 
@@ -419,7 +413,7 @@ public class BookingService {
                 booking.setCustomerId(booking.getCustomer().getCustomerId());
                 booking.setUnitSerial(unit.getSerialNo());
 
-                Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepo.findByUnitIdAndPaymentScheduleType(unit.getId(), PaymentScheduleType.CUSTOMER);
+                Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepo.findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(unit.getId(), PaymentScheduleType.CUSTOMER);
 
                 if (paymentScheduleOptional.isPresent()) {
                     booking.setTotalAmount(paymentScheduleOptional.get().getTotalAmount());

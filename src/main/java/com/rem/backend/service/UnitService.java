@@ -77,7 +77,7 @@ public class UnitService {
                 if (optionalFloor.isPresent()) {
                     String projectName = projectRepo.findProjectNameById(optionalFloor.get().getProjectId());
 
-                    Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.BUILDER);
+                    Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(unitId, PaymentScheduleType.BUILDER);
 
                     if (paymentScheduleOptional.isPresent()) {
                         unitDetails = new UnitDetails();

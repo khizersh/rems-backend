@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +16,7 @@ import java.util.Map;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    boolean existsByUnit_Id(Long unitId);
+    boolean existsByUnit_IdAndIsActiveTrue(Long unitId);
 
     Page<Booking> findByOrganizationIdAndIsActiveTrue(Long organizationId, Pageable pageable);
     Page<Booking> findByProjectIdAndIsActiveTrue(Long projectId, Pageable pageable);
@@ -42,7 +41,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             value = "SELECT MONTH(created_date) AS month, YEAR(created_date) AS year, COUNT(id) AS count " +
                     "FROM booking " +
                     "WHERE YEAR(created_date) IN (:currentYear, :lastYear) " +
-                    "AND organization_id = :organizationId  AND isActive = true " +
+                    "AND organization_id = :organizationId  AND is_active = true " +
                     "GROUP BY YEAR(created_date), MONTH(created_date) " +
                     "ORDER BY year, month",
             nativeQuery = true
@@ -63,7 +62,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         JOIN payment_schedule ps ON b.unit_id = ps.unit_id
         WHERE YEAR(b.created_date) IN (:currentYear, :lastYear)
           AND b.organization_id = :organizationId
-          AND b.isActive = true
+          AND b.is_active = 1
           AND ps.payment_schedule_type = 'CUSTOMER' 
         GROUP BY YEAR(b.created_date), MONTH(b.created_date)
         ORDER BY year, month
@@ -85,7 +84,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         FROM booking b
         JOIN payment_schedule ps ON b.unit_id = ps.unit_id
         WHERE b.project_id = :projectId
-        AND b.isActive = true 
+        AND b.is_active = 1 
           AND ps.payment_schedule_type = 'CUSTOMER' 
         GROUP BY YEAR(b.created_date), MONTH(b.created_date)
         ORDER BY year, month
@@ -104,7 +103,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         FROM booking b
         JOIN payment_schedule ps ON b.unit_id = ps.unit_id
         WHERE b.organization_id = :organizationId
-        AND b.isActive = true
+        AND b.is_active = 1
           AND ps.payment_schedule_type = 'CUSTOMER'
           AND b.created_date BETWEEN :startDate AND :endDate
         GROUP BY YEAR(b.created_date), MONTH(b.created_date)
@@ -128,7 +127,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
         FROM customer_account ca
         JOIN customer_payment cp ON ca.id = cp.customer_account_id
         WHERE ca.project_id = :projectId
-        AND ca.isActive = true
+        AND ca.is_active = 1
         GROUP BY YEAR(cp.updated_date), MONTH(cp.updated_date)
         ORDER BY year, month
     """,
@@ -146,7 +145,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
                            COUNT(b.id) AS amount
                        FROM booking b
                        WHERE b.project_id = :projectId
-                       AND b.isActive = true
+                       AND b.is_active = 1
                        GROUP BY YEAR(b.updated_date), MONTH(b.updated_date)
                        ORDER BY year, month;
     """,

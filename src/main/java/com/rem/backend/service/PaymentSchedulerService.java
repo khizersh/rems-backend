@@ -167,7 +167,7 @@ public class PaymentSchedulerService {
             ValidationService.validate(request.get("paymentScheduleType"), "paymentScheduleType");
             PaymentScheduleType type = PaymentScheduleType.valueOf(request.get("paymentScheduleType").toString());
             Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.
-                    findByUnitIdAndPaymentScheduleType(Long.valueOf(request.get("id").toString()), type);
+                    findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(Long.valueOf(request.get("id").toString()), type);
 
             PaymentSchedule paymentSchedule = null;
             if (paymentScheduleOptional.isPresent()) {
@@ -218,7 +218,7 @@ public class PaymentSchedulerService {
                 if (customerOptional.isEmpty())
                     throw new IllegalArgumentException("Customer not found against this booking!");
 
-                response.put("customerData", customerOptional.get());
+                response.put("customer", customerOptional.get());
             }
 
 
@@ -226,7 +226,7 @@ public class PaymentSchedulerService {
 
 
             Optional<PaymentSchedule> paymentScheduleOptionalBuilder = paymentScheduleRepository.
-                    findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.BUILDER);
+                    findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(unitId, PaymentScheduleType.BUILDER);
 
             if (paymentScheduleOptionalBuilder.isPresent()) {
                 PaymentSchedule paymentSchedule = paymentScheduleOptionalBuilder.get();
@@ -243,7 +243,7 @@ public class PaymentSchedulerService {
             }
 
             Optional<PaymentSchedule> paymentScheduleOptionalCustomer = paymentScheduleRepository.
-                    findByUnitIdAndPaymentScheduleType(unitId, PaymentScheduleType.CUSTOMER);
+                    findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(unitId, PaymentScheduleType.CUSTOMER);
 
             if (paymentScheduleOptionalCustomer.isPresent()) {
                 PaymentSchedule paymentSchedule = paymentScheduleOptionalCustomer.get();
@@ -316,7 +316,7 @@ public class PaymentSchedulerService {
             ValidationService.validate(request.get("paymentScheduleType"), "paymentScheduleType");
             PaymentScheduleType type = PaymentScheduleType.valueOf(request.get("paymentScheduleType").toString());
             Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.
-                    findByUnitIdAndPaymentScheduleType(Long.valueOf(request.get("id").toString()), type);
+                    findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(Long.valueOf(request.get("id").toString()), type);
 
             PaymentSchedule paymentSchedule = null;
             if (paymentScheduleOptional.isPresent()) {
@@ -344,7 +344,7 @@ public class PaymentSchedulerService {
             ValidationService.validate(unitId, "unitId");
             ValidationService.validate(type, "paymentScheduleType");
             Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepository.
-                    findByUnitIdAndPaymentScheduleType(Long.valueOf(unitId), type);
+                    findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(Long.valueOf(unitId), type);
 
             PaymentSchedule paymentSchedule = null;
             if (paymentScheduleOptional.isPresent()) {

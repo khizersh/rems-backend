@@ -63,8 +63,9 @@ public class BookingController {
 
 
     @PostMapping("/{bookingId}/cancel")
-    public ResponseEntity<?> cancelBooking(@PathVariable long bookingId, @RequestBody BookingCancellationRequest cancellationRequest){
-        CustomerPayableDto customerPayableDto = bookingCancellationService.cancelBooking(bookingId, cancellationRequest);
+    public ResponseEntity<?> cancelBooking(@PathVariable long bookingId, @RequestBody BookingCancellationRequest cancellationRequest, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map customerPayableDto = bookingCancellationService.cancelBooking(bookingId, cancellationRequest, loggedInUser);
         return ResponseEntity.ok(customerPayableDto);
     }
 

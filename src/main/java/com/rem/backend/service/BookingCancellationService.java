@@ -5,15 +5,23 @@ import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
+import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.repository.BookingRepository;
 import com.rem.backend.repository.CustomerAccountRepo;
 import com.rem.backend.repository.CustomerPayableRepository;
+import com.rem.backend.repository.PaymentScheduleRepository;
+import com.rem.backend.utility.ResponseMapper;
+import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.rem.backend.enums.CustomerPayableStatus.PENDING;
@@ -25,8 +33,10 @@ public class BookingCancellationService {
     private final BookingRepository bookingRepository;
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerPayableRepository customerPayableRepository;
+    private final PaymentScheduleRepository paymentScheduleRepository;
 
-    public CustomerPayableDto cancelBooking(long bookingId, BookingCancellationRequest request) {
+    @Transactional
+    public Map<String, Object> cancelBooking(long bookingId, BookingCancellationRequest request , String loggedInUser) {
 
         double totalFees = 0;
         double deposited = 0;
@@ -36,24 +46,34 @@ public class BookingCancellationService {
             Optional<Booking> bookingOptional = bookingRepository.findById(bookingId);
 
             if (bookingOptional.isEmpty() || !bookingOptional.get().isActive()) {
-                throw new Exception("Booking doesnt exists or is already cancelled");
+                throw new IllegalArgumentException("Booking doesnt exists or is already cancelled");
             }
 
             Booking booking = bookingOptional.get();
 
 
             Optional<CustomerAccount> customerAccountOptional = customerAccountRepo
-                    .findByCustomer_CustomerIdAndUnit_Id(booking.getCustomerId(), booking.getUnitId());
+                    .findByCustomer_CustomerIdAndUnit_IdAndIsActiveTrue(booking.getCustomerId(), booking.getUnitId());
 
             if (customerAccountOptional.isEmpty() || !customerAccountOptional.get().isActive()) {
-                throw new Exception("Customer Account doesnt exists or is already cancelled");
+                throw new IllegalArgumentException("Customer Account doesn't exists or is already cancelled");
             }
+
+
 
             CustomerAccount customerAccount = customerAccountOptional.get();
 
+            PaymentSchedule paymentSchedule = paymentScheduleRepository.
+                    findByCustomerAccountIdAndPaymentScheduleType(customerAccount.getId() ,
+                            PaymentScheduleType.CUSTOMER);
 
-            deposited = customerAccount.getDownPayment() +
-                    customerAccount.getTotalPaidAmount();
+            paymentSchedule.setActive(false);
+            paymentSchedule.setUpdatedBy(loggedInUser);
+            paymentScheduleRepository.save(paymentSchedule);
+
+
+
+            deposited = customerAccount.getTotalPaidAmount();
 
 
             for (BookingCancellationRequest.CustomerPayableFeesDto fee : request.getFees()) {
@@ -74,11 +94,17 @@ public class BookingCancellationService {
 
             customerPayableDto.setId(customerPayable.getId());
 
-            return customerPayableDto;
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerPayableDto);
 
-        } catch (Exception e) {
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
-            return null;
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+        catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
     }

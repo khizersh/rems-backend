@@ -12,8 +12,8 @@ import java.util.List;
 
 @Entity
 @Table(
-        name = "customer_account",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "unit_id"})
+        name = "customer_account"
+//        uniqueConstraints = @UniqueConstraint(columnNames = {"customer_id", "unit_id" , "ia_active"})
 )
 @Data
 public class CustomerAccount {
@@ -85,8 +85,8 @@ public class CustomerAccount {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
-    @Column(nullable = false, columnDefinition = "boolean default true")
-    private boolean isActive;
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean isActive = true;
 
     @PrePersist
     protected void onCreate() {
