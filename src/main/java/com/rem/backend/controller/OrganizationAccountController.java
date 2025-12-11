@@ -4,6 +4,7 @@ import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
+import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.service.OrganizationAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 import java.util.Map;
 
 import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
@@ -43,7 +43,7 @@ public class OrganizationAccountController {
     }
 
     @PostMapping("/addAccountDetail")
-    public Map addOrganizationAccountDetail(@RequestBody OrganizationAccountDetail  organizationAccountDetail , HttpServletRequest request){
+    public Map addOrganizationAccountDetail(@RequestBody OrganizationAccountDetail organizationAccountDetail , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return organizationAccountService.addOrgAcctDetail(organizationAccountDetail , loggedInUser);
     }

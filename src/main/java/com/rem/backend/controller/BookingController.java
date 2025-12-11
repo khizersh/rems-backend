@@ -3,7 +3,6 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
-import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.service.BookingCancellationService;
 import com.rem.backend.service.BookingService;
@@ -69,5 +68,18 @@ public class BookingController {
         return ResponseEntity.ok(customerPayableDto);
     }
 
+    @GetMapping("/{organizationId}/allCancelledBookings")
+    public ResponseEntity<?> getAllCancelBooking(@PathVariable long organizationId,
+                                                 @RequestParam(required = false) Long projectId,
+                                                 @RequestParam(required = false) String customerName,
+                                                 HttpServletRequest request) {
+
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                bookingCancellationService.getAllCanceledBooking(organizationId, projectId, customerName);
+
+        return ResponseEntity.ok(response);
+    }
 
 }

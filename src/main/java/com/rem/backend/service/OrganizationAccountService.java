@@ -4,6 +4,7 @@ import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.analytic.OrganizationAccountDetailProjection;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
+import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
@@ -17,7 +18,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -322,7 +322,7 @@ public class OrganizationAccountService {
             double remainingAmount = organizationAccount.getTotalAmount() - organizationAccountDetail.getAmount();
 
             if (remainingAmount < 0)
-                throw new IllegalArgumentException("Not Enough Funds for this account");
+                throw new IllegalArgumentException("Not Enough Funds for this account " +organizationAccount.getAccountNo());
 
 
             organizationAccount.setTotalAmount(organizationAccount.getTotalAmount() - organizationAccountDetail.getAmount());

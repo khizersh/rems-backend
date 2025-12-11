@@ -19,8 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -34,6 +34,25 @@ public class BookingCancellationService {
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerPayableRepository customerPayableRepository;
     private final PaymentScheduleRepository paymentScheduleRepository;
+
+
+
+    public Map<String, Object> getAllCanceledBooking(long orgId, Long projectId, String customerName) {
+
+        try {
+            List<Booking> list = bookingRepository
+                    .findCancelledBookings(orgId, projectId, customerName);
+            if(list.isEmpty()){
+                return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, "No Bookings Found");
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
+        }  catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, "No Bookings Found - System Exception");
+        }
+    }
+
 
     @Transactional
     public Map<String, Object> cancelBooking(long bookingId, BookingCancellationRequest request , String loggedInUser) {
@@ -118,11 +137,11 @@ public class BookingCancellationService {
                 .bookingId(booking.getId())
                 .customerId(booking.getCustomerId())
                 .unitId(booking.getUnitId())
-                .totalPayable(BigDecimal.valueOf(deposited))
-                .totalDeductions(BigDecimal.valueOf(totalFees))
-                .totalRefund(BigDecimal.valueOf(balance > 0 ? balance : 0))
-                .totalPaid(BigDecimal.valueOf(0))
-                .balanceAmount(BigDecimal.valueOf(balance))
+                .totalPayable(deposited)
+                .totalDeductions(totalFees)
+                .totalRefund(balance > 0 ? balance : 0)
+                .totalPaid(0)
+                .balanceAmount(balance)
                 .reason(request.getReason())
                 .status(String.valueOf(PENDING))
                 .createdAt(LocalDateTime.now())

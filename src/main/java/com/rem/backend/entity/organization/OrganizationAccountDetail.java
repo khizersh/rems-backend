@@ -1,4 +1,4 @@
-package com.rem.backend.entity.organizationAccount;
+package com.rem.backend.entity.organization;
 
 import com.rem.backend.enums.TransactionType;
 import jakarta.persistence.*;

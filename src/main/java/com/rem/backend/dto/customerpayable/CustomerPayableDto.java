@@ -1,11 +1,11 @@
 package com.rem.backend.dto.customerpayable;
 
 import com.rem.backend.entity.customerpayable.CustomerPayable;
+import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
 import lombok.Data;
 
 import lombok.Builder;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,11 +19,11 @@ public class CustomerPayableDto {
     private Long customerId;
     private Long unitId;
 
-    private BigDecimal totalPayable;
-    private BigDecimal totalRefund;
-    private BigDecimal totalDeductions;
-    private BigDecimal totalPaid;
-    private BigDecimal balanceAmount;
+    private double totalPayable;
+    private double totalRefund;
+    private double totalDeductions;
+    private double totalPaid;
+    private double balanceAmount;
 
     private String reason;
     private String status;
@@ -49,9 +49,10 @@ public class CustomerPayableDto {
                 .status(customerPayable.getStatus())
                 .createdAt(customerPayable.getCreatedAt())
                 .updatedAt(customerPayable.getUpdatedAt())
-                .details(detailListDto != null ? (CustomerPayableDetailListDto) detailListDto.getDetails() : null)
+                .details(detailListDto)
                 .build();
     }
+
 
 }
 

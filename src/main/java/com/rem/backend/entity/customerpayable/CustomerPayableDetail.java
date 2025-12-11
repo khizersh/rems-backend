@@ -27,7 +27,7 @@ public class CustomerPayableDetail {
     private String paymentType;
 
     @Column(nullable = false)
-    private BigDecimal amount;
+    private double amount;
 
     private String chequeNo;
 
@@ -35,6 +35,9 @@ public class CustomerPayableDetail {
 
     private String createdBy;
     private String updatedBy;
+
+    @Column(nullable = false)
+    private String comments;
 
     @CreationTimestamp
     private LocalDateTime createdDate;

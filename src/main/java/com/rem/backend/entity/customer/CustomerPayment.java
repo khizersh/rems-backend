@@ -1,10 +1,10 @@
 package com.rem.backend.entity.customer;
 
+import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
-import com.rem.backend.entity.organizationAccount.OrganizationAccountDetail;
 
 import java.time.LocalDateTime;
 import java.util.List;

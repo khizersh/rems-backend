@@ -5,14 +5,23 @@ import com.rem.backend.dto.customerpayable.CustomerPayableDetailListDto;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
+import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.enums.CustomerPayableStatus;
+import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.CustomerPayableDetailRepository;
 import com.rem.backend.repository.CustomerPayableRepository;
+import com.rem.backend.utility.ResponseMapper;
+import com.rem.backend.utility.Responses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
 
 @Service
 @RequiredArgsConstructor
@@ -20,23 +29,56 @@ public class CustomerPayableService {
 
     private final CustomerPayableRepository customerPayableRepository;
     private final CustomerPayableDetailRepository customerPayableDetailRepository;
+    private final OrganizationAccountService organizationAccountService;
+
+
+    public Map<String, Object> getCustomerPayable(long bookingId, long unitId) {
+
+        try {
+            Optional<CustomerPayable> optional =
+                    customerPayableRepository.findWithDetails(bookingId, unitId);
+
+            if (optional.isEmpty()) {
+                return ResponseMapper.buildResponse(
+                        Responses.SYSTEM_FAILURE,
+                        "Customer payable not found."
+                );
+            }
+
+            CustomerPayable cp = optional.get();
+
+            CustomerPayableDetailListDto detailDto =
+                    CustomerPayableDetailListDto.fromEntityList(cp.getDetails());
+
+            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
+
+        } catch (Exception e){
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(
+                    Responses.SYSTEM_FAILURE,
+                    "Customer payable not found. System Exception"
+            );
+        }
+    }
+
+
+
 
     @Transactional
-    public CustomerPayableDto addPaymentDetail(
+    public Map<String, Object> addPaymentDetail(
             long customerPayableId,
-            CustomerPayableDetailListDto dtoList) {
+            CustomerPayableDetailListDto dtoList,
+            String loggedInUser) {
 
         try {
             CustomerPayable customerPayable = customerPayableRepository.findById(customerPayableId)
                     .orElseThrow(() -> new Exception("Customer Payable doesn't exist or is already cancelled"));
 
-            BigDecimal totalPaid = customerPayable.getTotalPaid() == null
-                    ? BigDecimal.ZERO
-                    : customerPayable.getTotalPaid();
+            double totalPaid = customerPayable.getTotalPaid();
 
-            BigDecimal balance = customerPayable.getBalanceAmount() == null
-                    ? BigDecimal.ZERO
-                    : customerPayable.getBalanceAmount();
+            double balance = customerPayable.getBalanceAmount();
 
             for (CustomerPayableDetailListDto.Detail d : dtoList.getDetails()) {
 
@@ -49,31 +91,44 @@ public class CustomerPayableService {
                 detail.setCreatedBy(d.getCreatedBy());
                 detail.setUpdatedBy(d.getUpdatedBy());
 
+                OrganizationAccountDetail organizationAccountDetail = getOrganizationAccountDetail(d, customerPayable);
+
+                organizationAccountService.deductFromOrgAcct(organizationAccountDetail,loggedInUser);
 
                 customerPayableDetailRepository.save(detail);
 
-                totalPaid = totalPaid.add(d.getAmount());
-                balance = balance.subtract(d.getAmount());
+                totalPaid = totalPaid + d.getAmount();
+                balance = balance - d.getAmount();
             }
 
 
             customerPayable.setTotalPaid(totalPaid);
             customerPayable.setBalanceAmount(balance);
 
-            if (BigDecimal.ZERO.equals(customerPayable.getBalanceAmount())) {
+            if (customerPayable.getBalanceAmount() == 0) {
                 customerPayable.setStatus(String.valueOf(CustomerPayableStatus.PAID));
             } else {
                 customerPayable.setStatus(String.valueOf(CustomerPayableStatus.UNPAID));
             }
-
             customerPayableRepository.save(customerPayable);
-
-            return CustomerPayableDto.map(customerPayable, dtoList);
+            return ResponseMapper.buildResponse(Responses.SUCCESS,CustomerPayableDto.map(customerPayable, dtoList));
 
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             e.printStackTrace();
-            return null;
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
 
+    private static OrganizationAccountDetail getOrganizationAccountDetail(CustomerPayableDetailListDto.Detail d,
+                                                                          CustomerPayable customerPayable) {
+        OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
+        organizationAccountDetail.setOrganizationAcctId(d.getOrganizationAccountId());
+        organizationAccountDetail.setCustomerPaymentDetailId(d.getCustomerPayableId());
+        organizationAccountDetail.setAmount(d.getAmount());
+        organizationAccountDetail.setTransactionType(TransactionType.CREDIT);
+        organizationAccountDetail.setCustomerId(customerPayable.getCustomer().getCustomerId());
+        organizationAccountDetail.setComments(d.getComments());
+        return organizationAccountDetail;
+    }
 }

@@ -17,6 +17,6 @@ public class BookingCancellationRequest {
     public static class CustomerPayableFeesDto{
         String type;
         String title;
-        String value;
+        double value;
     }
 }

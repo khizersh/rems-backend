@@ -3,14 +3,12 @@ package com.rem.backend.entity.customerpayable;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.Customer;
-import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.project.Unit;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -41,19 +39,19 @@ public class CustomerPayable {
     private Unit unit;
 
     @Column(nullable = false)
-    private BigDecimal totalPayable;    // Sum of all details (refunds + deductions)
+    private double totalPayable;    // Sum of all details (refunds + deductions)
 
     @Column(nullable = false)
-    private BigDecimal totalRefund;     // Optional → refundable amount to customer
+    private double totalRefund;     // Optional → refundable amount to customer
 
     @Column(nullable = false)
-    private BigDecimal totalDeductions; // Cancellation charges etc.
+    private double totalDeductions; // Cancellation charges etc.
 
     @Column(nullable = false)
-    private BigDecimal totalPaid; // Cancellation charges etc.
+    private double totalPaid; // Cancellation charges etc.
 
     @Column(nullable = false)
-    private BigDecimal balanceAmount; // Cancellation charges etc.
+    private double balanceAmount; // Cancellation charges etc.
 
     @Column(nullable = false)
     private String reason;              // e.g. "Customer Requested", "Default", etc.

@@ -155,5 +155,21 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
 
 
+    @Query("""
+    SELECT b 
+    FROM Booking b
+    JOIN b.customer c
+    WHERE b.organizationId = :orgId
+      AND b.isActive = false
+      AND (:projectId IS NULL OR b.projectId = :projectId)
+      AND (:customerName IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :customerName, '%')))
+""")
+    List<Booking> findCancelledBookings(
+            long orgId,
+            Long projectId,
+            String customerName
+    );
+
+
 
 }
