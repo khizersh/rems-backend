@@ -80,6 +80,7 @@ public class CustomerAccountController {
 
 
 
+
     @PostMapping("/getByUnitId")
     public ResponseEntity<?> getByUnitId(@RequestBody FilterPaginationRequest request) {
 
@@ -90,10 +91,16 @@ public class CustomerAccountController {
                         ? Sort.by(request.getSortBy()).ascending()
                         : Sort.by(request.getSortBy()).descending());
 
-        Page<CustomerAccount> result = customerAccountService.getByUnitId(request.getId(), pageable);
+        Page<CustomerAccount> result = customerAccountService.getByUnitIdPagination(request.getId(), pageable);
         return ResponseEntity.ok(result);
     }
 
+
+
+    @GetMapping("/getByUnitId/{unitId}")
+    public ResponseEntity<?> getByUnitId(@PathVariable long unitId) {
+        return ResponseEntity.ok(customerAccountService.getByUnitId(unitId));
+    }
 
     @PostMapping("/getAll")
     public ResponseEntity<?> getAll(@RequestBody FilterPaginationRequest request) {

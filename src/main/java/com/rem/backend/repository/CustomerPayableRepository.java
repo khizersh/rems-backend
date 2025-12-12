@@ -19,4 +19,7 @@ public interface CustomerPayableRepository extends JpaRepository<CustomerPayable
             """)
     Optional<CustomerPayable> findWithDetails(long bookingId, long unitId);
 
+    Optional<CustomerPayable> findByBooking_IdAndUnit_Id(Long bookingId, Long unitId);
+
+
 }

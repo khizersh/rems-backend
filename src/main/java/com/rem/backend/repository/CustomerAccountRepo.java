@@ -18,6 +18,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
 
     Page<CustomerAccount> findByUnit_IdAndIsActiveTrue(Long unitId, Pageable pageable);
+    Optional<CustomerAccount> findByUnit_IdAndIsActiveTrue(Long unitId);
     Page<CustomerAccount> findByProject_ProjectIdAndIsActiveTrue(Long projectId, Pageable pageable);
     Page<CustomerAccount> findByProject_OrganizationIdAndIsActiveTrue(Long organizationId, Pageable pageable);
     Page<CustomerAccount> findByUnit_FloorIdAndIsActiveTrue(Long floorId, Pageable pageable);
@@ -30,7 +31,7 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
             "AS unitSerial " +
             "FROM customer_account ca LEFT JOIN customer c ON ca.customer_id = c.customer_id " +
             " LEFT JOIN unit u ON ca.unit_id = u.id" +
-            " where c.organization_id = :organizationId and ca.isActive = true" , nativeQuery = true)
+            " where c.organization_id = :organizationId and ca.is_active = 1" , nativeQuery = true)
     List<Map<String , Object>> findNameIdOrganization(Long organizationId);
 
 

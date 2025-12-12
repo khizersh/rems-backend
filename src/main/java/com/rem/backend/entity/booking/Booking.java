@@ -82,6 +82,18 @@ public class Booking {
 
     private String unitSerial;
 
+    @Transient
+    private double totalCancelPayable;    // Sum of all details (refunds + deductions)
+
+    @Transient
+    private double totalCancelRefund;     // Optional → refundable amount to customer
+
+    @Transient
+    private double totalCancelDeductions; // Cancellation charges etc.
+
+    @Transient
+    private double totalCancelPaid; // Cancellation charges etc.
+
 
 
     @PrePersist

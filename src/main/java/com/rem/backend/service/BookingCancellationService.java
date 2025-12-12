@@ -6,11 +6,10 @@ import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.entity.project.Floor;
+import com.rem.backend.entity.project.Unit;
 import com.rem.backend.enums.PaymentScheduleType;
-import com.rem.backend.repository.BookingRepository;
-import com.rem.backend.repository.CustomerAccountRepo;
-import com.rem.backend.repository.CustomerPayableRepository;
-import com.rem.backend.repository.PaymentScheduleRepository;
+import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
@@ -34,6 +33,8 @@ public class BookingCancellationService {
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerPayableRepository customerPayableRepository;
     private final PaymentScheduleRepository paymentScheduleRepository;
+    private final ProjectRepo projectRepo;
+    private final FloorRepo floorRepo;
 
 
 
@@ -42,9 +43,39 @@ public class BookingCancellationService {
         try {
             List<Booking> list = bookingRepository
                     .findCancelledBookings(orgId, projectId, customerName);
+
             if(list.isEmpty()){
                 return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, "No Bookings Found");
             }
+
+
+            list.forEach(booking -> {
+                Unit unit = booking.getUnit();
+                booking.setCustomerName(booking.getCustomer().getName());
+                booking.setCustomerId(booking.getCustomer().getCustomerId());
+                booking.setUnitSerial(unit.getSerialNo());
+
+
+                Optional<Floor> optionalFloor = floorRepo.findById(unit.getFloorId());
+                if (optionalFloor.isPresent()) {
+                    String projectName = projectRepo.findProjectNameById(optionalFloor.get().getProjectId());
+                    booking.setProject(projectName);
+                    booking.setFloorNo(String.valueOf(optionalFloor.get().getFloor()));
+                }
+
+              Optional<CustomerPayable> customerPayableOptional =
+                      customerPayableRepository.findByBooking_IdAndUnit_Id(booking.getId() , unit.getId());
+
+                if (customerPayableOptional.isPresent()){
+                    CustomerPayable customerPayable = customerPayableOptional.get();
+                    booking.setTotalCancelPaid(customerPayable.getTotalPaid());
+                    booking.setTotalCancelDeductions(customerPayable.getTotalDeductions());
+                    booking.setTotalCancelRefund(customerPayable.getTotalRefund());
+                    booking.setTotalCancelPayable(customerPayable.getTotalPayable());
+                }
+
+
+            });
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, list);
         }  catch (IllegalArgumentException e) {

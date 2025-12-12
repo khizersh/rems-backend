@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -24,25 +25,24 @@ public class CustomerAccountService {
     private final FloorRepo floorRepo;
 
 
-
     public Page<CustomerAccount> getByProjectId(Long projectId, Pageable pageable) {
         ValidationService.validate(projectId, "Project ID");
         return customerAccountRepo.findByProject_ProjectIdAndIsActiveTrue(projectId, pageable);
     }
 
 
-    public Map<String , Object> getById(Long accountId) {
-        try{
-        ValidationService.validate(accountId, "Account");
-        Optional<CustomerAccount>  customerAccount = customerAccountRepo.findById(accountId);
-        if (customerAccount.isEmpty())
-            throw new IllegalArgumentException("Invalid Account");
+    public Map<String, Object> getById(Long accountId) {
+        try {
+            ValidationService.validate(accountId, "Account");
+            Optional<CustomerAccount> customerAccount = customerAccountRepo.findById(accountId);
+            if (customerAccount.isEmpty())
+                throw new IllegalArgumentException("Invalid Account");
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS , customerAccount.get());
-        }catch (IllegalArgumentException e){
-            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER , e.getMessage());
-        }catch (Exception e){
-            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE , e.getMessage());
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccount.get());
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
     }
@@ -68,8 +68,8 @@ public class CustomerAccountService {
 
             ValidationService.validate(customerId, "customer ID");
 
-            Page<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerIdAndIsActiveTrue(customerId , pageable);
-            if(customerAccountOptional.isEmpty()){
+            Page<CustomerAccount> customerAccountOptional = customerAccountRepo.findByCustomer_CustomerIdAndIsActiveTrue(customerId, pageable);
+            if (customerAccountOptional.isEmpty()) {
                 throw new IllegalArgumentException("Customer Account Not Found!");
             }
             return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOptional);
@@ -101,9 +101,32 @@ public class CustomerAccountService {
 //        return  ResponseMapper.buildResponse(Responses.SUCCESS , customerAccountRepo.findByCustomer_CustomerId(customerId));
 //    }
 
-    public Page<CustomerAccount> getByUnitId(Long unitId, Pageable pageable) {
+    public Page<CustomerAccount> getByUnitIdPagination(Long unitId, Pageable pageable) {
         ValidationService.validate(unitId, "Unit ID");
         return customerAccountRepo.findByUnit_IdAndIsActiveTrue(unitId, pageable);
+    }
+
+    public Map getByUnitId(Long unitId) {
+
+
+        try {
+
+            ValidationService.validate(unitId, "Unit ID");
+            Optional<CustomerAccount>  customerAccountOptional =
+                    customerAccountRepo.findByUnit_IdAndIsActiveTrue(unitId);
+
+            if (customerAccountOptional.isEmpty())
+                throw new IllegalArgumentException("Invalid Account");
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOptional.get());
+
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
     }
 
     public Page<CustomerAccount> getByOrganizationId(Long organizationId, Pageable pageable) {
@@ -136,9 +159,9 @@ public class CustomerAccountService {
 
             customers.getContent().forEach(customerAccount -> {
 
-               String floorNo = floorRepo.findFloorNoById(customerAccount.getUnit().getFloorId());
+                String floorNo = floorRepo.findFloorNoById(customerAccount.getUnit().getFloorId());
 
-               customerAccount.getUnit().setFloorNo(Integer.valueOf(floorNo));
+                customerAccount.getUnit().setFloorNo(Integer.valueOf(floorNo));
 
 //                double grandTotal = customerPaymentDetails.stream()
 //                        .mapToDouble(CustomerPaymentDetail::getAmount)
