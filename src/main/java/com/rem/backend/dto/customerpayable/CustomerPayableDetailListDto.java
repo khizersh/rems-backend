@@ -37,7 +37,6 @@ public class CustomerPayableDetailListDto {
                     d.setAmount(detail.getAmount());
                     d.setChequeNo(detail.getChequeNo());
                     d.setChequeDate(detail.getChequeDate());
-                    d.setComments(detail.getComments());
                     d.setCreatedBy(detail.getCreatedBy());
                     d.setUpdatedBy(detail.getUpdatedBy());
                     return d;

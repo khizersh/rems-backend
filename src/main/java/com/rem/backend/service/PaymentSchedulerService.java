@@ -218,7 +218,7 @@ public class PaymentSchedulerService {
                 if (customerOptional.isEmpty())
                     throw new IllegalArgumentException("Customer not found against this booking!");
 
-                response.put("customer", customerOptional.get());
+                response.put("customerData", customerOptional.get());
             }
 
 

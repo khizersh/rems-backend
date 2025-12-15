@@ -76,26 +76,26 @@ public class VendorAccountService {
     public Map<String, Object> getVendorDetailsByAccount(long acctId, Pageable pageable) {
         try {
 
-            Optional<VendorAccount> accountOptional = vendorAccountRepository.findById(acctId);
-            if (accountOptional.isEmpty())
+            Optional<VendorAccount> vendorAccountOptional = vendorAccountRepository.findById(acctId);
+            if (vendorAccountOptional.isEmpty())
                 throw new IllegalArgumentException("Invalid Vendor Account");
 
 
-            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(accountOptional.get().getOrganizationId());
-            if (organizationAccountOptional.isEmpty())
-                throw new IllegalArgumentException("Invalid Organization Account");
+            Page<VendorPayment> vendorAccountDetail = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
 
 
-            Page<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
+            vendorAccountDetail.getContent().forEach(payment -> {
 
-            vendorAccounts.getContent().forEach(payment -> {
-                        payment.setOrganizationAccount(organizationAccountOptional.get().getName());
-                        payment.setVendorAccount(accountOptional.get().getName());
+                        if (payment.getOrganizationAccountId() != null) {
+                            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(payment.getOrganizationAccountId());
+                            payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                        }
+
+                        payment.setVendorAccount(vendorAccountOptional.get().getName());
                     }
             );
 
-
-            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccountDetail);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
@@ -113,15 +113,13 @@ public class VendorAccountService {
                 throw new IllegalArgumentException("Invalid Vendor Account");
 
 
-            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(accountOptional.get().getOrganizationId());
-            if (organizationAccountOptional.isEmpty())
-                throw new IllegalArgumentException("Invalid Organization Account");
-
-
             List<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountIdOrderByIdDesc(acctId);
 
             vendorAccounts.forEach(payment -> {
-                        payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                if (payment.getOrganizationAccountId() != null) {
+                    Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(payment.getOrganizationAccountId());
+                    payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                }
                         payment.setVendorAccount(accountOptional.get().getName());
                     }
             );
@@ -193,6 +191,7 @@ public class VendorAccountService {
             payment.setCreatedBy(loggedInUser);
             payment.setVendorAccount(vendorAccount.getName());
             payment.setCreditAmount(vendorAccount.getTotalCreditAmount());
+            payment.setBalanceAmount(vendorAccount.getTotalCreditAmount());
             payment.setAmountPaid(vendorAccount.getTotalAmountPaid());
             if (vendorAccount.getTotalAmountPaid() == vendorAccount.getTotalAmount())
                 payment.setTransactionType(TransactionType.DEBIT);

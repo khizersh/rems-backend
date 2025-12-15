@@ -34,10 +34,9 @@ public class CustomerPayableDetail {
     private LocalDateTime chequeDate;
 
     private String createdBy;
+
     private String updatedBy;
 
-    @Column(nullable = false)
-    private String comments;
 
     @CreationTimestamp
     private LocalDateTime createdDate;

@@ -20,6 +20,10 @@ public class VendorPayment {
     @Column(nullable = false)
     private double vendorAccountId;
 
+
+    @Column(nullable = true)
+    private Long organizationAccountId;
+
     @Column(nullable = false)
     private double projectId;
 
@@ -28,6 +32,10 @@ public class VendorPayment {
 
     @Column(nullable = false)
     private double creditAmount;
+
+
+    @Column(nullable = false)
+    private double balanceAmount;
 
     @Column(nullable = false)
     private double materialAmount;
@@ -45,8 +53,6 @@ public class VendorPayment {
     @Transient
     private String vendorAccount;
 
-    @Transient
-    private long organizationAccountId;
 
     @Column(nullable = false)
     private String createdBy;

@@ -68,10 +68,13 @@ public class BookingCancellationService {
 
                 if (customerPayableOptional.isPresent()){
                     CustomerPayable customerPayable = customerPayableOptional.get();
+                    booking.setCustomerPayableId(customerPayable.getId());
                     booking.setTotalCancelPaid(customerPayable.getTotalPaid());
                     booking.setTotalCancelDeductions(customerPayable.getTotalDeductions());
                     booking.setTotalCancelRefund(customerPayable.getTotalRefund());
                     booking.setTotalCancelPayable(customerPayable.getTotalPayable());
+                    booking.setTotalCancelBalanceAmount(customerPayable.getBalanceAmount());
+                    booking.setCancelledStatus(customerPayable.getStatus());
                 }
 
 

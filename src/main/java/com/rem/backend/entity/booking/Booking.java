@@ -94,6 +94,16 @@ public class Booking {
     @Transient
     private double totalCancelPaid; // Cancellation charges etc.
 
+    @Transient
+    private double totalCancelBalanceAmount; // Cancellation charges etc.
+
+    @Transient
+    private String cancelledStatus; // Cancellation charges etc.
+
+
+     @Transient
+    private long customerPayableId; // Cancellation charges etc.
+
 
 
     @PrePersist

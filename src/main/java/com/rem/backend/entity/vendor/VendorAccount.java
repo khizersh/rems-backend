@@ -20,6 +20,9 @@ public class VendorAccount {
     private long organizationId;
 
 
+
+
+
     @Column(nullable = true)
     private Long historyExpenseId;
 

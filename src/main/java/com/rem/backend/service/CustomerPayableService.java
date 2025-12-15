@@ -86,8 +86,8 @@ public class CustomerPayableService {
                 detail.setAmount(d.getAmount());
                 detail.setChequeNo(d.getChequeNo());
                 detail.setChequeDate(d.getChequeDate());
-                detail.setCreatedBy(d.getCreatedBy());
-                detail.setUpdatedBy(d.getUpdatedBy());
+                detail.setCreatedBy(loggedInUser);
+                detail.setUpdatedBy(loggedInUser);
 
                 OrganizationAccountDetail organizationAccountDetail = getOrganizationAccountDetail(d, customerPayable);
 
