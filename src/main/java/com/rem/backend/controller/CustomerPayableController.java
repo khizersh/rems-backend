@@ -42,4 +42,17 @@ public class CustomerPayableController {
         return ResponseEntity.ok(response);
     }
 
+
+    @GetMapping("/{customerPayableId}/customerPayable")
+    public ResponseEntity<?> getCustomerPayableByCustomerPayableId(@PathVariable long customerPayableId,
+                                                HttpServletRequest request) {
+
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                customerPayableService.getCustomerPayableById(customerPayableId);
+
+        return ResponseEntity.ok(response);
+    }
+
 }

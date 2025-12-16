@@ -62,6 +62,38 @@ public class CustomerPayableService {
     }
 
 
+    public Map<String, Object> getCustomerPayableById(long customerPayableId) {
+
+        try {
+            Optional<CustomerPayable> optional =
+                    customerPayableRepository.findById(customerPayableId);
+
+            if (optional.isEmpty()) {
+                return ResponseMapper.buildResponse(
+                        Responses.SYSTEM_FAILURE,
+                        "Customer payable not found."
+                );
+            }
+
+            CustomerPayable cp = optional.get();
+
+            CustomerPayableDetailListDto detailDto =
+                    CustomerPayableDetailListDto.fromEntityList(cp.getDetails());
+
+            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
+
+        } catch (Exception e){
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(
+                    Responses.SYSTEM_FAILURE,
+                    "Customer payable not found. System Exception"
+            );
+        }
+    }
+
+
 
 
     @Transactional
@@ -74,9 +106,20 @@ public class CustomerPayableService {
             CustomerPayable customerPayable = customerPayableRepository.findById(customerPayableId)
                     .orElseThrow(() -> new Exception("Customer Payable doesn't exist or is already cancelled"));
 
+            if (customerPayable.getBalanceAmount() <= 0)
+                throw new RuntimeException("This booking is already paid!.");
+
+
+           double totalSumOfAmount = dtoList.getDetails().stream().
+                   mapToDouble(detail -> detail.getAmount()).sum();
+
+
             double totalPaid = customerPayable.getTotalPaid();
 
             double balance = customerPayable.getBalanceAmount();
+
+           if (balance - totalSumOfAmount < 0  )
+               throw new RuntimeException("Amount exceed balance amount!");
 
             for (CustomerPayableDetailListDto.Detail d : dtoList.getDetails()) {
 
