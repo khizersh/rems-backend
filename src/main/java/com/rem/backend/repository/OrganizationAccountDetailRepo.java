@@ -41,7 +41,8 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
     FROM OrganizationAccountDetail d
     JOIN OrganizationAccount a ON d.organizationAcctId = a.id
     WHERE a.organizationId = :organizationId
-      AND d.createdDate BETWEEN :startDate AND :endDate
+      AND d.createdDate BETWEEN :startDate AND :endDate 
+      AND d.amount > 0
     ORDER BY d.createdDate DESC
 """)
     Page<OrganizationAccountDetailProjection> findAllByOrganizationIdAndDateRange(
@@ -93,7 +94,8 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
         JOIN OrganizationAccount a ON d.organizationAcctId = a.id
         WHERE a.organizationId = :organizationId
           AND a.id = :organizationAcctId
-          AND d.createdDate BETWEEN :startDate AND :endDate
+          AND d.createdDate BETWEEN :startDate AND :endDate 
+          AND d.amount > 0
         ORDER BY d.createdDate DESC
     """)
     Page<OrganizationAccountDetailProjection> findAllByOrgAndAccountAndDateRange(

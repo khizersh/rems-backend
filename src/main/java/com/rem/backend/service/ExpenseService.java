@@ -173,21 +173,21 @@ public class ExpenseService {
                 expense.setExpenseTitle(expenseTypeOptional.get().getName());
                 organizationAccountDetail.setProjectId(expense.getProjectId());
 
-                if (expense.getCreditAmount() > 0){
-                    // adding organization detail only for credit so transaction history filled
-                    OrganizationAccountDetail organizationAccountDetailCredit = new OrganizationAccountDetail();
-                    organizationAccountDetailCredit.setAccountName("");
-                    organizationAccountDetailCredit.setComments("Material Purchased as Credit");
-                    organizationAccountDetailCredit.setExpenseId(expense.getId());
-                    organizationAccountDetailCredit.setOrganizationAcctId(expense.getOrganizationAccountId());
-                    organizationAccountDetailCredit.setAmount(expense.getCreditAmount());
-                    organizationAccountDetailCredit.setProjectId(expense.getProjectId());
-                    organizationAccountDetailCredit.setProjectName(expense.getProjectName());
-                    organizationAccountDetailCredit.setCreatedBy(loggedInUser);
-                    organizationAccountDetailCredit.setUpdatedBy(loggedInUser);
-                    organizationAccountDetailCredit.setTransactionType(TransactionType.DEBIT); // this is wrong but this works for now
-                    organizationAccountDetailRepo.save(organizationAccountDetailCredit);
-                }
+//                if (expense.getCreditAmount() > 0){
+//                    // adding organization detail only for credit so transaction history filled
+//                    OrganizationAccountDetail organizationAccountDetailCredit = new OrganizationAccountDetail();
+//                    organizationAccountDetailCredit.setAccountName("");
+//                    organizationAccountDetailCredit.setComments("Material Purchased as Credit");
+//                    organizationAccountDetailCredit.setExpenseId(expense.getId());
+//                    organizationAccountDetailCredit.setOrganizationAcctId(expense.getOrganizationAccountId());
+//                    organizationAccountDetailCredit.setAmount(expense.getCreditAmount());
+//                    organizationAccountDetailCredit.setProjectId(expense.getProjectId());
+//                    organizationAccountDetailCredit.setProjectName(expense.getProjectName());
+//                    organizationAccountDetailCredit.setCreatedBy(loggedInUser);
+//                    organizationAccountDetailCredit.setUpdatedBy(loggedInUser);
+//                    organizationAccountDetailCredit.setTransactionType(TransactionType.DEBIT); // this is wrong but this works for now
+//                    organizationAccountDetailRepo.save(organizationAccountDetailCredit);
+//                }
 
             } else {
                 expense.setExpenseTitle("Miscellaneous Expense");

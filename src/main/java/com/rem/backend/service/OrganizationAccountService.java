@@ -6,16 +6,19 @@ import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
+import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.ProjectRepo;
+import com.rem.backend.repository.VendorAccountDetailRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
 import com.rem.backend.utility.ValidationService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -32,6 +35,7 @@ public class OrganizationAccountService {
     private final OrganizationAccoutRepo organizationAccountRepo;
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
     private final ProjectRepo projectRepo;
+    private final VendorAccountDetailRepo vendorAccountDetailRepo;
 
     public Map<String, Object> getOrgAccountsByOrgId(long orgId) {
         try {
@@ -53,30 +57,43 @@ public class OrganizationAccountService {
             ValidationService.validate(request.getStartDate(), "start date");
             ValidationService.validate(request.getEndDate(), "end date");
             ValidationService.validate(request.getFilteredBy(), "filtered By");
+            ValidationService.validate(request.getTransactionType(), "Transaction type");
 
             LocalDateTime startDate = Utility.getStartOfDay(request.getStartDate());
             LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
 
 
-            if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
-                response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRange(
+            if (request.getTransactionType().equals(TransactionType.CREDIT)) {
+                response = vendorAccountDetailRepo.findVendorPaymentsProjectionByOrganizationAndDateRange(
                         request.getOrganizationId(),
                         startDate,
                         endDate,
                         pageable);
 
-            } else {
 
-                ValidationService.validate(request.getFilteredId(), "Account");
-                response = organizationAccountDetailRepo.
-                        findAllByOrgAndAccountAndDateRange(
-                                request.getOrganizationId(),
-                                request.getFilteredId(),
-                                startDate,
-                                endDate,
-                                pageable
-                        );
+            } else {
+                if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
+                    response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRange(
+                            request.getOrganizationId(),
+                            startDate,
+                            endDate,
+                            pageable);
+
+                } else {
+
+                    ValidationService.validate(request.getFilteredId(), "Account");
+                    response = organizationAccountDetailRepo.
+                            findAllByOrgAndAccountAndDateRange(
+                                    request.getOrganizationId(),
+                                    request.getFilteredId(),
+                                    startDate,
+                                    endDate,
+                                    pageable
+                            );
+                }
             }
+
+
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
@@ -322,7 +339,7 @@ public class OrganizationAccountService {
             double remainingAmount = organizationAccount.getTotalAmount() - organizationAccountDetail.getAmount();
 
             if (remainingAmount < 0)
-                throw new IllegalArgumentException("Not Enough Funds for this account " +organizationAccount.getAccountNo());
+                throw new IllegalArgumentException("Not Enough Funds for this account " + organizationAccount.getAccountNo());
 
 
             organizationAccount.setTotalAmount(organizationAccount.getTotalAmount() - organizationAccountDetail.getAmount());

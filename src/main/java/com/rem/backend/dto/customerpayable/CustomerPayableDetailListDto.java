@@ -22,6 +22,7 @@ public class CustomerPayableDetailListDto {
         private String comments;
         private String createdBy;
         private String updatedBy;
+        private LocalDateTime createdDate;
     }
 
 
@@ -39,6 +40,7 @@ public class CustomerPayableDetailListDto {
                     d.setChequeDate(detail.getChequeDate());
                     d.setCreatedBy(detail.getCreatedBy());
                     d.setUpdatedBy(detail.getUpdatedBy());
+                    d.setCreatedDate(detail.getCreatedDate());
                     return d;
                 }).toList()
         );
