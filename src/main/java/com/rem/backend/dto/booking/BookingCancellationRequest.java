@@ -1,5 +1,6 @@
 package com.rem.backend.dto.booking;
 
+import com.rem.backend.enums.FeeType;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +16,7 @@ public class BookingCancellationRequest {
     @Getter
     @Setter
     public static class CustomerPayableFeesDto{
-        String type;
+        FeeType type;
         String title;
         double value;
     }

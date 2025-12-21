@@ -59,6 +59,10 @@ public class CustomerPayable {
     @Column(nullable = false)
     private String status;              // PENDING, PROCESSED, CANCELLED
 
+    private String createdBy;
+
+    private String updatedBy;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
@@ -73,6 +77,13 @@ public class CustomerPayable {
     )
     private List<CustomerPayableDetail> details;
 
+    @OneToMany(
+            mappedBy = "customerPayable",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            fetch = FetchType.LAZY
+    )
+    private List<CustomerPayableFeeDetail> feeDetails;
 
     public static CustomerPayable map(CustomerPayableDto customerPayableDto, Booking booking){
         CustomerPayable customerPayable = new CustomerPayable();

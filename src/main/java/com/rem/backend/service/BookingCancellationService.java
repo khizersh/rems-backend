@@ -5,6 +5,7 @@ import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
+import com.rem.backend.entity.customerpayable.CustomerPayableFeeDetail;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Floor;
 import com.rem.backend.entity.project.Unit;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,6 +95,8 @@ public class BookingCancellationService {
 
         double totalFees = 0;
         double deposited = 0;
+        List<CustomerPayableFeeDetail> feeDetails = new ArrayList<>();
+
 
         try {
 
@@ -130,11 +134,27 @@ public class BookingCancellationService {
 
 
             for (BookingCancellationRequest.CustomerPayableFeesDto fee : request.getFees()) {
-                totalFees += Utility.calculateFee(deposited, fee);
+                double calculated = Utility.calculateFee(deposited, fee);
+                totalFees += calculated;
+
+                CustomerPayableFeeDetail detail = new CustomerPayableFeeDetail();
+                detail.setType(fee.getType());
+                detail.setTitle(fee.getTitle());
+                detail.setInputValue(fee.getValue());
+                detail.setCalculatedAmount(calculated);
+                detail.setDeduction(true);
+                detail.setCreatedBy(loggedInUser);
+                detail.setUpdatedBy(loggedInUser);
+                feeDetails.add(detail);
+
             }
+
             CustomerPayableDto customerPayableDto = buildCustomerPayableDto(booking, deposited, totalFees, request);
 
             CustomerPayable customerPayable = CustomerPayable.map(customerPayableDto, booking);
+            customerPayable.setFeeDetails(feeDetails);
+            customerPayable.setCreatedBy(loggedInUser);
+            customerPayable.setUpdatedBy(loggedInUser);
 
             customerPayable = customerPayableRepository.save(customerPayable);
 

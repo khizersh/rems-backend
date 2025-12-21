@@ -32,9 +32,12 @@ public class CustomerPayableDto {
     private LocalDateTime updatedAt;
 
     private CustomerPayableDetailListDto details;
+    private CustomerPayableFeeDetailListDto feeDetails;
 
 
-    public static CustomerPayableDto map(CustomerPayable customerPayable, CustomerPayableDetailListDto detailListDto) {
+
+    public static CustomerPayableDto map(CustomerPayable customerPayable, CustomerPayableDetailListDto detailListDto,
+                                         CustomerPayableFeeDetailListDto feeDetails) {
         return CustomerPayableDto.builder()
                 .id(customerPayable.getId())
                 .bookingId(customerPayable.getBooking().getId())
@@ -50,6 +53,7 @@ public class CustomerPayableDto {
                 .createdAt(customerPayable.getCreatedAt())
                 .updatedAt(customerPayable.getUpdatedAt())
                 .details(detailListDto)
+                .feeDetails(feeDetails)
                 .build();
     }
 

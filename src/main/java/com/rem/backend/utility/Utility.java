@@ -96,11 +96,9 @@ public class Utility {
 
 
     public static double calculateFee(double deposited, BookingCancellationRequest.CustomerPayableFeesDto fee) {
-
-        return switch (fee.getType().toLowerCase()) {
-            case "percentile" -> deposited * (fee.getValue() / 100.0);
-            case "fixed" -> fee.getValue();
-            default -> 0;
+        return switch (fee.getType()) {
+            case PERCENTILE -> deposited * (fee.getValue() / 100.0);
+            case FIXED -> fee.getValue();
         };
     }
 

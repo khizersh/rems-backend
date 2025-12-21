@@ -3,6 +3,7 @@ package com.rem.backend.service;
 
 import com.rem.backend.dto.customerpayable.CustomerPayableDetailListDto;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
+import com.rem.backend.dto.customerpayable.CustomerPayableFeeDetailListDto;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
 import com.rem.backend.entity.organization.OrganizationAccountDetail;
@@ -48,7 +49,10 @@ public class CustomerPayableService {
             CustomerPayableDetailListDto detailDto =
                     CustomerPayableDetailListDto.fromEntityList(cp.getDetails());
 
-            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto);
+            CustomerPayableFeeDetailListDto feeDto =
+                    CustomerPayableFeeDetailListDto.fromEntityList(cp.getFeeDetails());
+
+            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto, feeDto);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
 
@@ -80,7 +84,10 @@ public class CustomerPayableService {
             CustomerPayableDetailListDto detailDto =
                     CustomerPayableDetailListDto.fromEntityList(cp.getDetails());
 
-            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto);
+            CustomerPayableFeeDetailListDto feeDto =
+                    CustomerPayableFeeDetailListDto.fromEntityList(cp.getFeeDetails());
+
+            CustomerPayableDto dto = CustomerPayableDto.map(cp, detailDto, feeDto);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
 
@@ -151,8 +158,13 @@ public class CustomerPayableService {
             } else {
                 customerPayable.setStatus(String.valueOf(CustomerPayableStatus.UNPAID));
             }
+
             customerPayableRepository.save(customerPayable);
-            return ResponseMapper.buildResponse(Responses.SUCCESS,CustomerPayableDto.map(customerPayable, dtoList));
+
+            CustomerPayableFeeDetailListDto feeDto =
+                    CustomerPayableFeeDetailListDto.fromEntityList(customerPayable.getFeeDetails());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS,CustomerPayableDto.map(customerPayable, dtoList,feeDto));
 
         } catch (Exception e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
