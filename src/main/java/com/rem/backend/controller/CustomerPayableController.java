@@ -1,7 +1,7 @@
 package com.rem.backend.controller;
 
+import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.customerpayable.CustomerPayableDetailListDto;
-import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.service.CustomerPayableService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -13,7 +13,7 @@ import java.util.Map;
 import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
 @RestController
-@RequestMapping("/api/booking/")
+@RequestMapping("/api/customerpayable/")
 @AllArgsConstructor
 public class CustomerPayableController {
 
@@ -51,6 +51,18 @@ public class CustomerPayableController {
 
         Map<String, Object> response =
                 customerPayableService.getCustomerPayableById(customerPayableId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{feeId}/editFeesDetail")
+    public ResponseEntity<?> editFees(@PathVariable long feeId, BookingCancellationRequest.CustomerPayableFeesDto customerPayableFeeDetail,
+                                      HttpServletRequest request) {
+
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                customerPayableService.editFeesDetail(feeId, customerPayableFeeDetail, loggedInUser);
 
         return ResponseEntity.ok(response);
     }

@@ -1,18 +1,22 @@
 package com.rem.backend.service;
 
 
+import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.customerpayable.CustomerPayableDetailListDto;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.dto.customerpayable.CustomerPayableFeeDetailListDto;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
+import com.rem.backend.entity.customerpayable.CustomerPayableFeeDetail;
 import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.enums.CustomerPayableStatus;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.CustomerPayableDetailRepository;
+import com.rem.backend.repository.CustomerPayableFeeDetailRepo;
 import com.rem.backend.repository.CustomerPayableRepository;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
+import com.rem.backend.utility.Utility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +32,7 @@ public class CustomerPayableService {
 
     private final CustomerPayableRepository customerPayableRepository;
     private final CustomerPayableDetailRepository customerPayableDetailRepository;
+    private final CustomerPayableFeeDetailRepo customerPayableFeeDetailRepo;
     private final OrganizationAccountService organizationAccountService;
 
 
@@ -171,6 +176,73 @@ public class CustomerPayableService {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
+    }
+
+
+    @Transactional
+    public Map<String, Object> editFeesDetail(long feesId, BookingCancellationRequest.CustomerPayableFeesDto customerPayableFeeDetailDto,
+                                              String loggedInUser){
+        
+        try {
+
+            Optional<CustomerPayableFeeDetail> feeDetail = customerPayableFeeDetailRepo.findById(feesId);
+
+            if (feeDetail.isEmpty()) {
+                return ResponseMapper.buildResponse(
+                        Responses.SYSTEM_FAILURE,
+                        "Customer payable fee detail not found."
+                );
+            }
+            CustomerPayableFeeDetail customerPayableFeeDetail = feeDetail.get();
+            CustomerPayable customerPayable = customerPayableFeeDetail.getCustomerPayable();
+
+            if (customerPayable.getTotalPaid() > 0) {
+                return ResponseMapper.buildResponse(
+                        Responses.SYSTEM_FAILURE,
+                        "Customer payable cannot be edited, payment already made."
+                );
+            }
+
+            customerPayable.setTotalDeductions(customerPayable.getTotalDeductions()
+                    - customerPayableFeeDetail.getCalculatedAmount());
+
+            double calculatedAmount = Utility.calculateFee(customerPayable.getTotalRefund(),
+                    customerPayableFeeDetailDto);
+
+            customerPayable.setTotalDeductions(customerPayable.getTotalDeductions()
+                    + calculatedAmount);
+
+            customerPayable.setTotalPayable(customerPayable.getTotalRefund()
+                    - customerPayable.getTotalDeductions());
+
+            customerPayable.setBalanceAmount(customerPayable.getTotalPayable());
+
+            customerPayableFeeDetail.setTitle(customerPayableFeeDetailDto.getTitle());
+            customerPayableFeeDetail.setType(customerPayableFeeDetailDto.getType());
+            customerPayableFeeDetail.setInputValue(customerPayableFeeDetailDto.getValue());
+            customerPayableFeeDetail.setCalculatedAmount(calculatedAmount);
+            customerPayableFeeDetail.setUpdatedBy(loggedInUser);
+
+            customerPayableRepository.save(customerPayable);
+            customerPayableFeeDetailRepo.save(customerPayableFeeDetail);
+
+
+            CustomerPayableDetailListDto detailDto =
+                    CustomerPayableDetailListDto.fromEntityList(customerPayable.getDetails());
+
+            CustomerPayableFeeDetailListDto feeDto =
+                    CustomerPayableFeeDetailListDto.fromEntityList(customerPayable.getFeeDetails());
+
+            CustomerPayableDto dto = CustomerPayableDto.map(customerPayable, detailDto, feeDto);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
+        }
+        catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
     }
 
     private static OrganizationAccountDetail getOrganizationAccountDetail(CustomerPayableDetailListDto.Detail d,

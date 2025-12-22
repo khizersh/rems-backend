@@ -13,6 +13,7 @@ public class CustomerPayableFeeDetailListDto {
 
     @Data
     public static class FeeDetail {
+        private long feeId;
         private long customerPayableId;
         private String type;          // FIXED / PERCENTILE
         private String title;
@@ -33,6 +34,7 @@ public class CustomerPayableFeeDetailListDto {
         dto.setFeeDetails(
                 details.stream().map(detail -> {
                     FeeDetail d = new FeeDetail();
+                    d.setFeeId(detail.getId());
                     d.setCustomerPayableId(detail.getCustomerPayable().getId());
                     d.setType(detail.getType().name());
                     d.setTitle(detail.getTitle());
