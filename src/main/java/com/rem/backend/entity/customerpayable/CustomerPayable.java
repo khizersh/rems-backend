@@ -85,8 +85,7 @@ public class CustomerPayable {
     )
     private List<CustomerPayableFeeDetail> feeDetails;
 
-    public static CustomerPayable map(CustomerPayableDto customerPayableDto, Booking booking){
-        CustomerPayable customerPayable = new CustomerPayable();
+    public static CustomerPayable map(CustomerPayable customerPayable, CustomerPayableDto customerPayableDto, Booking booking){
         customerPayable.setCustomer(booking.getCustomer());
         customerPayable.setBooking(booking);
         customerPayable.setUnit(booking.getUnit());

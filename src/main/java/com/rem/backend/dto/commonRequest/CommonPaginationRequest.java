@@ -9,4 +9,5 @@ public class CommonPaginationRequest {
     private int size = 10;
     private String sortBy = "";
     private String sortDir = "";
+    private String filteredName = "";
 }

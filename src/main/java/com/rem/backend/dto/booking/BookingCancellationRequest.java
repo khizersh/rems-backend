@@ -9,13 +9,15 @@ import java.util.List;
 
 @Data
 public class BookingCancellationRequest {
+    private long customerPayableId;
     private String reason;
     private List<CustomerPayableFeesDto> fees;
 
 
     @Getter
     @Setter
-    public static class CustomerPayableFeesDto{
+    public static class CustomerPayableFeesDto {
+        private Long id;
         FeeType type;
         String title;
         double value;

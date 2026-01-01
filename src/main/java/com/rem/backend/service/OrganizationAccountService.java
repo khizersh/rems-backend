@@ -6,7 +6,6 @@ import com.rem.backend.dto.orgAccount.TransferFundRequest;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.entity.organization.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
-import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.repository.OrganizationAccoutRepo;
@@ -18,7 +17,6 @@ import com.rem.backend.utility.Utility;
 import com.rem.backend.utility.ValidationService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -64,7 +62,7 @@ public class OrganizationAccountService {
 
 
             if (request.getTransactionType().equals(TransactionType.CREDIT)) {
-                response = vendorAccountDetailRepo.findVendorPaymentsProjectionByOrganizationAndDateRange(
+                response = vendorAccountDetailRepo.findVendorPaymentsProjectionByOrganizationAndDateRangeWithoutPagination(
                         request.getOrganizationId(),
                         startDate,
                         endDate,
@@ -118,23 +116,32 @@ public class OrganizationAccountService {
             LocalDateTime endDate = Utility.getEndOfDay(request.getEndDate());
 
 
-            if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
-                response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRangeWithoutPagination(
+            if (request.getTransactionType().equals(TransactionType.CREDIT)) {
+                response = vendorAccountDetailRepo.findVendorPaymentsProjectionByOrganizationAndDateRangeWithoutPagination(
                         request.getOrganizationId(),
                         startDate,
-                        endDate
-                );
+                        endDate);
+
 
             } else {
+                if (request.getFilteredBy() == null || request.getFilteredBy().equals("all")) {
+                    response = organizationAccountDetailRepo.findAllByOrganizationIdAndDateRangeWithoutPagination(
+                            request.getOrganizationId(),
+                            startDate,
+                            endDate
+                    );
 
-                ValidationService.validate(request.getFilteredId(), "Account");
-                response = organizationAccountDetailRepo.
-                        findAllByOrgAndAccountAndDateRangeWithoutPagination(
-                                request.getOrganizationId(),
-                                request.getFilteredId(),
-                                startDate,
-                                endDate
-                        );
+                } else {
+
+                    ValidationService.validate(request.getFilteredId(), "Account");
+                    response = organizationAccountDetailRepo.
+                            findAllByOrgAndAccountAndDateRangeWithoutPagination(
+                                    request.getOrganizationId(),
+                                    request.getFilteredId(),
+                                    startDate,
+                                    endDate
+                            );
+                }
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
@@ -275,8 +282,6 @@ public class OrganizationAccountService {
             OrganizationAccount fromAccount = fromAcccountOpt.get();
             OrganizationAccount toAccount = toAcccountOpt.get();
 
-            if (fromAccount.getTotalAmount() < toAccount.getTotalAmount())
-                throw new IllegalArgumentException("Invalid Amount");
 
 
             fromAccount.setTotalAmount(fromAccount.getTotalAmount() - transferFundRequest.getAmount());

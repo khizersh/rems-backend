@@ -11,6 +11,7 @@ import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.TransactionType;
+import com.rem.backend.enums.VendorPaymentType;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -239,6 +240,7 @@ public class ExpenseService {
                 vendorPayment.setBalanceAmount(updatedCreditBalance);
                 vendorPayment.setProjectId(expense.getProjectId());
                 vendorPayment.setProjectId(expense.getProjectId());
+                vendorPayment.setVendorPaymentType(VendorPaymentType.DIRECT_PURCHASE);
                 if (expense.getCreditAmount() == 0) {
                     vendorPayment.setTransactionType(TransactionType.DEBIT);
                 } else if (expense.getAmountPaid() == 0) {
@@ -803,11 +805,13 @@ public class ExpenseService {
             vendorPayment.setAmountPaid(expenseDetail.getAmountPaid());
             vendorPayment.setBalanceAmount(remainingCreditBalance);
             vendorPayment.setOrganizationAccountId(expenseDetail.getOrganizationAccountId());
+            vendorPayment.setVendorPaymentType(VendorPaymentType.DUE_CLEARANCE);
 //            vendorPayment.setCreditAmount(lastCreditAmount - expenseDetail.getAmountPaid());
 //            if (expense.getCreditAmount() - expenseDetail.getAmountPaid() > 0) {
 //                vendorPayment.setTransactionType(TransactionType.DEBIT_CREDIT);
 //            } else {
 //            }
+
             vendorPayment.setProjectId(expense.getProjectId());
             vendorPayment.setTransactionType(TransactionType.DEBIT);
             vendorPayment.setVendorAccountId(expense.getVendorAccountId());

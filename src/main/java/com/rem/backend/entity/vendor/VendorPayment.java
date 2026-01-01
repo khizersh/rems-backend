@@ -2,6 +2,7 @@ package com.rem.backend.entity.vendor;
 
 
 import com.rem.backend.enums.TransactionType;
+import com.rem.backend.enums.VendorPaymentType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -46,6 +47,10 @@ public class VendorPayment {
 
     @Column(nullable = false)
     private TransactionType transactionType;
+
+    @Column(nullable = true)
+    @Enumerated(EnumType.STRING)
+    private VendorPaymentType vendorPaymentType;
 
     @Transient
     private String organizationAccount;

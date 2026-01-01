@@ -131,7 +131,7 @@ public class BookingCancellationService {
 
 
             deposited = customerAccount.getTotalPaidAmount();
-
+            CustomerPayable customerPayable = new CustomerPayable();
 
             for (BookingCancellationRequest.CustomerPayableFeesDto fee : request.getFees()) {
                 double calculated = Utility.calculateFee(deposited, fee);
@@ -139,6 +139,7 @@ public class BookingCancellationService {
 
                 CustomerPayableFeeDetail detail = new CustomerPayableFeeDetail();
                 detail.setType(fee.getType());
+                detail.setCustomerPayable(customerPayable);
                 detail.setTitle(fee.getTitle());
                 detail.setInputValue(fee.getValue());
                 detail.setCalculatedAmount(calculated);
@@ -151,7 +152,7 @@ public class BookingCancellationService {
 
             CustomerPayableDto customerPayableDto = buildCustomerPayableDto(booking, deposited, totalFees, request);
 
-            CustomerPayable customerPayable = CustomerPayable.map(customerPayableDto, booking);
+            CustomerPayable.map(customerPayable, customerPayableDto, booking);
             customerPayable.setFeeDetails(feeDetails);
             customerPayable.setCreatedBy(loggedInUser);
             customerPayable.setUpdatedBy(loggedInUser);

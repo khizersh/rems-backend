@@ -46,6 +46,16 @@ public class VendorAccountService {
         }
     }
 
+    public Map<String, Object> getAllVendorAccountsWithSearch(long orgId, String searchName, Pageable pageable) {
+        try {
+            Page<VendorAccount> vendorAccounts = vendorAccountRepository.findByOrganizationIdWithSearch(orgId, searchName, pageable);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     public Map<String, Object> getAllVendorAccountsByOrg(long orgId) {
         try {
             List<Map<String, Object>> vendorAccounts = vendorAccountRepository.findAllByOrgId(orgId);
@@ -86,7 +96,7 @@ public class VendorAccountService {
 
             vendorAccountDetail.getContent().forEach(payment -> {
 
-                        if (payment.getOrganizationAccountId() != null) {
+                        if (payment.getOrganizationAccountId() != null && payment.getOrganizationAccountId() != 0) {
                             Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(payment.getOrganizationAccountId());
                             payment.setOrganizationAccount(organizationAccountOptional.get().getName());
                         }
@@ -116,10 +126,10 @@ public class VendorAccountService {
             List<VendorPayment> vendorAccounts = vendorAccountDetailRepo.findByVendorAccountIdOrderByIdDesc(acctId);
 
             vendorAccounts.forEach(payment -> {
-                if (payment.getOrganizationAccountId() != null) {
-                    Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(payment.getOrganizationAccountId());
-                    payment.setOrganizationAccount(organizationAccountOptional.get().getName());
-                }
+                        if (payment.getOrganizationAccountId() != null) {
+                            Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(payment.getOrganizationAccountId());
+                            payment.setOrganizationAccount(organizationAccountOptional.get().getName());
+                        }
                         payment.setVendorAccount(accountOptional.get().getName());
                     }
             );
@@ -149,6 +159,29 @@ public class VendorAccountService {
                 vendorAccounts = vendorAccountRepository.findAll();
             }
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccounts);
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    // ✅ Get all vendor accounts by name or get all
+    public Map<String, Object> updatingBalanceAmount() {
+        try {
+
+            Optional<VendorAccount> optional = vendorAccountRepository.findById(57l);
+
+            List<VendorPayment> vendorPayments =
+                    vendorAccountDetailRepo.findByVendorAccountIdOrderByIdAsc(optional.get().getId());
+
+            double paidAmount = 0 , creditAmount  = 0;
+            vendorPayments.forEach(payment -> {
+
+
+
+            });
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, vendorPayments);
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }

@@ -19,6 +19,7 @@ public interface VendorAccountDetailRepo extends JpaRepository<VendorPayment, Lo
 
     Page<VendorPayment> findByVendorAccountId(long acctId , Pageable pageable);
     List<VendorPayment> findByVendorAccountIdOrderByIdDesc(long acctId );
+    List<VendorPayment> findByVendorAccountIdOrderByIdAsc(long acctId );
     Optional<VendorPayment> findByExpenseId(long expenseID );
     @Transactional
     void deleteByExpenseId(Long expenseId);
@@ -41,13 +42,41 @@ public interface VendorAccountDetailRepo extends JpaRepository<VendorPayment, Lo
     JOIN VendorAccount va ON va.id = vp.vendorAccountId
     WHERE va.organizationId = :organizationId
       AND vp.createdDate BETWEEN :fromDate AND :toDate 
-      AND vp.creditAmount > 0
+      AND vp.creditAmount > 0 Order by vp.createdDate Desc
 """)
     Page<OrganizationAccountDetailProjection>
-    findVendorPaymentsProjectionByOrganizationAndDateRange(
+    findVendorPaymentsProjectionByOrganizationAndDateRangeWithoutPagination(
             @Param("organizationId") long organizationId,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,
             Pageable pageable
+    );
+
+
+
+    @Query("""
+    SELECT
+        va.name           AS accountName,
+        'CREDIT'          AS transactionType,
+        vp.creditAmount   AS amount,
+        ''                AS comments,
+        ''                AS projectName,
+        ''                AS customerName,
+        ''                AS unitSerialNo,
+        vp.createdBy      AS createdBy,
+        vp.updatedBy      AS updatedBy,
+        vp.createdDate    AS createdDate,
+        vp.updatedDate    AS updatedDate
+    FROM VendorPayment vp
+    JOIN VendorAccount va ON va.id = vp.vendorAccountId
+    WHERE va.organizationId = :organizationId
+      AND vp.createdDate BETWEEN :fromDate AND :toDate
+      AND vp.creditAmount > 0 Order by vp.createdDate Desc
+""")
+    List<OrganizationAccountDetailProjection>
+    findVendorPaymentsProjectionByOrganizationAndDateRangeWithoutPagination(
+            @Param("organizationId") long organizationId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate
     );
 }

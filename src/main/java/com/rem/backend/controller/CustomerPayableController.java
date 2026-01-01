@@ -43,7 +43,7 @@ public class CustomerPayableController {
     }
 
 
-    @GetMapping("/{customerPayableId}/customerPayable")
+    @GetMapping("/{customerPayableId}")
     public ResponseEntity<?> getCustomerPayableByCustomerPayableId(@PathVariable long customerPayableId,
                                                 HttpServletRequest request) {
 
@@ -63,6 +63,19 @@ public class CustomerPayableController {
 
         Map<String, Object> response =
                 customerPayableService.editFeesDetail(feeId, customerPayableFeeDetail, loggedInUser);
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    @PostMapping("/editCustomerPayable")
+    public ResponseEntity<?> editCustomerPayable(@RequestBody BookingCancellationRequest updateCustomerPayable,
+                                      HttpServletRequest request) {
+
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                customerPayableService.editCustomerPayable(updateCustomerPayable, loggedInUser);
 
         return ResponseEntity.ok(response);
     }
