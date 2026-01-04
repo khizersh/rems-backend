@@ -16,3 +16,4 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
     List<JournalEntry> findAllByReferenceTypeAndReferenceId(String referenceType, Long referenceId);
 }
 
+

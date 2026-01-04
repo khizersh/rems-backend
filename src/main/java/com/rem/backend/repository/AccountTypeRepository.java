@@ -12,3 +12,4 @@ public interface AccountTypeRepository extends JpaRepository<AccountType, Long> 
     boolean existsByNameIgnoreCase(String name);
 }
 
+

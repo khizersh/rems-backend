@@ -21,3 +21,4 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
     List<ChartOfAccount> findAllByOrganizationIdAndVendorId(long organizationId, Long vendorId);
 }
 
+

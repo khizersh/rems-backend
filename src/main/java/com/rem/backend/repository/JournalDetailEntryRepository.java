@@ -13,3 +13,4 @@ public interface JournalDetailEntryRepository extends JpaRepository<JournalDetai
     void deleteAllByJournalEntryId(long journalEntryId);
 }
 
+

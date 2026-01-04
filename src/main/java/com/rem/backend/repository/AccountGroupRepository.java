@@ -14,3 +14,4 @@ public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long
     boolean existsByNameContainingIgnoreCaseAndOrganizationId(String name, long organizationId);
 }
 
+

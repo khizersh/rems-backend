@@ -253,13 +253,8 @@ public class ExpenseService {
                 vendorAccountService.addPaymentHistory(vendorPayment, loggedInUser);
             }
 
-            // Create journal entry for expense
-            try {
-                journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
-            } catch (Exception e) {
-                // Log error but don't fail the transaction
-                e.printStackTrace();
-            }
+            // Create journal entry for expense (double-entry bookkeeping)
+            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
@@ -835,14 +830,9 @@ public class ExpenseService {
 
             expenseDetailRepo.save(expenseDetail);
 
-            // Create journal entry for expense detail (additional payment)
-            try {
-                journalEntryService.createJournalEntryForExpenseDetail(expense, organizationAccount, 
-                        expenseDetail.getAmountPaid(), loggedInUser);
-            } catch (Exception e) {
-                // Log error but don't fail the transaction
-                e.printStackTrace();
-            }
+            // Create journal entry for expense detail (double-entry bookkeeping)
+            journalEntryService.createJournalEntryForExpenseDetail(expense, organizationAccount, 
+                    expenseDetail.getAmountPaid(), loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetail);
         } catch (IllegalArgumentException e) {

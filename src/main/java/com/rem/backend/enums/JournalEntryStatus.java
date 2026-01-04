@@ -4,3 +4,4 @@ public enum JournalEntryStatus {
     DRAFT, POSTED, CANCELLED
 }
 
+
