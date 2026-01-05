@@ -1,5 +1,6 @@
 package com.rem.backend.repository;
 
+import com.rem.backend.entity.account.AccountGroup;
 import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.enums.AccountStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +20,12 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
     List<ChartOfAccount> findAllByOrganizationIdAndUnitId(long organizationId, Long unitId);
     List<ChartOfAccount> findAllByOrganizationIdAndCustomerId(long organizationId, Long customerId);
     List<ChartOfAccount> findAllByOrganizationIdAndVendorId(long organizationId, Long vendorId);
+    List<ChartOfAccount> findAllByOrganizationIdAndAccountGroup(
+            long organizationId, AccountGroup accountGroup);
+    List<ChartOfAccount> findAllByOrganizationIdAndAccountGroupIn(
+            long organizationId, List<AccountGroup> groups);
+
 }
+
 
 

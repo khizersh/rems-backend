@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.entity.account.AccountGroup;
 import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.entity.account.JournalDetailEntry;
 import com.rem.backend.entity.account.JournalEntry;
@@ -235,7 +236,7 @@ public class JournalEntryService {
         }
 
         // Find "Bank Account" or "Cash and Bank" account group (Asset type)
-        var bankAccountGroup = accountGroupRepository.findAllByOrganizationId(organizationId)
+        AccountGroup bankAccountGroup = accountGroupRepository.findAllByOrganizationId(organizationId)
                 .stream()
                 .filter(ag -> ag.getName().equalsIgnoreCase("Bank Account") || 
                              ag.getName().equalsIgnoreCase("Cash and Bank") ||
@@ -255,7 +256,7 @@ public class JournalEntryService {
         chartOfAccount.setCode(generateAccountCode(organizationId, "BANK"));
         chartOfAccount.setName(organizationAccount.getName());
         chartOfAccount.setOrganizationId(organizationId);
-        chartOfAccount.setAccountGroupId(bankAccountGroup.getId());
+        chartOfAccount.setAccountGroup(bankAccountGroup);
         chartOfAccount.setSystemGenerated(true);
         chartOfAccount.setStatus(AccountStatus.ACTIVE);
         
@@ -315,7 +316,7 @@ public class JournalEntryService {
         chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "EXP"));
         chartOfAccount.setName(expenseAccountName);
         chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroupId(expenseAccountGroup.getId());
+        chartOfAccount.setAccountGroup(expenseAccountGroup);
         if (expense.getProjectId() != null && expense.getProjectId() > 0) {
             chartOfAccount.setProjectId(expense.getProjectId());
         }
@@ -372,7 +373,7 @@ public class JournalEntryService {
         chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "AP"));
         chartOfAccount.setName(vendorAccountName);
         chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroupId(accountsPayableGroup.getId());
+        chartOfAccount.setAccountGroup(accountsPayableGroup);
         chartOfAccount.setVendorId(expense.getVendorAccountId());
         if (expense.getProjectId() != null && expense.getProjectId() > 0) {
             chartOfAccount.setProjectId(expense.getProjectId());

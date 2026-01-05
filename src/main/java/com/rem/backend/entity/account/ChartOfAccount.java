@@ -24,8 +24,9 @@ public class ChartOfAccount {
     @Column(nullable = false)
     private long organizationId;
 
-    @Column(nullable = false)
-    private long accountGroupId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "account_group_id", nullable = false)
+    private AccountGroup accountGroup;
 
     @Column(nullable = true)
     private Long projectId;

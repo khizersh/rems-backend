@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface AccountTypeRepository extends JpaRepository<AccountType, Long> {
     Optional<AccountType> findByNameIgnoreCase(String name);
     boolean existsByNameIgnoreCase(String name);
+
 }
 
 

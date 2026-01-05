@@ -17,8 +17,9 @@ public class AccountGroup {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private long accountTypeId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "account_type_id", nullable = false)
+    private AccountType accountType;
 
     @Column(nullable = false)
     private long organizationId;
