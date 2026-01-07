@@ -42,6 +42,7 @@ public class ExpenseService {
     private final VendorAccountService vendorAccountService;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final OrganizationAccoutRepo organizationAccountRepo;
+    private final JournalEntryService journalEntryService;
 
 
     public Map<String, Object> getExpenseList(long id, long id2, String filteredBy, Pageable pageable) {
@@ -254,6 +255,8 @@ public class ExpenseService {
                 vendorAccountService.addPaymentHistory(vendorPayment, loggedInUser);
             }
 
+            // Create journal entry for expense (double-entry bookkeeping)
+            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
@@ -829,7 +832,13 @@ public class ExpenseService {
                 expenseDetail.setPaymentDocNo(null);
             }
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetailRepo.save(expenseDetail));
+            expenseDetailRepo.save(expenseDetail);
+
+            // Create journal entry for expense detail (double-entry bookkeeping)
+            journalEntryService.createJournalEntryForExpenseDetail(expense, organizationAccount, 
+                    expenseDetail.getAmountPaid(), loggedInUser);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetail);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
