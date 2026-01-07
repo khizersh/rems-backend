@@ -1,5 +1,6 @@
 package com.rem.backend.entity.account;
 
+import com.rem.backend.entity.organization.Organization;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -21,8 +22,9 @@ public class AccountGroup {
     @JoinColumn(name = "account_type_id", nullable = false)
     private AccountType accountType;
 
-    @Column(nullable = false)
-    private long organizationId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;

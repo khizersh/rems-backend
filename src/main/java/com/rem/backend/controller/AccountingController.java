@@ -26,17 +26,42 @@ public class AccountingController {
     private final AccountService accountsService;
 
     @GetMapping("/{organizationId}/allChartOfAccounts")
-    public ResponseEntity<?> getAllChartOfAccounts(@PathVariable long organizationId,
-                                                   @RequestParam(required = false) String accountGroup,
-                                                   @RequestParam(required = false) String accountType,
+    public ResponseEntity<?> getAllChartOfAccounts(@PathVariable Long organizationId,
+                                                   @RequestParam(required = false) Long accountGroup,
+                                                   @RequestParam(required = false) Long accountType,
                                                    HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
 
         Map<String, Object> response =
-                accountsService.getAllChartOfAccounts(organizationId, accountGroup, accountGroup);
+                accountsService.getAllChartOfAccounts(organizationId, accountType, accountGroup);
 
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{organizationId}/getAccountGroups")
+    public ResponseEntity<?> getAccountGroup(@RequestParam(required = true) long accountType,
+                                                   HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                accountsService.getAccountGroups(accountType);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{organizationId}/getAllAccountTypes")
+    public ResponseEntity<?> getAllAccountTypes(
+                                                   HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                accountsService.getAllAccountType();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
 
     @PostMapping("/{organizationId}")
     public ResponseEntity<?> createChartOfAccount(

@@ -26,22 +26,17 @@ public class AccountService {
     private final AccountTypeRepository typeRepo;
 
     public Map<String, Object> getAllChartOfAccounts(
-            long organizationId,
-            String accountType,
-            String accountGroup
+            Long organizationId,
+            Long accountType,
+            Long accountGroup
     ) {
 
         try {
             List<ChartOfAccount> accounts;
 
             if (accountGroup != null) {
-                AccountGroup group = groupRepo
-                        .findByNameAndOrganizationId(accountGroup, organizationId)
-                        .orElseThrow(() ->
-                                new RuntimeException("Invalid account group"));
-
                 accounts = coaRepo
-                        .findAllByOrganizationIdAndAccountGroup(
+                        .findAllByOrganizationIdAndAccountGroup_Id(
                                 organizationId, group);
             } else if (accountType != null) {
                 AccountType type = typeRepo.findByNameIgnoreCase(accountType)
@@ -74,6 +69,48 @@ public class AccountService {
     }
 
 
+    public Map<String, Object> getAllAccountType(
+    ) {
+
+        try {
+            List<AccountType> type = typeRepo.findAll();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("count", type.size());
+            response.put("data", type);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getAccountGroups(
+            Long accountType
+    ) {
+
+        try {
+                List<AccountGroup> groups =
+                        groupRepo.findAllByAccountType_Id(
+                                accountType);
+
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("count", groups.size());
+            response.put("data", groups);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     public Map<String, Object> createChartOfAccount(
             long organizationId,
             CreateChartOfAccountRequest request
@@ -85,7 +122,7 @@ public class AccountService {
                     .orElseThrow(() ->
                             new RuntimeException("Account group not found"));
 
-            if (group.getOrganizationId() != organizationId) {
+            if (group.getOrganization().getOrganizationId() != organizationId) {
                 throw new RuntimeException("Account group does not belong to organization");
             }
 
