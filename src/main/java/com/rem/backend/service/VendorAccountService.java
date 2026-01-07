@@ -7,6 +7,7 @@ import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.TransactionType;
+import com.rem.backend.enums.VendorPaymentType;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -226,6 +227,7 @@ public class VendorAccountService {
             payment.setCreditAmount(vendorAccount.getTotalCreditAmount());
             payment.setBalanceAmount(vendorAccount.getTotalCreditAmount());
             payment.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            payment.setVendorPaymentType(VendorPaymentType.DIRECT_PURCHASE);
             if (vendorAccount.getTotalAmountPaid() == vendorAccount.getTotalAmount())
                 payment.setTransactionType(TransactionType.DEBIT);
             else if (vendorAccount.getTotalCreditAmount() == vendorAccount.getTotalAmount())
