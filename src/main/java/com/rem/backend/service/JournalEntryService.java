@@ -236,7 +236,7 @@ public class JournalEntryService {
         }
 
         // Find "Bank Account" or "Cash and Bank" account group (Asset type)
-        AccountGroup bankAccountGroup = accountGroupRepository.findAllByOrganizationId(organizationId)
+        AccountGroup bankAccountGroup = accountGroupRepository.findAllByOrganization_OrganizationId(organizationId)
                 .stream()
                 .filter(ag -> ag.getName().equalsIgnoreCase("Bank Account") || 
                              ag.getName().equalsIgnoreCase("Cash and Bank") ||
@@ -245,7 +245,7 @@ public class JournalEntryService {
                 .findFirst()
                 .orElseGet(() -> {
                     // If no bank account group exists, try to find any Asset group
-                    return accountGroupRepository.findAllByOrganizationId(organizationId)
+                    return accountGroupRepository.findAllByOrganization_OrganizationId(organizationId)
                             .stream()
                             .findFirst()
                             .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
@@ -292,7 +292,7 @@ public class JournalEntryService {
         }
 
         // Find appropriate expense account group - try multiple common names
-        var expenseAccountGroup = accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
+        var expenseAccountGroup = accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
                 .stream()
                 .filter(ag -> {
                     String name = ag.getName().toLowerCase();
@@ -305,7 +305,7 @@ public class JournalEntryService {
                 .findFirst()
                 .orElseGet(() -> {
                     // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
+                    return accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
                             .stream()
                             .findFirst()
                             .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
@@ -352,7 +352,7 @@ public class JournalEntryService {
         }
 
         // Find liability/payable account group - try multiple common names
-        var accountsPayableGroup = accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
+        var accountsPayableGroup = accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
                 .stream()
                 .filter(ag -> {
                     String name = ag.getName().toLowerCase();
@@ -362,7 +362,7 @@ public class JournalEntryService {
                 .findFirst()
                 .orElseGet(() -> {
                     // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
+                    return accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
                             .stream()
                             .findFirst()
                             .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));

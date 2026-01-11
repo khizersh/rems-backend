@@ -37,14 +37,14 @@ public class AccountService {
             if (accountGroup != null) {
                 accounts = coaRepo
                         .findAllByOrganizationIdAndAccountGroup_Id(
-                                organizationId, group);
+                                organizationId, accountGroup);
             } else if (accountType != null) {
-                AccountType type = typeRepo.findByNameIgnoreCase(accountType)
+                AccountType type = typeRepo.findById(accountType)
                         .orElseThrow(() ->
                                 new RuntimeException("Invalid account type"));
 
                 List<AccountGroup> groups =
-                        groupRepo.findAllByOrganizationIdAndAccountType(
+                        groupRepo.findAllByOrganization_OrganizationIdAndAccountType(
                                 organizationId, type);
 
                 accounts = coaRepo
