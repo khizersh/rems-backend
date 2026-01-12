@@ -28,24 +28,15 @@ public class ChartOfAccount {
     @JoinColumn(name = "account_group_id", nullable = false)
     private AccountGroup accountGroup;
 
-    @Column(nullable = true)
-    private Long projectId;
-
-    @Column(nullable = true)
-    private Long unitId;
-
-    @Column(nullable = true)
-    private Long customerId;
-
-    @Column(nullable = true)
-    private Long vendorId;
-
     @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
     private boolean isSystemGenerated = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AccountStatus status = AccountStatus.ACTIVE;
+
+    @Column(nullable = false)
+    private Long referenceId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;

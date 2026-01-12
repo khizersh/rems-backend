@@ -136,10 +136,7 @@ public class AccountService {
             coa.setName(request.getName());
             coa.setOrganizationId(organizationId);
             coa.setAccountGroup(group);
-            coa.setProjectId(request.getProjectId());
-            coa.setUnitId(request.getUnitId());
-            coa.setCustomerId(request.getCustomerId());
-            coa.setVendorId(request.getVendorId());
+            coa.setReferenceId(request.getReferenceId());
             coa.setStatus(AccountStatus.ACTIVE);
 
             ChartOfAccount saved = coaRepo.save(coa);

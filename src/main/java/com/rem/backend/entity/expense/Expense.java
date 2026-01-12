@@ -32,6 +32,7 @@ public class Expense {
     private String orgAccountTitle;
     private String vendorName;
     private String expenseTitle;
+    private long expenseCOAId;
     private String comments = "Miscellaneous Expense";
 
 

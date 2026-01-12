@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -52,7 +53,8 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(expense.getOrganizationId());
             journalEntry.setCreatedDate(expense.getCreatedDate() != null ? expense.getCreatedDate() : java.time.LocalDateTime.now());
             journalEntry.setReferenceType("EXPENSE");
-            journalEntry.setReferenceId(expense.getId());
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
             journalEntry.setDescription("Expense: " + expense.getExpenseTitle() + 
                     (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
             journalEntry.setStatus(JournalEntryStatus.POSTED);
@@ -62,7 +64,7 @@ public class JournalEntryService {
             log.info("Created Journal Entry ID: {} for Expense ID: {}", journalEntry.getId(), expense.getId());
 
             // Find or create Chart of Account for Bank/Cash Account
-            ChartOfAccount bankAccount = findOrCreateBankAccount(organizationAccount, expense.getOrganizationId());
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount, expense.getOrganizationId());
             log.info("Bank Account COA ID: {} - {}", bankAccount.getId(), bankAccount.getName());
 
             // Find or create Chart of Account for Expense Account
@@ -95,7 +97,7 @@ public class JournalEntryService {
             // If creditAmount > 0: Debit Expense, Credit Accounts Payable (Vendor)
             if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
                 // Find or create Accounts Payable account for vendor
-                ChartOfAccount accountsPayableAccount = findOrCreateAccountsPayableAccount(expense, loggedInUser);
+                ChartOfAccount accountsPayableAccount = findVendorPayableAccount(expense, loggedInUser);
                 log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
 
                 // Debit: Expense Account
@@ -161,7 +163,8 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(expense.getOrganizationId());
             journalEntry.setCreatedDate(java.time.LocalDateTime.now());
             journalEntry.setReferenceType("EXPENSE_PAYMENT");
-            journalEntry.setReferenceId(expense.getId());
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
             journalEntry.setDescription("Vendor Payment: " + expense.getExpenseTitle() + 
                     " - Paying debt to " + expense.getVendorName());
             journalEntry.setStatus(JournalEntryStatus.POSTED);
@@ -172,10 +175,10 @@ public class JournalEntryService {
                     journalEntry.getId(), expense.getId());
 
             // Find or create Chart of Account for Bank/Cash Account
-            ChartOfAccount bankAccount = findOrCreateBankAccount(organizationAccount, expense.getOrganizationId());
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount, expense.getOrganizationId());
 
             // Find or create Accounts Payable account for vendor
-            ChartOfAccount accountsPayableAccount = findOrCreateAccountsPayableAccount(expense, loggedInUser);
+            ChartOfAccount accountsPayableAccount = findVendorPayableAccount(expense, loggedInUser);
 
             // Debit: Accounts Payable (Vendor) - reducing the liability
             JournalDetailEntry debitEntry = new JournalDetailEntry();
@@ -222,170 +225,55 @@ public class JournalEntryService {
      * Find or create Chart of Account for Bank/Cash Account
      * This links OrganizationAccount to ChartOfAccount for proper ledger entries
      */
-    private ChartOfAccount findOrCreateBankAccount(OrganizationAccount organizationAccount, long organizationId) {
+    private ChartOfAccount findBankAccount(OrganizationAccount organizationAccount, long organizationId) {
         // Find existing account by name and organization
+
+        Optional<AccountGroup> accountGroup = accountGroupRepository.
+                findByNameAndOrganization_OrganizationId("bank/cash",organizationId);
+
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
                 .findAllByOrganizationId(organizationId)
                 .stream()
-                .filter(coa -> coa.getName().equalsIgnoreCase(organizationAccount.getName()) 
-                        && coa.getStatus() == AccountStatus.ACTIVE)
+                .filter(coa -> coa.getReferenceId() == organizationAccount.getId()
+                        && coa.getStatus() == AccountStatus.ACTIVE && coa.getAccountGroup().getId() ==
+                        accountGroup.get().getId())
                 .findFirst();
 
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
+        return existingAccount.orElse(null);
 
-        // Find "Bank Account" or "Cash and Bank" account group (Asset type)
-        AccountGroup bankAccountGroup = accountGroupRepository.findAllByOrganization_OrganizationId(organizationId)
-                .stream()
-                .filter(ag -> ag.getName().equalsIgnoreCase("Bank Account") || 
-                             ag.getName().equalsIgnoreCase("Cash and Bank") ||
-                             ag.getName().equalsIgnoreCase("Cash") ||
-                             ag.getName().equalsIgnoreCase("Bank"))
-                .findFirst()
-                .orElseGet(() -> {
-                    // If no bank account group exists, try to find any Asset group
-                    return accountGroupRepository.findAllByOrganization_OrganizationId(organizationId)
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account for this bank
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(organizationId, "BANK"));
-        chartOfAccount.setName(organizationAccount.getName());
-        chartOfAccount.setOrganizationId(organizationId);
-        chartOfAccount.setAccountGroup(bankAccountGroup);
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Bank Account in Chart of Accounts: {} - {}", savedAccount.getId(), savedAccount.getName());
-        
-        return savedAccount;
     }
 
     /**
      * Find or create Chart of Account for Expense Account
      */
     private ChartOfAccount findOrCreateExpenseAccount(Expense expense, String loggedInUser) {
-        String expenseAccountName;
-        
-        if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
-            // For construction expenses, use expense type name or default
-            expenseAccountName = expense.getExpenseTitle() != null ? expense.getExpenseTitle() : "Project Construction Cost";
-        } else {
-            expenseAccountName = "Miscellaneous Expense";
-        }
 
         // Try to find existing account
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(coa -> coa.getName().equalsIgnoreCase(expenseAccountName) 
-                        && coa.getStatus() == AccountStatus.ACTIVE)
-                .findFirst();
+                .findById(expense.getExpenseCOAId());
 
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
-
-        // Find appropriate expense account group - try multiple common names
-        var expenseAccountGroup = accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(ag -> {
-                    String name = ag.getName().toLowerCase();
-                    if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
-                        return name.contains("construction") || name.contains("project") || name.contains("expense");
-                    } else {
-                        return name.contains("expense") || name.contains("marketing") || name.contains("miscellaneous");
-                    }
-                })
-                .findFirst()
-                .orElseGet(() -> {
-                    // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "EXP"));
-        chartOfAccount.setName(expenseAccountName);
-        chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroup(expenseAccountGroup);
-        if (expense.getProjectId() != null && expense.getProjectId() > 0) {
-            chartOfAccount.setProjectId(expense.getProjectId());
-        }
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Expense Account in Chart of Accounts: {} - {}", savedAccount.getId(), savedAccount.getName());
-        
-        return savedAccount;
+        return existingAccount.orElse(null);
     }
 
     /**
      * Find or create Chart of Account for Accounts Payable (Vendor)
      * This creates a liability account for tracking vendor payables
      */
-    private ChartOfAccount findOrCreateAccountsPayableAccount(Expense expense, String loggedInUser) {
-        if (expense.getVendorAccountId() == null || expense.getVendorName() == null) {
+    private ChartOfAccount findVendorPayableAccount(Expense expense, String loggedInUser) {
+
+        if (expense.getVendorAccountId() == null) {
             throw new RuntimeException("Vendor information is required for accounts payable");
         }
 
-        String vendorAccountName = "Accounts Payable - " + expense.getVendorName();
-
         // Try to find existing account by vendor
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationIdAndVendorId(expense.getOrganizationId(), expense.getVendorAccountId())
+                .findAllByOrganizationId(expense.getOrganizationId())
                 .stream()
-                .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE)
+                .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE && Objects.equals(coa.getReferenceId(), expense.getVendorAccountId()))
                 .findFirst();
 
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
+        return existingAccount.orElse(null);
 
-        // Find liability/payable account group - try multiple common names
-        var accountsPayableGroup = accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(ag -> {
-                    String name = ag.getName().toLowerCase();
-                    return name.contains("payable") || name.contains("liability") || 
-                           name.contains("advance") || name.contains("creditor");
-                })
-                .findFirst()
-                .orElseGet(() -> {
-                    // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganization_OrganizationId(expense.getOrganizationId())
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "AP"));
-        chartOfAccount.setName(vendorAccountName);
-        chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroup(accountsPayableGroup);
-        chartOfAccount.setVendorId(expense.getVendorAccountId());
-        if (expense.getProjectId() != null && expense.getProjectId() > 0) {
-            chartOfAccount.setProjectId(expense.getProjectId());
-        }
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Accounts Payable in Chart of Accounts: {} - {} for Vendor ID: {}", 
-                savedAccount.getId(), savedAccount.getName(), expense.getVendorAccountId());
-        
-        return savedAccount;
     }
 
     /**
