@@ -35,10 +35,10 @@ public class ChartOfAccount {
     @Column(nullable = false)
     private AccountStatus status = AccountStatus.ACTIVE;
 
-    @Column(nullable = false)
-    private Long referenceId;
-
+    @Column(name = "organization_account_id")
+    private Long organizationAccountId;   // Bank / Cash accounts
     @Column(nullable = false, updatable = false)
+
     private LocalDateTime createdDate;
 
     @Column(nullable = false)

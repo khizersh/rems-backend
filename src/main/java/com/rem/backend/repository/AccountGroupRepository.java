@@ -24,4 +24,7 @@ public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long
     // OR (recommended)
     List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountType_Id(
             long organizationId, long accountTypeId);
+
+    boolean existsByNameAndOrganizationId(String name, Long organizationId);
+
 }

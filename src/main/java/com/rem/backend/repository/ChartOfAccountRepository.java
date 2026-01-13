@@ -19,6 +19,11 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
     List<ChartOfAccount> findAllByOrganizationIdAndAccountGroup_Id(long organizationId, long accountGroupId);
     List<ChartOfAccount> findAllByOrganizationIdAndAccountGroupIn(
             long organizationId, List<AccountGroup> groups);
+    Optional<ChartOfAccount> findByOrganizationAccountIdAndStatus(
+            Long organizationAccountId,
+            AccountStatus status
+    );
+
 
 }
 

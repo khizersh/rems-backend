@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 
+import com.rem.backend.dto.accounting.CreateAccountGroupRequest;
 import com.rem.backend.dto.accounting.CreateChartOfAccountRequest;
 import com.rem.backend.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,18 +62,32 @@ public class AccountingController {
     }
 
 
-
-
-    @PostMapping("/{organizationId}")
-    public ResponseEntity<?> createChartOfAccount(
+    @PostMapping("/{organizationId}/expenseChartOfAccount")
+    public ResponseEntity<?> createExpenseChartOfAccount(
             @PathVariable long organizationId,
-            @RequestBody CreateChartOfAccountRequest request
+            @RequestBody CreateChartOfAccountRequest createChartOfAccountRequest,
+            HttpServletRequest request
     ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
         return ResponseEntity.ok(
-                accountsService.createChartOfAccount(
-                        organizationId, request
+                accountsService.createExpenseChartOfAccount(
+                        organizationId, createChartOfAccountRequest, loggedInUser
                 )
         );
     }
+
+
+    @PostMapping
+    public ResponseEntity<?> createAccountGroup(
+            @RequestParam Long organizationId,
+            @RequestBody CreateAccountGroupRequest createAccountGroupRequest,
+            HttpServletRequest request
+    ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(accountsService.createAccountGroup(organizationId, createAccountGroupRequest, loggedInUser));
+    }
+
+
 
 }
