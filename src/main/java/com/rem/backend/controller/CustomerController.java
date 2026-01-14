@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -52,6 +53,15 @@ public class CustomerController {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return customerService.createCustomer(customer , loggedInUser);
     }
+
+    @PostMapping("/{customerId}/upload-image")
+    public ResponseEntity<?> uploadCustomerImage(
+            @PathVariable Long customerId,
+            @RequestParam("image") MultipartFile image
+    ) {
+        return ResponseEntity.ok(customerService.uploadCustomerImage(customerId, image));
+    }
+
 
 
     @PostMapping("/updateCustomer")

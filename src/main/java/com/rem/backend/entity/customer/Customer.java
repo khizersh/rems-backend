@@ -2,6 +2,8 @@ package com.rem.backend.entity.customer;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -74,11 +76,16 @@ public class Customer implements Serializable {
     @Column(nullable = true)
     private String email;
 
+    @Column(nullable = true)
+    private String profileImageUrl;
+
     @Transient
     private String username;
 
     @Transient
     private String password;
+
+
 
     @PrePersist
     protected void onCreate() {

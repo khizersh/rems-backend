@@ -31,6 +31,7 @@ public class SecurityConfig  {
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for JWT-based auth
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless authentication
                 .authorizeHttpRequests(authz -> authz
+                        .requestMatchers(   "/uploads/**").permitAll() // Make login public
                         .requestMatchers("/api/user/login").permitAll() // Make login public
                         .requestMatchers("/api/user/send-reset-link/**").permitAll() // Make login public
                         .requestMatchers("/api/user/change-password/**").permitAll() // Make login public

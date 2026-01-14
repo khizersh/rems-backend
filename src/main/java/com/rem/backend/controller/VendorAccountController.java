@@ -92,6 +92,12 @@ public class VendorAccountController {
         return ResponseEntity.ok(projectPage);
     }
 
+
+    @GetMapping("/getVendorPaymentAsc/{vendorAcctId}")
+    public ResponseEntity<?> getVendorPAsc(@PathVariable long vendorAcctId) {
+        return ResponseEntity.ok(vendorAccountService.getVendorPaymentsAsc(vendorAcctId));
+    }
+
     @GetMapping("/getVendorByName")
     public ResponseEntity<?> getVendorByName(
             @RequestParam(required = false) String vendorName

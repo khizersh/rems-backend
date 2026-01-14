@@ -19,10 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 import static com.rem.backend.utility.Utility.getPaymentStatus;
 
@@ -92,7 +89,7 @@ public class VendorAccountService {
                 throw new IllegalArgumentException("Invalid Vendor Account");
 
 
-            Page<VendorPayment> vendorAccountDetail = vendorAccountDetailRepo.findByVendorAccountId(acctId, pageable);
+            Page<VendorPayment> vendorAccountDetail = vendorAccountDetailRepo.findByVendorAccountIdOrderByIdDesc(acctId, pageable);
 
 
             vendorAccountDetail.getContent().forEach(payment -> {
@@ -187,6 +184,48 @@ public class VendorAccountService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+
+    // ✅ Get all vendor accounts by name or get all
+    public List<VendorPayment> getVendorPaymentsAsc(long vendorAccountId) {
+
+        Optional<VendorAccount> optional =
+                vendorAccountRepository.findById(vendorAccountId);
+
+        if (optional.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<VendorPayment> payments =
+                vendorAccountDetailRepo
+                        .findByVendorAccountIdOrderByIdAsc(optional.get().getId());
+
+        double runningBalance = 0.0;
+
+        for (VendorPayment vp : payments) {
+
+            if (VendorPaymentType.DIRECT_PURCHASE.equals(vp.getVendorPaymentType())) {
+                runningBalance += vp.getCreditAmount();
+            }
+
+            if (VendorPaymentType.DUE_CLEARANCE.equals(vp.getVendorPaymentType())) {
+                runningBalance -= vp.getAmountPaid();
+            }
+
+            // safety guard
+            if (runningBalance < 0) {
+                runningBalance = 0;
+            }
+
+            vp.setBalanceAmount(runningBalance);
+        }
+
+        // OPTIONAL: persist updated balances
+        vendorAccountDetailRepo.saveAll(payments);
+
+        return payments;
+    }
+
 
     // ✅ Get a vendor account by ID
     public Map<String, Object> getVendorAccountById(long id) {

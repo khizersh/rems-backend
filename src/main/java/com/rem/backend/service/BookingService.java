@@ -412,6 +412,7 @@ public class BookingService {
                 booking.setCustomerName(booking.getCustomer().getName());
                 booking.setCustomerId(booking.getCustomer().getCustomerId());
                 booking.setUnitSerial(unit.getSerialNo());
+                booking.setProfileImageUrl(booking.getCustomer().getProfileImageUrl());
 
                 Optional<PaymentSchedule> paymentScheduleOptional = paymentScheduleRepo.findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(unit.getId(), PaymentScheduleType.CUSTOMER);
 
@@ -477,6 +478,7 @@ public class BookingService {
                 customerMap.put("email", userOptional.get().getEmail());
                 customerMap.put("username", customer.getUsername());
                 customerMap.put("age", customer.getAge());
+                customerMap.put("profileImageUrl", customer.getProfileImageUrl());
             }
 
 

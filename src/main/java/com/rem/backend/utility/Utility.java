@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Optional;
+import java.util.Set;
 
 public class Utility {
 
@@ -28,6 +29,34 @@ public class Utility {
         return LocalDateTime.now().minusDays(days);
     }
 
+    public static final Set<String> SUPPORTED_IMAGE_TYPES = Set.of(
+            // JPEG family
+            "image/jpeg",
+            "image/jpg",
+            "image/pjpeg",
+
+            // PNG
+            "image/png",
+
+            // Web formats
+            "image/webp",
+            "image/avif",
+
+            // GIF & BMP
+            "image/gif",
+            "image/bmp",
+            "image/x-ms-bmp",
+
+            // TIFF
+            "image/tiff",
+
+            // JPEG 2000
+            "image/jp2",
+            "image/jpeg2000",
+
+            // Photoshop
+            "image/vnd.adobe.photoshop"
+    );
 
     public static LocalDateTime getStartOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");

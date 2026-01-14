@@ -105,6 +105,10 @@ public class Booking {
     private long customerPayableId; // Cancellation charges etc.
 
 
+    @Transient
+    private String profileImageUrl; // Cancellation charges etc.
+
+
 
     @PrePersist
     protected void onCreate() {

@@ -19,16 +19,30 @@ import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import net.coobird.thumbnailator.Thumbnails;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
+import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.rem.backend.utility.Utility.SUPPORTED_IMAGE_TYPES;
+
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class CustomerService {
 
     private final CustomerRepo customerRepo;
@@ -44,6 +58,10 @@ public class CustomerService {
     private final CustomerAccountRepo customerAccountRepo;
     private final CustomerPaymentRepo customerPaymentRepo;
     private final OrganizationRepo organizationRepo;
+
+    @Value("${image.upload.path}")
+    private String imageStoragePath;
+
 
     public Map<String, Object> getCustomerById(long id) {
         try {
@@ -250,7 +268,80 @@ public class CustomerService {
     }
 
 
-    public Map<String , Object> sendCredentialEmail(Customer customer){
+    public Map<String, Object> uploadCustomerImage(Long customerId, MultipartFile file) {
+
+        try {
+
+            if (file == null || file.isEmpty()) {
+                throw new IllegalArgumentException("Image file is required");
+            }
+
+            // frontend limit = 2MB → backend allows more
+            if (file.getSize() > 5 * 1024 * 1024) {
+                throw new IllegalArgumentException("Max image size is 5MB");
+            }
+
+            Customer customer = customerRepo.findById(customerId)
+                    .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+
+            Path uploadDir = Paths.get(imageStoragePath);
+            Files.createDirectories(uploadDir);
+
+            boolean compressed = false;
+            String fileName;
+            Path targetPath;
+
+            // 🔍 Try reading image (real capability check)
+            BufferedImage image;
+            try (InputStream is = file.getInputStream()) {
+                image = ImageIO.read(is);
+            }
+
+            if (image != null) {
+                // ✅ Supported by ImageIO → compress
+                fileName = "customer_" + customerId + "_" + System.currentTimeMillis() + ".jpg";
+                targetPath = uploadDir.resolve(fileName);
+
+                Thumbnails.of(image)
+                        .size(500, 500)
+                        .outputQuality(0.7)
+                        .outputFormat("jpg")
+                        .toFile(targetPath.toFile());
+
+                compressed = true;
+
+            } else {
+                // ❌ Not supported → save original file
+                String originalName = file.getOriginalFilename();
+                String extension = originalName != null && originalName.contains(".")
+                        ? originalName.substring(originalName.lastIndexOf("."))
+                        : "";
+
+                fileName = "customer_" + customerId + "_" + System.currentTimeMillis() + extension;
+                targetPath = uploadDir.resolve(fileName);
+
+                Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            String imageUrl = "/uploads/customers/" + fileName;
+            customer.setProfileImageUrl(imageUrl);
+
+            Customer customerSaved = customerRepo.save(customer);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, customerSaved);
+
+        } catch (IllegalArgumentException e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, null);
+        }
+    }
+
+
+
+    public Map<String, Object> sendCredentialEmail(Customer customer) {
         try {
 
             ValidationService.validate(customer.getName(), "Customer name");
@@ -276,8 +367,7 @@ public class CustomerService {
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Email send successfully!");
 
 
-
-        }catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
@@ -329,11 +419,11 @@ public class CustomerService {
 
             long orgId = 0;
             if (request.containsKey("orgId")) {
-                orgId = Long.valueOf(request.get("orgId").toString()) ;
+                orgId = Long.valueOf(request.get("orgId").toString());
             }
             List<Map<String, Object>> customers;
             if (name != null && !name.trim().isEmpty()) {
-                customers = customerRepo.searchByName(name , orgId);
+                customers = customerRepo.searchByName(name, orgId);
             } else {
                 customers = customerRepo.findTop20ByOrderByCreatedDateDesc(orgId);
             }
