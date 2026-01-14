@@ -183,7 +183,7 @@ public class AccountService {
                     .orElseThrow(() -> new RuntimeException("Account type not found"));
 
             // 2. Check duplicate group
-            if (groupRepo.existsByNameAndOrganizationId(request.getName(), organizationId)) {
+            if (groupRepo.existsByNameAndOrganization_OrganizationId(request.getName(), organizationId)) {
                 throw new RuntimeException("Account group already exists for this organization");
             }
 
