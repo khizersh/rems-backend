@@ -753,6 +753,7 @@ public class ExpenseService {
 
 
     // PAYING BACK TO VENDOR
+    @Transactional
     public Map<String, Object> addExpenseDetail(ExpenseDetail expenseDetail, String loggedInUser) {
 
         try {
@@ -840,8 +841,10 @@ public class ExpenseService {
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetail);
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
