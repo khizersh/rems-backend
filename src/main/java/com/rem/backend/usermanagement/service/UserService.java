@@ -278,11 +278,15 @@ public class UserService implements UserDetailsService {
 
             String roleShortCode = "ur";
             Set<UserRoles> roles = roleService.getUserRoles(userOptional.get().getId());
+
+            List<String> roleCodeList = new ArrayList<>();
             for (UserRoles role : roles) {
-                if (role.getRoleId() == ADMIN_ROLE_ID) {
-                    roleShortCode = "ar";
-                    break;
+                Optional<Role>  roleOptional = roleService.getRoleById(role.getRoleId());
+
+                if (roleOptional.isPresent()){
+                    roleCodeList.add(roleOptional.get().getName());
                 }
+
             }
 
             if (userOptional.isPresent() && organizationOptional.isPresent()) {
@@ -291,7 +295,7 @@ public class UserService implements UserDetailsService {
                 response.put("token", token);
                 response.put("organization", organizationOptional.get());
                 response.put("sidebar", sidebarList);
-                response.put("r", roleShortCode);
+                response.put("role", roleCodeList);
                 return ResponseMapper.buildResponse(Responses.SUCCESS, response);
             }
             return ResponseMapper.buildResponse(Responses.INVALID_USER, null);
