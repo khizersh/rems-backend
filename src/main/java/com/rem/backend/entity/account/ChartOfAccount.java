@@ -28,18 +28,6 @@ public class ChartOfAccount {
     @JoinColumn(name = "account_group_id", nullable = false)
     private AccountGroup accountGroup;
 
-    @Column(nullable = true)
-    private Long projectId;
-
-    @Column(nullable = true)
-    private Long unitId;
-
-    @Column(nullable = true)
-    private Long customerId;
-
-    @Column(nullable = true)
-    private Long vendorId;
-
     @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
     private boolean isSystemGenerated = false;
 
@@ -47,7 +35,10 @@ public class ChartOfAccount {
     @Column(nullable = false)
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @Column(name = "organization_account_id")
+    private Long organizationAccountId;   // Bank / Cash accounts
     @Column(nullable = false, updatable = false)
+
     private LocalDateTime createdDate;
 
     @Column(nullable = false)

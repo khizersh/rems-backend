@@ -28,10 +28,12 @@ public class Expense {
     private Long expenseTypeId;
     private Long organizationId;
     private Long projectId;
+    private Long unitId; //optional
     private String projectName;
     private String orgAccountTitle;
     private String vendorName;
     private String expenseTitle;
+    private long expenseCOAId; //only present when expense is non construction
     private String comments = "Miscellaneous Expense";
 
 

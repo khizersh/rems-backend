@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 
+import com.rem.backend.dto.accounting.CreateAccountGroupRequest;
 import com.rem.backend.dto.accounting.CreateChartOfAccountRequest;
 import com.rem.backend.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,28 +27,68 @@ public class AccountingController {
     private final AccountService accountsService;
 
     @GetMapping("/{organizationId}/allChartOfAccounts")
-    public ResponseEntity<?> getAllChartOfAccounts(@PathVariable long organizationId,
-                                                   @RequestParam(required = false) String accountGroup,
-                                                   @RequestParam(required = false) String accountType,
+    public ResponseEntity<?> getAllChartOfAccounts(@PathVariable Long organizationId,
+                                                   @RequestParam(required = false) Long accountGroup,
+                                                   @RequestParam(required = false) Long accountType,
                                                    HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
 
         Map<String, Object> response =
-                accountsService.getAllChartOfAccounts(organizationId, accountGroup, accountGroup);
+                accountsService.getAllChartOfAccounts(organizationId, accountType, accountGroup);
 
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{organizationId}")
-    public ResponseEntity<?> createChartOfAccount(
+    @GetMapping("/{organizationId}/getAccountGroups")
+    public ResponseEntity<?> getAccountGroup(@PathVariable long organizationId,
+                                             @RequestParam long accountType,
+                                                   HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                accountsService.getAccountGroups(accountType, organizationId, loggedInUser);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/getAllAccountTypes")
+    public ResponseEntity<?> getAllAccountTypes(
+                                                   HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        Map<String, Object> response =
+                accountsService.getAllAccountType();
+
+        return ResponseEntity.ok(response);
+    }
+
+
+    @PostMapping("/{organizationId}/expenseChartOfAccount")
+    public ResponseEntity<?> createExpenseChartOfAccount(
             @PathVariable long organizationId,
-            @RequestBody CreateChartOfAccountRequest request
+            @RequestBody CreateChartOfAccountRequest createChartOfAccountRequest,
+            HttpServletRequest request
     ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
         return ResponseEntity.ok(
-                accountsService.createChartOfAccount(
-                        organizationId, request
+                accountsService.createExpenseChartOfAccount(
+                        organizationId, createChartOfAccountRequest, loggedInUser
                 )
         );
     }
+
+
+    @PostMapping("/{organizationId}/accountGroup")
+    public ResponseEntity<?> createAccountGroup(
+            @PathVariable long organizationId,
+            @RequestBody CreateAccountGroupRequest createAccountGroupRequest,
+            HttpServletRequest request
+    ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(accountsService.createAccountGroup(organizationId, createAccountGroupRequest, loggedInUser));
+    }
+
+
 
 }

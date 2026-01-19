@@ -404,7 +404,6 @@ public class ExpenseService {
 
                     projectRepo.save(newProject);
 
-
                 }
             }
 

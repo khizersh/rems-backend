@@ -25,7 +25,28 @@ public class JournalEntry {
     private String referenceType;
 
     @Column(nullable = true)
-    private Long referenceId;
+    private Long projectId;
+
+    @Column(nullable = true)
+    private Long unitId;
+
+    @Column(nullable = true)
+    private Long customerId;
+
+    @Column(nullable = true)
+    private Long vendorId;
+
+    @Column(nullable = true)
+    private Long organizationAccountId;
+
+    @Column(nullable = true)
+    private Long expenseId;
+
+    @Column(nullable = true)
+    private Long bookingId;
+
+    @Column(nullable = true)
+    private Long additionalReferenceId;
 
     @Column(nullable = true)
     private String description;
