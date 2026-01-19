@@ -40,17 +40,18 @@ public class AccountingController {
     }
 
     @GetMapping("/{organizationId}/getAccountGroups")
-    public ResponseEntity<?> getAccountGroup(@RequestParam(required = true) long accountType,
+    public ResponseEntity<?> getAccountGroup(@PathVariable long organizationId,
+                                             @RequestParam long accountType,
                                                    HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
 
         Map<String, Object> response =
-                accountsService.getAccountGroups(accountType);
+                accountsService.getAccountGroups(accountType, organizationId, loggedInUser);
 
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/{organizationId}/getAllAccountTypes")
+    @GetMapping("/getAllAccountTypes")
     public ResponseEntity<?> getAllAccountTypes(
                                                    HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
@@ -78,9 +79,9 @@ public class AccountingController {
     }
 
 
-    @PostMapping
+    @PostMapping("/{organizationId}/accountGroup")
     public ResponseEntity<?> createAccountGroup(
-            @RequestParam Long organizationId,
+            @PathVariable long organizationId,
             @RequestBody CreateAccountGroupRequest createAccountGroupRequest,
             HttpServletRequest request
     ) {

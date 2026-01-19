@@ -1,6 +1,10 @@
 package com.rem.backend.service;
 
+import com.rem.backend.dto.accounting.AccountGroupDTO;
+import com.rem.backend.dto.accounting.AccountTypeDTO;
+import com.rem.backend.dto.accounting.ChartOfAccountDTO;
 import com.rem.backend.dto.accounting.CreateAccountGroupRequest;
+import com.rem.backend.dto.accounting.CreateAccountGroupResponse;
 import com.rem.backend.dto.accounting.CreateChartOfAccountRequest;
 import com.rem.backend.entity.account.AccountGroup;
 import com.rem.backend.entity.account.AccountType;
@@ -62,9 +66,34 @@ public class AccountService {
                                 organizationId, AccountStatus.ACTIVE);
             }
 
+            List<ChartOfAccountDTO> dtoList = accounts.stream()
+                    .map(a -> new ChartOfAccountDTO(
+                            a.getId(),
+                            a.getCode(),
+                            a.getName(),
+                            new AccountGroupDTO(
+                                    a.getAccountGroup().getId(),
+                                    a.getAccountGroup().getName(),
+                                    new AccountTypeDTO(
+                                            a.getAccountGroup().getAccountType().getId(),
+                                            a.getAccountGroup().getAccountType().getName()
+                                    ),
+                                    a.getAccountGroup().getCreatedDate().toString()
+                            ),
+                            a.isSystemGenerated(),
+                            a.getStatus().name(),
+                            a.getOrganizationAccountId(),
+                            a.getCreatedDate().toString(),
+                            a.getUpdatedDate().toString()
+                    ))
+                    .toList();
+
+
+
+
             Map<String, Object> response = new HashMap<>();
-            response.put("count", accounts.size());
-            response.put("data", accounts);
+            response.put("count", dtoList.size());
+            response.put("data", dtoList);
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
         }
@@ -75,19 +104,25 @@ public class AccountService {
     }
 
 
-    public Map<String, Object> getAllAccountType(
-    ) {
-
+    public Map<String, Object> getAllAccountType() {
         try {
-            List<AccountType> type = typeRepo.findAll();
+            List<AccountType> types = typeRepo.findAll();
+
+            // Map entities to DTOs
+            List<AccountTypeDTO> dtoList = types.stream()
+                    .map(t -> new AccountTypeDTO(
+                            t.getId(),
+                            t.getName()
+                    ))
+                    .toList();
 
             Map<String, Object> response = new HashMap<>();
-            response.put("count", type.size());
-            response.put("data", type);
+            response.put("count", dtoList.size());
+            response.put("data", dtoList);
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
@@ -95,18 +130,31 @@ public class AccountService {
 
 
     public Map<String, Object> getAccountGroups(
-            Long accountType
+            Long accountType, Long organizationId, String loggedInUser
     ) {
 
         try {
                 List<AccountGroup> groups =
-                        groupRepo.findAllByAccountType_Id(
-                                accountType);
+                        groupRepo.findAllByAccountType_IdAndOrganization_OrganizationId(
+                                accountType,organizationId);
+
+
+            List<AccountGroupDTO> dtoList = groups.stream()
+                    .map(g -> new AccountGroupDTO(
+                            g.getId(),
+                            g.getName(),
+                            new AccountTypeDTO(
+                                    g.getAccountType().getId(),
+                                    g.getAccountType().getName()
+                            ),
+                            g.getCreatedDate().toString()
+                    ))
+                    .toList();
 
 
             Map<String, Object> response = new HashMap<>();
-            response.put("count", groups.size());
-            response.put("data", groups);
+            response.put("count", dtoList.size());
+            response.put("data", dtoList);
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
         }
@@ -198,7 +246,15 @@ public class AccountService {
 
             AccountGroup saved = groupRepo.save(group);
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
+            CreateAccountGroupResponse dto = new CreateAccountGroupResponse(
+                    saved.getId(),
+                    saved.getName(),
+                    saved.getAccountType().getId(),
+                    saved.getOrganization().getOrganizationId(),
+                    saved.getCreatedDate()
+            );
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
 
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());

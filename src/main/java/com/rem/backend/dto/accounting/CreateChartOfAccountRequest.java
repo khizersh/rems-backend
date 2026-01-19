@@ -8,5 +8,4 @@ public class CreateChartOfAccountRequest {
     private String code;
     private String name;
     private long accountGroupId;
-    private long referenceId;
 }

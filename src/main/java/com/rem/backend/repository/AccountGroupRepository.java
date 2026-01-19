@@ -13,6 +13,8 @@ public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long
 
     List<AccountGroup> findAllByOrganization_OrganizationId(long organizationId);
 
+    List<AccountGroup> findAllByAccountType_IdAndOrganization_OrganizationId(long accountType,long organizationId);
+
     List<AccountGroup> findAllByAccountType_Id(long accountTypeId);
 
     Optional<AccountGroup> findByNameAndOrganization_OrganizationId(
