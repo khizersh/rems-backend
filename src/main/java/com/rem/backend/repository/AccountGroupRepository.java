@@ -29,4 +29,7 @@ public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long
 
     boolean existsByNameAndOrganization_OrganizationId(String name, Long organizationId);
 
+    boolean existsByNameAndOrganization_OrganizationIdAndIdNot(
+            String name, Long organizationId, Long id);
+
 }

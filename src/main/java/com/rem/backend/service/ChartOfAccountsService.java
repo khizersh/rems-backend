@@ -2,11 +2,13 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.account.AccountGroup;
 import com.rem.backend.entity.account.ChartOfAccount;
+import com.rem.backend.entity.organization.Organization;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.repository.AccountGroupRepository;
 import com.rem.backend.repository.AccountTypeRepository;
 import com.rem.backend.repository.ChartOfAccountRepository;
+import com.rem.backend.repository.OrganizationRepo;
 import com.rem.backend.utility.Utility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ public class ChartOfAccountsService {
     private final AccountGroupRepository accountGroupRepository;
     private final AccountTypeRepository accountTypeRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
+    private final OrganizationRepo organizationRepo;
     private final Utility utility;
 
 
@@ -38,6 +41,10 @@ public class ChartOfAccountsService {
             return existingCoa.get();
         }
 
+        Organization organization = organizationRepo.findById(organizationAccount.getOrganizationId())
+                .orElseThrow(() -> new IllegalStateException("Organization Id is Invalid"));
+
+
         // 2. Fetch Bank / Cash account group
         AccountGroup bankCashGroup = accountGroupRepository
                 .findByNameAndOrganization_OrganizationId(
@@ -50,7 +57,7 @@ public class ChartOfAccountsService {
 
         // 3. Create COA
         ChartOfAccount coa = new ChartOfAccount();
-        coa.setOrganizationId(organizationAccount.getOrganizationId());
+        coa.setOrganization(organization);
         coa.setAccountGroup(bankCashGroup);
 
         coa.setOrganizationAccountId(organizationAccount.getId());

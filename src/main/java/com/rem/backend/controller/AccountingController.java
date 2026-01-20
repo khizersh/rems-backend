@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -87,6 +88,20 @@ public class AccountingController {
     ) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return ResponseEntity.ok(accountsService.createAccountGroup(organizationId, createAccountGroupRequest, loggedInUser));
+    }
+
+
+    @PutMapping("/{organizationId}/accountGroup")
+    public ResponseEntity<?> updateAccountGroup(
+            @PathVariable long organizationId,
+            @RequestParam long groupId,
+            @RequestBody CreateAccountGroupRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(
+                accountsService.updateAccountGroup(organizationId, groupId, request, loggedInUser)
+        );
     }
 
 

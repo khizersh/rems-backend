@@ -46,7 +46,7 @@ public class AccountService {
 
             if (accountGroup != null) {
                 accounts = coaRepo
-                        .findAllByOrganizationIdAndAccountGroup_Id(
+                        .findAllByOrganization_OrganizationIdAndAccountGroup_Id(
                                 organizationId, accountGroup);
             } else if (accountType != null) {
                 AccountType type = typeRepo.findById(accountType)
@@ -58,11 +58,11 @@ public class AccountService {
                                 organizationId, type);
 
                 accounts = coaRepo
-                        .findAllByOrganizationIdAndAccountGroupIn(
+                        .findAllByOrganization_OrganizationIdAndAccountGroupIn(
                                 organizationId, groups);
             } else {
                 accounts = coaRepo
-                        .findAllByOrganizationIdAndStatus(
+                        .findAllByOrganization_OrganizationIdAndStatus(
                                 organizationId, AccountStatus.ACTIVE);
             }
 
@@ -189,14 +189,14 @@ public class AccountService {
             }
 
             // 4. Ensure unique code per organization
-            if (coaRepo.existsByCodeAndOrganizationId(
+            if (coaRepo.existsByCodeAndOrganization_OrganizationId(
                     request.getCode(), organizationId)) {
                 throw new RuntimeException("Account code already exists");
             }
 
             // 5. Create COA
             ChartOfAccount coa = new ChartOfAccount();
-            coa.setOrganizationId(organizationId);
+            coa.setOrganization(group.getOrganization());
             coa.setAccountGroup(group);
             coa.setCode(request.getCode());
             coa.setName(request.getName());
@@ -260,6 +260,55 @@ public class AccountService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+
+    public Map<String, Object> updateAccountGroup(
+            Long organizationId,
+            Long groupId,
+            CreateAccountGroupRequest request,
+            String loggedInUser
+    ) {
+        try {
+            // 1. Fetch existing group
+            AccountGroup group = groupRepo.findById(groupId)
+                    .orElseThrow(() -> new RuntimeException("Account group not found"));
+
+            // 2. Validate organization ownership
+            if (!(group.getOrganization().getOrganizationId() == (organizationId))) {
+                throw new RuntimeException("Account group does not belong to this organization");
+            }
+
+            // 3. Validate account type
+            AccountType type = typeRepo.findById(request.getAccountTypeId())
+                    .orElseThrow(() -> new RuntimeException("Account type not found"));
+
+            // 4. Check duplicate name (excluding current group)
+            if (groupRepo.existsByNameAndOrganization_OrganizationIdAndIdNot(
+                    request.getName(), organizationId, groupId)) {
+                throw new RuntimeException("Account group name already exists");
+            }
+
+            // 5. Update fields
+            group.setName(request.getName());
+            group.setAccountType(type);
+
+            AccountGroup updated = groupRepo.save(group);
+
+            CreateAccountGroupResponse dto = new CreateAccountGroupResponse(
+                    updated.getId(),
+                    updated.getName(),
+                    updated.getAccountType().getId(),
+                    updated.getOrganization().getOrganizationId(),
+                    updated.getCreatedDate()
+            );
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, dto);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
 
 
 }
