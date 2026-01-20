@@ -115,7 +115,7 @@ public class Utility {
      * Generate a unique account code
      */
     public String generateAccountCode(long organizationId, String prefix) {
-        long count = chartOfAccountRepository.findAllByOrganizationId(organizationId).size();
+        long count = chartOfAccountRepository.findAllByOrganization_OrganizationId(organizationId).size();
         return prefix + "-" + organizationId + "-" + (count + 1);
     }
 }

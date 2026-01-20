@@ -7,6 +7,7 @@ import com.rem.backend.entity.account.JournalEntry;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.organization.OrganizationAccount;
 import com.rem.backend.enums.AccountStatus;
+import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.JournalEntryStatus;
 import com.rem.backend.repository.*;
 import lombok.AllArgsConstructor;
@@ -77,7 +78,7 @@ public class JournalEntryService {
                     // Debit: Expense Account
 
                     ChartOfAccount debitAccount =
-                            expense.getVendorAccountId() == null
+                            expense.getExpenseType() != ExpenseType.CONSTRUCTION
                                     ? findExpenseAccount(expense, loggedInUser)
                                     : getConstructionInventoryControlAccount(expense.getOrganizationId());
 
@@ -347,9 +348,9 @@ public class JournalEntryService {
                 findByNameAndOrganization_OrganizationId("bank/cash", organizationId);
 
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationId(organizationId)
+                .findAllByOrganization_OrganizationId(organizationId)
                 .stream()
-                .filter(coa -> coa.getOrganizationAccountId() == organizationAccount.getId()
+                .filter(coa -> coa.getOrganizationAccountId() != null && coa.getOrganizationAccountId() == organizationAccount.getId()
                         && coa.getStatus() == AccountStatus.ACTIVE && coa.getAccountGroup().getId() ==
                         accountGroup.get().getId())
                 .findFirst();
@@ -373,7 +374,7 @@ public class JournalEntryService {
     private ChartOfAccount getVendorPayableControlAccount(long organizationId) {
 
         Optional<ChartOfAccount> controlAccount = chartOfAccountRepository
-                .findAllByOrganizationId(organizationId)
+                .findAllByOrganization_OrganizationId(organizationId)
                 .stream()
                 .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE
                         && coa.getAccountGroup().getName().equalsIgnoreCase("Accounts Payable")
@@ -388,7 +389,7 @@ public class JournalEntryService {
     private ChartOfAccount getConstructionInventoryControlAccount(long organizationId) {
 
         Optional<ChartOfAccount> controlAccount = chartOfAccountRepository
-                .findAllByOrganizationId(organizationId)
+                .findAllByOrganization_OrganizationId(organizationId)
                 .stream()
                 .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE
                         && coa.getAccountGroup().getName().equalsIgnoreCase("Construction Inventory")
