@@ -890,10 +890,9 @@ public class ExpenseService {
         }
     }
 
-    public Map<String, Object> getAllExpenseType(long orgId) {
-
+    public Map<String, Object> getAllExpenseType(long orgId , Pageable  pageable) {
         try {
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId));
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId, pageable));
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

@@ -58,14 +58,21 @@ public class ExpenseController {
 
 
     @PostMapping("/addExpenseDetail")
-    public Map addExpenseType(@RequestBody ExpenseDetail expense , HttpServletRequest request){
+    public Map addExpenseDetail(@RequestBody ExpenseDetail expense , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return expenseService.addExpenseDetail(expense , loggedInUser);
     }
 
-    @GetMapping("/getAllExpenseTypeByOrgId/{orgId}")
-    public Map addExpenseType(@PathVariable long orgId){
-        return expenseService.getAllExpenseType(orgId);
+    @PostMapping("/getAllExpenseTypeByOrgId")
+    public Map getAllExpenseTypeByOrgId(@RequestBody FilterPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        return expenseService.getAllExpenseType(request.getId() , pageable);
     }
 
 
