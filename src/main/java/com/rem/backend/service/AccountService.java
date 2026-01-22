@@ -17,6 +17,7 @@ import com.rem.backend.repository.ChartOfAccountRepository;
 import com.rem.backend.repository.OrganizationRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
+import com.rem.backend.utility.Utility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class AccountService {
     private final AccountGroupRepository groupRepo;
     private final AccountTypeRepository typeRepo;
     private final OrganizationRepo organizationRepo;
+    private final Utility utility;
 
     public Map<String, Object> getAllChartOfAccounts(
             Long organizationId,
@@ -189,8 +191,8 @@ public class AccountService {
             }
 
             // 4. Ensure unique code per organization
-            if (coaRepo.existsByCodeAndOrganization_OrganizationId(
-                    request.getCode(), organizationId)) {
+            if (coaRepo.existsByNameAndOrganization_OrganizationId(
+                    request.getName(), organizationId)) {
                 throw new RuntimeException("Account code already exists");
             }
 
@@ -198,7 +200,8 @@ public class AccountService {
             ChartOfAccount coa = new ChartOfAccount();
             coa.setOrganization(group.getOrganization());
             coa.setAccountGroup(group);
-            coa.setCode(request.getCode());
+            coa.setCode(utility.generateAccountCode(group.getOrganization().getOrganizationId(),
+                    group.getAccountType().getName().substring(0,3)));
             coa.setName(request.getName());
             coa.setStatus(AccountStatus.ACTIVE);
             coa.setSystemGenerated(false);
@@ -309,6 +312,56 @@ public class AccountService {
         }
     }
 
+
+
+    @Transactional
+    public Map<String, Object> updateExpenseChartOfAccountName(
+            long organizationId,
+            long coaId,
+            String newName,
+            String loggedInUser
+    ) {
+        try {
+            if (newName == null || newName.trim().isEmpty()) {
+                throw new RuntimeException("Account name cannot be empty");
+            }
+
+            ChartOfAccount coa = coaRepo.findById(coaId)
+                    .orElseThrow(() -> new RuntimeException("Chart of account not found"));
+
+            if (coa.getOrganization().getOrganizationId() != organizationId) {
+                throw new RuntimeException("COA does not belong to organization");
+            }
+
+            if (!coa.getAccountGroup()
+                    .getAccountType()
+                    .getName()
+                    .equalsIgnoreCase("EXPENSE")) {
+                throw new RuntimeException("Only EXPENSE COA can be updated");
+            }
+
+            if (coaRepo.existsByNameAndOrganization_OrganizationIdAndIdNot(
+                    newName, organizationId, coaId)) {
+                throw new RuntimeException("Account name already exists");
+            }
+
+            coa.setName(newName);
+            ChartOfAccount updated = coaRepo.save(coa);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", updated.getId());
+            response.put("code", updated.getCode());
+            response.put("name", updated.getName());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(
+                    Responses.SYSTEM_FAILURE,
+                    e.getMessage()
+            );
+        }
+    }
 
 
 }

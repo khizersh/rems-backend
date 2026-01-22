@@ -23,8 +23,13 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
             Long organizationAccountId,
             AccountStatus status
     );
+    boolean existsByNameAndOrganization_OrganizationId(String name, long organizationId);
 
-
+    boolean existsByNameAndOrganization_OrganizationIdAndIdNot(
+            String name,
+            long organizationId,
+            long id
+    );
 }
 
 

@@ -3,6 +3,7 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.accounting.CreateAccountGroupRequest;
 import com.rem.backend.dto.accounting.CreateChartOfAccountRequest;
+import com.rem.backend.dto.accounting.UpdateChartOfAccountNameRequest;
 import com.rem.backend.service.AccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -104,6 +105,22 @@ public class AccountingController {
         );
     }
 
+
+    @PutMapping("/{organizationId}/expenseChartOfAccount/{coaId}")
+    public ResponseEntity<?> updateExpenseChartOfAccountName(
+            @PathVariable long organizationId,
+            @PathVariable long coaId,
+            @RequestBody UpdateChartOfAccountNameRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
+
+        return ResponseEntity.ok(
+                accountsService.updateExpenseChartOfAccountName(
+                        organizationId, coaId, request.name(), loggedInUser
+                )
+        );
+    }
 
 
 }
