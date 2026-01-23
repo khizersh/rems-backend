@@ -106,10 +106,10 @@ public class AccountingController {
     }
 
 
-    @PutMapping("/{organizationId}/expenseChartOfAccount/{coaId}")
+    @PutMapping("/{organizationId}/expenseChartOfAccount")
     public ResponseEntity<?> updateExpenseChartOfAccountName(
             @PathVariable long organizationId,
-            @PathVariable long coaId,
+            @RequestParam long coaId,
             @RequestBody UpdateChartOfAccountNameRequest request,
             HttpServletRequest httpRequest
     ) {
