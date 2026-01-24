@@ -123,4 +123,24 @@ public class AccountingController {
     }
 
 
+    @GetMapping("/chartOfAccount/getById/{chartOfAccountId}")
+    public ResponseEntity<?> getChartOfAccountById(@PathVariable long chartOfAccountId) {
+
+        return ResponseEntity.ok(
+                accountsService.getChartOfAccountById(
+                        chartOfAccountId
+                )
+        );
+    }
+
+    @GetMapping("/getAccountGroupById/{accountGroupId}")
+    public ResponseEntity<?> getAccountGroupById(@PathVariable long accountGroupId) {
+
+        Map<String, Object> response =
+                accountsService.getAccountGroupById(accountGroupId);
+
+        return ResponseEntity.ok(response);
+    }
+
+
 }

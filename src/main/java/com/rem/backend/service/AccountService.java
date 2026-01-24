@@ -363,5 +363,62 @@ public class AccountService {
         }
     }
 
+    public Map<String, Object> getChartOfAccountById(long chartOfAccountId) {
+
+        try {
+            ChartOfAccount chartOfAccount = coaRepo
+                    .findById(chartOfAccountId)
+                    .orElseThrow(() ->
+                            new RuntimeException("Chart Of Account Not Found!"));
+            ChartOfAccountDTO chartOfAccountDTO =   new ChartOfAccountDTO(
+                    chartOfAccount.getId(),
+                    chartOfAccount.getCode(),
+                    chartOfAccount.getName(),
+                    null,
+                    chartOfAccount.isSystemGenerated(),
+                    chartOfAccount.getStatus().name(),
+                    chartOfAccount.getOrganizationAccountId(),
+                    chartOfAccount.getCreatedDate().toString(),
+                    chartOfAccount.getUpdatedDate().toString()
+            );
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, chartOfAccountDTO);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(
+                    Responses.SYSTEM_FAILURE,
+                    e.getMessage()
+            );
+        }
+    }
+
+    public Map<String, Object> getAccountGroupById(
+            Long accountGroupId
+    ) {
+
+        try {
+            Optional<AccountGroup>  groups = groupRepo.findById(accountGroupId);
+
+            AccountGroup g = groups.get();
+
+
+            AccountGroupDTO group = new AccountGroupDTO(
+                    g.getId(),
+                    g.getName(),
+                    new AccountTypeDTO(
+                            g.getAccountType().getId(),
+                            g.getAccountType().getName()
+                    ),
+                    g.getCreatedDate().toString()
+            );
+
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, group);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
 
 }
