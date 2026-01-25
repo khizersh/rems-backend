@@ -372,32 +372,33 @@ public class JournalEntryService {
     }
 
     private ChartOfAccount getVendorPayableControlAccount(long organizationId) {
-
-        Optional<ChartOfAccount> controlAccount = chartOfAccountRepository
-                .findAllByOrganization_OrganizationId(organizationId)
-                .stream()
-                .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE
-                        && coa.getAccountGroup().getName().equalsIgnoreCase("Accounts Payable")
-                        && coa.isSystemGenerated()) // Optional: mark system-generated control accounts
-                .findFirst();
-
-        return controlAccount.orElseThrow(() ->
-                new RuntimeException("Vendor Payable control account not found for organization " + organizationId));
+        return chartOfAccountRepository
+                .findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
+                        organizationId,
+                        "Vendor Payable",
+                        AccountStatus.ACTIVE,
+                        true
+                )
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Vendor Payable control account not found for organization " + organizationId
+                        ));
     }
 
 
     private ChartOfAccount getConstructionInventoryControlAccount(long organizationId) {
 
-        Optional<ChartOfAccount> controlAccount = chartOfAccountRepository
-                .findAllByOrganization_OrganizationId(organizationId)
-                .stream()
-                .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE
-                        && coa.getAccountGroup().getName().equalsIgnoreCase("Construction Inventory")
-                        && coa.isSystemGenerated()) // Optional: mark system-generated control accounts
-                .findFirst();
-
-        return controlAccount.orElseThrow(() ->
-                new RuntimeException("Vendor Payable control account not found for organization " + organizationId));
+        return chartOfAccountRepository
+                .findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
+                        organizationId,
+                        "Construction Inventory",
+                        AccountStatus.ACTIVE,
+                        true
+                )
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Construction Inventory control account not found for organization " + organizationId
+                        ));
     }
 
 }

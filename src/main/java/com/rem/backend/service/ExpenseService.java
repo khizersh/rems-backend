@@ -256,7 +256,7 @@ public class ExpenseService {
             }
 
             // Create journal entry for expense (double-entry bookkeeping)
-//            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
+            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
