@@ -901,6 +901,17 @@ public class ExpenseService {
     }
 
 
+    public Map<String, Object> getAllExpenseType(long orgId) {
+        try {
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
     public Map<String, Object> getExpenseTypeById(long id) {
 
         try {

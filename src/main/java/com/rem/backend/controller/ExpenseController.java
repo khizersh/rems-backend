@@ -76,6 +76,12 @@ public class ExpenseController {
     }
 
 
+    @GetMapping("/getAllExpenseTypeByOrgId/{orgId}")
+    public Map getAllExpenseTypeByOrgIdList(@PathVariable long orgId) {
+        return expenseService.getAllExpenseType(orgId);
+    }
+
+
     @GetMapping("/getExpenseTypeById/{orgId}")
     public Map getExpenseTypeById(@PathVariable long orgId){
         return expenseService.getExpenseTypeById(orgId);
