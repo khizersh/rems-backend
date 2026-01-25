@@ -17,6 +17,10 @@ public class Items {
     private String code;           // e.g. ITM-0001
     private String description;
 
+
+    @Column(nullable = false)
+    private Long organizationId;
+
     @ManyToOne
     private ItemsUnit itemsUnit;             // kg, ton, bag, sq.ft
 

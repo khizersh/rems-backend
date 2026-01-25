@@ -1,9 +1,11 @@
 package com.rem.backend.purchasemanagement.entity.items;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
+@Data
 @Entity
 public class ItemsUnit {
 
