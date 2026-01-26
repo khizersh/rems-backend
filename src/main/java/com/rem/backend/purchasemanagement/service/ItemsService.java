@@ -61,6 +61,29 @@ public class ItemsService {
 
     }
 
+    public Map<String, Object> getItemById(long id) {
+        try {
+
+            ValidationService.validate(id, "id");
+
+            Optional<Items> itemOptional = itemsRepo.findById(id);
+
+            if (itemOptional.isPresent()) {
+                return ResponseMapper.buildResponse(Responses.SUCCESS, itemOptional.get());
+            }
+
+            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+
+
+    }
+
 
     public Map<String, Object> addItem(Items input, Long unitId, String loggedInUser) {
         try {
@@ -149,10 +172,15 @@ public class ItemsService {
     }
 
 
-    public Map<String, Object> getAllItemsUnits() {
+
+
+
+//    ITEMS UNIT
+
+    public Map<String, Object> getAllUnits(long orgId) {
         try {
 
-            List<ItemsUnit> units = itemsUnitRepository.findAll();
+            List<ItemsUnit> units = itemsUnitRepository.findAllByOrganizationId(orgId);
 
             if (units != null && !units.isEmpty()) {
                 return ResponseMapper.buildResponse(Responses.SUCCESS, units);
@@ -166,11 +194,24 @@ public class ItemsService {
         }
     }
 
+    public Map<String, Object> getAllUnits(long orgId, Pageable pageable) {
+        try {
 
-//    ITEMS UNIT
+            Page<ItemsUnit> units = itemsUnitRepository.findAllByOrganizationId(orgId, pageable);
 
+            if (units != null && !units.isEmpty()) {
+                return ResponseMapper.buildResponse(Responses.SUCCESS, units);
+            }
 
-    public Map<String, Object> createOrUpdateItemsUnit(ItemsUnit input, String loggedInUser) {
+            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    public Map<String, Object> createOrUpdateUnit(ItemsUnit input, String loggedInUser) {
         try {
 
             ValidationService.validate(input.getName(), "unit name");
@@ -217,28 +258,7 @@ public class ItemsService {
     }
 
 
-    public Map<String, Object> getItemById(long id) {
-        try {
 
-            ValidationService.validate(id, "id");
-
-            Optional<Items> itemOptional = itemsRepo.findById(id);
-
-            if (itemOptional.isPresent()) {
-                return ResponseMapper.buildResponse(Responses.SUCCESS, itemOptional.get());
-            }
-
-            return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, null);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
-        }
-
-
-    }
 
 
 
