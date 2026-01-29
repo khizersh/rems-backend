@@ -1,7 +1,7 @@
 package com.rem.backend.repository;
 
-import com.rem.backend.entity.organization.OrganizationAccount;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,8 +11,12 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface OrganizationAccoutRepo extends JpaRepository<OrganizationAccount , Long> {
+
+    Optional<OrganizationAccount> findByIdAndOrganizationId(long id, long organizationId);
 
     List<OrganizationAccount> findByOrganizationId(long orgId);
 

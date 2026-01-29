@@ -1,10 +1,11 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
 import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.entity.organization.OrganizationAccount;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;

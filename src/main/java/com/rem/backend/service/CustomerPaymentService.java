@@ -1,9 +1,10 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.customer.CustomerPaymentDetail;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.repository.*;
@@ -19,10 +20,8 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static com.rem.backend.enums.PaymentStatus.PAID;
-import static com.rem.backend.enums.PaymentStatus.PENDING;
 
 @Service
 @AllArgsConstructor

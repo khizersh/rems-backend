@@ -1,11 +1,11 @@
-package com.rem.backend.controller;
+package com.rem.backend.accountmanagement.controller;
 
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
-import com.rem.backend.entity.organization.OrganizationAccount;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
-import com.rem.backend.service.OrganizationAccountService;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -54,6 +54,14 @@ public class OrganizationAccountController {
     public Map transferAmount(@RequestBody TransferFundRequest transferFundRequest , HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return organizationAccountService.transferFund(transferFundRequest , loggedInUser);
+    }
+
+
+    @PostMapping("/{organizationId}/transferAmount")
+    public Map addOrDeductBalanceByCategory(@RequestBody OrganizationAccountDetail organizationAccountDetail ,
+                                            @PathVariable Long organizationId , HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return organizationAccountService.addOrDeductBalance(organizationAccountDetail ,organizationId, loggedInUser);
     }
 
     @PostMapping("/getAccountDetailByAcctId")

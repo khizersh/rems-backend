@@ -1,4 +1,4 @@
-package com.rem.backend.entity.organization;
+package com.rem.backend.accountmanagement.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;

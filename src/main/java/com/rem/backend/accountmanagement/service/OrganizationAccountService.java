@@ -1,10 +1,10 @@
-package com.rem.backend.service;
+package com.rem.backend.accountmanagement.service;
 
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.analytic.OrganizationAccountDetailProjection;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
-import com.rem.backend.entity.organization.OrganizationAccount;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
@@ -15,6 +15,7 @@ import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
 import com.rem.backend.utility.ValidationService;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -361,4 +362,83 @@ public class OrganizationAccountService {
         }
     }
 
+
+
+    @Transactional
+    public Map<String , Object> addOrDeductBalance(OrganizationAccountDetail request, long organizationId , String loggedInUser) {
+
+
+        try{
+            // ✅ 1. Validate mandatory fields
+            if (request.getOrganizationAcctId() <= 0) {
+                throw new IllegalArgumentException("Organization account id is required");
+            }
+
+            if (request.getTransactionType() == null) {
+                throw new IllegalArgumentException("Transaction type (CREDIT/DEBIT) is required");
+            }
+
+            if (request.getAmount() <= 0) {
+                throw new IllegalArgumentException("Amount must be greater than zero");
+            }
+
+            if (request.getComments() == null || request.getComments().trim().isEmpty()) {
+                throw new IllegalArgumentException("Comments are required");
+            }
+
+            if (request.getTransactionCategory() == null ) {
+                throw new IllegalArgumentException("Comments are required");
+            }
+
+
+
+            // ✅ 2. Fetch organization account
+            OrganizationAccount account = organizationAccountRepo
+                    .findByIdAndOrganizationId(request.getOrganizationAcctId(), organizationId)
+                    .orElseThrow(() -> new IllegalArgumentException("Organization account not found"));
+
+
+            if (request.getProjectId() != 0){
+               Project project =  projectRepo.findById(request.getProjectId())
+                       .orElseThrow(() -> new IllegalArgumentException("Invalid Project Selected"));
+
+               request.setProjectName(project.getName());
+            }
+
+            double currentBalance = account.getTotalAmount();
+            double amount = request.getAmount();
+            double newBalance;
+
+            // ✅ 3. Apply CREDIT / DEBIT logic
+            if (request.getTransactionType() == TransactionType.DEBIT) {
+                newBalance = currentBalance + amount;
+            }
+            else if (request.getTransactionType() == TransactionType.CREDIT) {
+                if (currentBalance < amount) {
+                    throw new IllegalArgumentException("Insufficient balance");
+                }
+                newBalance = currentBalance - amount;
+            }
+            else {
+                throw new IllegalArgumentException("Invalid transaction type");
+            }
+
+            // ✅ 4. Update account balance
+            account.setTotalAmount(newBalance);
+            account.setUpdatedBy(loggedInUser);
+            organizationAccountRepo.save(account);
+
+            // ✅ 5. Save account detail entry
+            request.setUpdatedBy(loggedInUser);
+            request.setCreatedBy(loggedInUser);
+            OrganizationAccountDetail savedDetail = organizationAccountDetailRepo.save(request);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS ,savedDetail);
+        }catch (IllegalArgumentException e){
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER , e.getMessage());
+        }catch (Exception e){
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE , e.getMessage());
+        }
+
+    }
 }
