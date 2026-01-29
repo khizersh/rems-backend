@@ -2,7 +2,7 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.expense.ExpenseDetail;
-import com.rem.backend.entity.organization.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.ExpenseType;

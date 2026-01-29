@@ -1,10 +1,12 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
 import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.entity.organization.OrganizationAccount;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
@@ -206,6 +208,7 @@ public class ExpenseService {
             organizationAccountDetail.setExpenseId(expense.getId());
             organizationAccountDetail.setComments(expense.getComments());
             organizationAccountDetail.setAmount(expense.getAmountPaid());
+            organizationAccountDetail.setTransactionCategory(TransactionCategory.CUSTOMER_PAYMENT);
             organizationAccountDetail.setOrganizationAcctId(expense.getOrganizationAccountId());
             OrganizationAccount organizationAccount = organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
             expense.setOrgAccountTitle(organizationAccount.getName());
@@ -789,6 +792,7 @@ public class ExpenseService {
             organizationAccountDetail.setProjectId(expense.getProjectId());
             organizationAccountDetail.setComments("Paying Debt of " + expense.getVendorName() + " for " + expense.getExpenseTitle());
             organizationAccountDetail.setAmount(expenseDetail.getAmountPaid());
+            organizationAccountDetail.setTransactionCategory(TransactionCategory.CUSTOMER_PAYMENT);
             organizationAccountDetail.setOrganizationAcctId(expenseDetail.getOrganizationAccountId());
             organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
 
@@ -893,6 +897,17 @@ public class ExpenseService {
     public Map<String, Object> getAllExpenseType(long orgId , Pageable  pageable) {
         try {
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId, pageable));
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getAllExpenseType(long orgId) {
+        try {
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId));
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

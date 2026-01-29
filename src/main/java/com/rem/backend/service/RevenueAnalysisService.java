@@ -3,7 +3,7 @@ package com.rem.backend.service;
 import com.rem.backend.dto.analytic.CountStateByTenureRequest;
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
@@ -15,9 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

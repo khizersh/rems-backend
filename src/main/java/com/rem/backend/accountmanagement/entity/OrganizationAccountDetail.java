@@ -1,5 +1,6 @@
-package com.rem.backend.entity.organization;
+package com.rem.backend.accountmanagement.entity;
 
+import com.rem.backend.accountmanagement.enums.TransactionCategory;
 import com.rem.backend.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -22,6 +23,10 @@ public class OrganizationAccountDetail {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionType transactionType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private TransactionCategory transactionCategory;
 
     @Column(nullable = false)
     private double amount;
