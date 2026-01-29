@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountmanagement.enums.TransactionCategory;
 import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
@@ -253,6 +254,7 @@ public class CustomerPaymentService {
                     organizationAccountDetail.setCustomerName(customerName);
                     organizationAccountDetail.setProjectName(projectName);
                     organizationAccountDetail.setUnitSerialNo(unitSerial);
+                    organizationAccountDetail.setTransactionCategory(TransactionCategory.CUSTOMER_PAYMENT);
                     organizationAccountDetail.setProjectId(projectId);
                     organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
                     organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);

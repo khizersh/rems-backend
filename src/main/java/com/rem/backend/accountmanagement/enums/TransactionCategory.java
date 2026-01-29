@@ -5,6 +5,8 @@ public enum TransactionCategory {
     SCRAP_SALE,
     REFUND,
     ADJUSTMENT,
-    OTHER
-
+    OTHER,
+    CUSTOMER_PAYMENT,
+    CONSTRUCTION,
+    MISCALLENOUS
 }
