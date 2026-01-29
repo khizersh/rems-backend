@@ -835,8 +835,8 @@ public class ExpenseService {
             expenseDetailRepo.save(expenseDetail);
 
             // Create journal entry for expense detail (double-entry bookkeeping)
-//            journalEntryService.createJournalEntryForExpenseDetail(expense, organizationAccount,
-//                    expenseDetail.getAmountPaid(), loggedInUser);
+            journalEntryService.createJournalEntryForExpenseDetail(expense, organizationAccount,
+                    expenseDetail.getAmountPaid(), loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseDetail);
         } catch (IllegalArgumentException e) {
