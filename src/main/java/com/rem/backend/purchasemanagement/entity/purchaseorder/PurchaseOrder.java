@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "purchase_order")
@@ -48,4 +49,7 @@ public class PurchaseOrder {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+    @Transient
+    private List<PurchaseOrderItem> purchaseOrderItemList;
 }
