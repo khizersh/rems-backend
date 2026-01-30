@@ -1,6 +1,7 @@
 package com.rem.backend.service;
 
 
+import com.rem.backend.accountmanagement.service.OrganizationAccountService;
 import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.customerpayable.CustomerPayableDetailListDto;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
@@ -8,7 +9,7 @@ import com.rem.backend.dto.customerpayable.CustomerPayableFeeDetailListDto;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
 import com.rem.backend.entity.customerpayable.CustomerPayableFeeDetail;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.CustomerPayableStatus;
 import com.rem.backend.enums.FeeType;
 import com.rem.backend.enums.TransactionType;

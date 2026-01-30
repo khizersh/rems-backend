@@ -5,7 +5,7 @@ import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.entity.account.JournalDetailEntry;
 import com.rem.backend.entity.account.JournalEntry;
 import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.entity.organization.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.JournalEntryStatus;

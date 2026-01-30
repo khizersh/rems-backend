@@ -1,7 +1,7 @@
 package com.rem.backend.repository;
 
 import com.rem.backend.dto.analytic.OrganizationAccountDetailProjection;
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

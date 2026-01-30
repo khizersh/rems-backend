@@ -1,6 +1,6 @@
 package com.rem.backend.entity.customer;
 
-import com.rem.backend.entity.organization.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import jakarta.persistence.*;
