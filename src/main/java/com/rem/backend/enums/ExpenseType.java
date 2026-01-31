@@ -1,5 +1,5 @@
 package com.rem.backend.enums;
 
 public enum ExpenseType {
-    CONSTRUCTION , MISCELLANEOUS, HISTORICAL
+   ALL, CONSTRUCTION , MISCELLANEOUS, HISTORICAL
 }

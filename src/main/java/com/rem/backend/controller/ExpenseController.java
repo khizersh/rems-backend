@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
+import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
@@ -88,7 +89,7 @@ public class ExpenseController {
     }
 
     @PostMapping("/getAllExpensesByIds")
-    public ResponseEntity<?> getExpensesByIds(@RequestBody FilterPaginationRequest request) {
+    public ResponseEntity<?> getExpensesByIds(@RequestBody ExpenseFetchRequestDTO request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
                 request.getSize(),
@@ -96,7 +97,7 @@ public class ExpenseController {
                         ? Sort.by(request.getSortBy()).ascending()
                         : Sort.by(request.getSortBy()).descending());
 
-        Map<String , Object> expensePage = expenseService.getExpenseList(request.getId(), request.getId2(), request.getFilteredBy(), pageable);
+        Map<String , Object> expensePage = expenseService.getExpenseList(request, pageable);
         return ResponseEntity.ok(expensePage);
     }
 

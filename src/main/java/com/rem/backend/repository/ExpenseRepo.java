@@ -1,6 +1,7 @@
 package com.rem.backend.repository;
 
 import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.enums.ExpenseType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,18 +17,18 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 
     Page<Expense> findAllByOrganizationId(long orgId, Pageable pageable);
 
-    Page<Expense> findAllByVendorAccountId(long vendorAccountId, Pageable pageable);
+    Page<Expense> findAllByVendorAccountIdAndExpenseType(long vendorAccountId, ExpenseType expenseType, Pageable pageable);
 
     List<Expense> findAllByVendorAccountId(long vendorAccountId);
 
-    Page<Expense> findAllByProjectId(long projectId, Pageable pageable);
+    Page<Expense> findAllByProjectIdAndExpenseType(long projectId, ExpenseType expenseType, Pageable pageable);
 
     List<Expense> findByVendorAccountIdAndCreditAmountGreaterThan(Long vendorAccountId, double creditAmount);
 
     List<Expense> findAllByProjectId(long projectId);
 
 
-    Page<Expense> findAllByProjectIdAndVendorAccountId(long projectId, long vendorAccountId, Pageable pageable);
+    Page<Expense> findAllByProjectIdAndVendorAccountIdAndExpenseType(long projectId, long vendorAccountId, ExpenseType expenseType, Pageable pageable);
 
 
     @Query(
@@ -91,4 +92,10 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
     """, nativeQuery = true)
     Map<String , Object> getExpenseSumsByOrgAndDays(@Param("orgId") Long orgId, @Param("days") int days);
 
+
+
+    Page<Expense> findByExpenseCOAIdAndOrganizationId(long expenseCOAId, long organizationId, Pageable pageable);
+
+    Page<Expense> findByOrganizationIdAndExpenseCOAIdIn(long orgId, List<Long> expenseCOAIds, Pageable pageable);
+    Page<Expense> findByOrganizationIdAndExpenseCOAIdIsNotNullOrExpenseTitle(long orgId , String expenseTitle, Pageable pageable);
 }

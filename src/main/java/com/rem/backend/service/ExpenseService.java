@@ -2,6 +2,8 @@ package com.rem.backend.service;
 
 import com.rem.backend.accountmanagement.enums.TransactionCategory;
 import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
+import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
 import com.rem.backend.entity.expense.Expense;
@@ -45,37 +47,127 @@ public class ExpenseService {
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final OrganizationAccoutRepo organizationAccountRepo;
     private final JournalEntryService journalEntryService;
+    private final AccountGroupRepository accountGroupRepository;
+    private final ChartOfAccountRepository coaRepo;
 
-
-    public Map<String, Object> getExpenseList(long id, long id2, String filteredBy, Pageable pageable) {
+    public Map<String, Object> getExpenseList(ExpenseFetchRequestDTO requestDTO, Pageable pageable) {
 
         try {
 
             Page<Expense> expenses = null;
-            ValidationService.validate(id, filteredBy);
 
-            switch (filteredBy) {
-                case "vendor":
-                    expenses = expenseRepo.findAllByVendorAccountId(id, pageable);
-                    break;
-                case "project":
-                    expenses = expenseRepo.findAllByProjectId(id, pageable);
-                    break;
-                case "project_vendor":
-                    expenses = expenseRepo.findAllByProjectIdAndVendorAccountId(id, id2, pageable);
-                    break;
-                default:
-                    expenses = expenseRepo.findAllByOrganizationId(id, pageable);
+            // ===========================
+            // 1️⃣ Validations
+            // ===========================
+            ValidationService.validate(requestDTO.getId(), "Invalid " + requestDTO.getFilteredBy());
+            ValidationService.validate(requestDTO.getExpenseType(), "Invalid Expense Type");
+
+            // ===========================
+            // 2️⃣ CONSTRUCTION Expenses
+            // ===========================
+            if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
+
+                switch (requestDTO.getFilteredBy()) {
+
+                    case "vendor":
+                        expenses = expenseRepo.findAllByVendorAccountIdAndExpenseType(
+                                requestDTO.getId(),
+                                com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                pageable
+                        );
+                        break;
+
+                    case "project":
+                        expenses = expenseRepo.findAllByProjectIdAndExpenseType(
+                                requestDTO.getId(),
+                                com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                pageable
+                        );
+                        break;
+
+                    case "project_vendor":
+                        expenses = expenseRepo.findAllByProjectIdAndVendorAccountIdAndExpenseType(
+                                requestDTO.getId(),
+                                requestDTO.getId2(),
+                                com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                pageable
+                        );
+                        break;
+
+                    default:
+                        expenses = expenseRepo.findAllByVendorAccountIdAndExpenseType(
+                                requestDTO.getId(),
+                                com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                pageable
+                        );
+                }
+
+            }
+
+            // ===========================
+            // 3️⃣ MISCELLANEOUS Expenses
+            // ===========================
+            else if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.MISCELLANEOUS)) {
+
+                // Case 1: Account Group + COA selected
+                if (requestDTO.getAccountGroupId() != null && requestDTO.getCoaId() != null) {
+
+                    expenses = expenseRepo.findByExpenseCOAIdAndOrganizationId(
+                            requestDTO.getId(),
+                            requestDTO.getId2(),
+                            pageable
+                    );
+                }
+
+                // Case 2: Account Group selected but COA not selected
+                else if (requestDTO.getAccountGroupId() != null) {
+
+                    List<ChartOfAccount> chartOfAccounts =
+                            coaRepo.findAllByOrganization_OrganizationIdAndAccountGroup_Id(
+                                    requestDTO.getId(),
+                                    requestDTO.getAccountGroupId()
+                            );
+
+                    List<Long> coaIds = chartOfAccounts.stream()
+                            .map(ChartOfAccount::getId)
+                            .toList();
+
+                    expenses = expenseRepo.findByOrganizationIdAndExpenseCOAIdIn(
+                            requestDTO.getId(),
+                            coaIds,
+                            pageable
+                    );
+                }
+
+                // Case 3: No Account Group selected (All Misc Expenses)
+                else {
+
+                    expenses = expenseRepo.findByOrganizationIdAndExpenseCOAIdIsNotNullOrExpenseTitle(
+                            requestDTO.getId(),
+                            "Miscellaneous Expense",
+                            pageable
+                    );
+                }
+            }
+
+
+            // 3️⃣ ALL Expenses
+            // ===========================
+            else if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.ALL)) {
+
+                    expenses = expenseRepo.findAllByOrganizationId(requestDTO.getId(),pageable);
+
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);
+
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
-
     }
+
 
     public Map<String, Object> getExpenseDetails(long expenseId) {
 
@@ -893,7 +985,7 @@ public class ExpenseService {
         }
     }
 
-    public Map<String, Object> getAllExpenseType(long orgId , Pageable  pageable) {
+    public Map<String, Object> getAllExpenseType(long orgId, Pageable pageable) {
         try {
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenseTypeRepo.findAllByOrganizationId(orgId, pageable));
         } catch (IllegalArgumentException e) {
