@@ -36,7 +36,7 @@ public class Expense {
     private long expenseCOAId; //only present when expense is non construction
     private String comments = "Miscellaneous Expense";
 
-
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ExpenseType expenseType;
 
