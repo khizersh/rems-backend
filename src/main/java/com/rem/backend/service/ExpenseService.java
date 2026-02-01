@@ -31,6 +31,8 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.rem.backend.utility.Utility.getPaymentStatus;
 
@@ -71,10 +73,10 @@ public class ExpenseService {
             if (requestDTO.getStartDate() == null || requestDTO.getEndDate() == null) {
                 // Default to TODAY
                 startDate = Utility.getStartOfDay(requestDTO.getStartDate());
-                endDate   = Utility.getEndOfDay(requestDTO.getEndDate());
+                endDate = Utility.getEndOfDay(requestDTO.getEndDate());
             } else {
                 startDate = Utility.getStartOfDay(requestDTO.getStartDate());
-                endDate   = Utility.getEndOfDay(requestDTO.getEndDate());
+                endDate = Utility.getEndOfDay(requestDTO.getEndDate());
             }
 
             // ===========================
@@ -184,6 +186,28 @@ public class ExpenseService {
                                     pageable
                             );
                 }
+
+                Set<Long> expenseCoaIds = expenses.getContent().stream()
+                        .map(Expense::getExpenseCOAId)
+                        .filter(id -> id != null && id != 0)
+                        .collect(Collectors.toSet());
+
+                Map<Long, ChartOfAccount> coaMap = coaRepo.findAllById(expenseCoaIds)
+                        .stream()
+                        .collect(Collectors.toMap(ChartOfAccount::getId, Function.identity()));
+
+                expenses = expenses.map(expense -> {
+
+                    ChartOfAccount coa = coaMap.get(expense.getExpenseCOAId());
+                    if (coa != null) {
+                        expense.setExpenseAccountName(
+                                coa.getAccountGroup().getName() + " - " + coa.getName()
+                        );
+                    }
+
+                    return expense;
+                });
+
             }
 
             // ===========================
@@ -198,6 +222,27 @@ public class ExpenseService {
                                 endDate,
                                 pageable
                         );
+
+                Set<Long> expenseCoaIds = expenses.getContent().stream()
+                        .map(Expense::getExpenseCOAId)
+                        .filter(id -> id != null && id != 0)
+                        .collect(Collectors.toSet());
+
+                Map<Long, ChartOfAccount> coaMap = coaRepo.findAllById(expenseCoaIds)
+                        .stream()
+                        .collect(Collectors.toMap(ChartOfAccount::getId, Function.identity()));
+
+                expenses = expenses.map(expense -> {
+
+                    ChartOfAccount coa = coaMap.get(expense.getExpenseCOAId());
+                    if (coa != null) {
+                        expense.setExpenseAccountName(
+                                coa.getAccountGroup().getName() + " - " + coa.getName()
+                        );
+                    }
+
+                    return expense;
+                });
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);

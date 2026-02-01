@@ -62,6 +62,9 @@ public class Expense {
     private String paymentDocNo;
 
     @Transient
+    private String expenseAccountName;
+
+    @Transient
     private LocalDateTime paymentDocDate;
 
 
