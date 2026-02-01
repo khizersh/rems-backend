@@ -9,26 +9,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 @Repository
 public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 
-    Page<Expense> findAllByOrganizationId(long orgId, Pageable pageable);
 
-    Page<Expense> findAllByVendorAccountIdAndExpenseType(long vendorAccountId, ExpenseType expenseType, Pageable pageable);
-
-    List<Expense> findAllByVendorAccountId(long vendorAccountId);
-
-    Page<Expense> findAllByProjectIdAndExpenseType(long projectId, ExpenseType expenseType, Pageable pageable);
-
-    List<Expense> findByVendorAccountIdAndCreditAmountGreaterThan(Long vendorAccountId, double creditAmount);
-
-    List<Expense> findAllByProjectId(long projectId);
-
-
-    Page<Expense> findAllByProjectIdAndVendorAccountIdAndExpenseType(long projectId, long vendorAccountId, ExpenseType expenseType, Pageable pageable);
 
 
     @Query(
@@ -92,10 +80,110 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
     """, nativeQuery = true)
     Map<String , Object> getExpenseSumsByOrgAndDays(@Param("orgId") Long orgId, @Param("days") int days);
 
+//
+//    Page<Expense> findAllByOrganizationId(long orgId, Pageable pageable);
+//    Page<Expense> findAllByOrganizationIdAndExpenseType(long orgId,ExpenseType expenseType, Pageable pageable);
+//
+//    Page<Expense> findAllByVendorAccountIdAndExpenseType(long vendorAccountId, ExpenseType expenseType, Pageable pageable);
+//
+    List<Expense> findAllByVendorAccountId(long vendorAccountId);
+//
+//    Page<Expense> findAllByProjectIdAndExpenseType(long projectId, ExpenseType expenseType, Pageable pageable);
+//
+//
+//    List<Expense> findAllByProjectId(long projectId);
+//
+//
+//    Page<Expense> findAllByProjectIdAndVendorAccountIdAndExpenseType(long projectId, long vendorAccountId, ExpenseType expenseType, Pageable pageable);
+//
+//    Page<Expense> findByExpenseCOAIdAndOrganizationId(long expenseCOAId, long organizationId, Pageable pageable);
+//
+//    Page<Expense> findByOrganizationIdAndExpenseCOAIdIn(long orgId, List<Long> expenseCOAIds, Pageable pageable);
+//    Page<Expense> findByOrganizationIdAndExpenseCOAIdIsNotNullOrExpenseTitle(long orgId , String expenseTitle, Pageable pageable);
 
 
-    Page<Expense> findByExpenseCOAIdAndOrganizationId(long expenseCOAId, long organizationId, Pageable pageable);
 
-    Page<Expense> findByOrganizationIdAndExpenseCOAIdIn(long orgId, List<Long> expenseCOAIds, Pageable pageable);
-    Page<Expense> findByOrganizationIdAndExpenseCOAIdIsNotNullOrExpenseTitle(long orgId , String expenseTitle, Pageable pageable);
+    Page<Expense> findAllByOrganizationIdAndCreatedDateBetween(
+            long orgId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    Page<Expense> findAllByOrganizationIdAndExpenseTypeAndCreatedDateBetween(
+            long orgId,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    Page<Expense> findAllByVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+            long vendorAccountId,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    List<Expense> findAllByVendorAccountIdAndCreatedDateBetween(
+            long vendorAccountId,
+            LocalDateTime startDate,
+            LocalDateTime endDate
+    );
+
+    Page<Expense> findAllByProjectIdAndExpenseTypeAndCreatedDateBetween(
+            long projectId,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    List<Expense> findAllByProjectId(
+            long projectId
+    );
+
+    Page<Expense> findAllByProjectIdAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+            long projectId,
+            long vendorAccountId,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    Page<Expense> findByExpenseCOAIdAndOrganizationIdAndCreatedDateBetween(
+            long expenseCOAId,
+            long organizationId,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    Page<Expense> findByOrganizationIdAndExpenseCOAIdInAndCreatedDateBetween(
+            long orgId,
+            List<Long> expenseCOAIds,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+    @Query("""
+    SELECT e FROM Expense e
+    WHERE e.organizationId = :orgId
+      AND e.createdDate BETWEEN :startDate AND :endDate
+      AND (e.expenseCOAId != 0 OR e.expenseTitle = :expenseTitle)
+      AND (e.expenseType = :expenseType)
+""")
+    Page<Expense> findByOrgAndCoaOrTitleWithinDate(
+            @Param("orgId") long orgId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("expenseTitle") String expenseTitle,
+            @Param("expenseType") ExpenseType expenseType,
+            Pageable pageable
+    );
+
+
 }

@@ -55,8 +55,6 @@ public class Expense {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
-
-
     @Transient
     private PaymentType paymentType;
 

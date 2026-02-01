@@ -15,6 +15,8 @@ public class ExpenseFetchRequestDTO {
     private Long coaId;
     private int page = 0;
     private int size = 10;
+    private String startDate;
+    private String endDate;
     private String sortBy = "createdDate";
     private String sortDir = "asc";
 

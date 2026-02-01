@@ -63,17 +63,30 @@ public class Utility {
             // Photoshop
             "image/vnd.adobe.photoshop"
     );
-
     public static LocalDateTime getStartOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
-        LocalDate date = LocalDate.parse(input, formatter);
+
+        LocalDate date;
+        if (input == null || input.isBlank()) {
+            date = LocalDate.now();   // fallback to TODAY
+        } else {
+            date = LocalDate.parse(input, formatter);
+        }
+
         return date.atStartOfDay(); // 00:00:00
     }
 
     public static LocalDateTime getEndOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
-        LocalDate date = LocalDate.parse(input, formatter);
-        return date.atTime(LocalTime.MAX); // 23:59:59.999999999
+
+        LocalDate date;
+        if (input == null || input.isBlank()) {
+            date = LocalDate.now();   // fallback to TODAY
+        } else {
+            date = LocalDate.parse(input, formatter);
+        }
+
+        return date.atTime(23, 59, 59, 999_999_999);
     }
 
 
