@@ -2,6 +2,7 @@ package com.rem.backend.repository;
 
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.PaymentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -102,6 +103,21 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 //    Page<Expense> findByOrganizationIdAndExpenseCOAIdIsNotNullOrExpenseTitle(long orgId , String expenseTitle, Pageable pageable);
 
 
+    Page<Expense> findAllByOrganizationIdAndCreditAmountGreaterThan(
+            long organizationId,
+            Double amount,
+            Pageable pageable
+    );
+
+
+
+    Page<Expense> findAllByOrganizationIdAndVendorAccountIdAndCreditAmountGreaterThan(
+            long organizationId,
+            long vendorAccountId,
+            Double amount,
+            Pageable pageable
+    );
+
 
     Page<Expense> findAllByOrganizationIdAndCreatedDateBetween(
             long orgId,
@@ -110,6 +126,17 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
+
+    Page<Expense> findAllByOrganizationIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
+            long orgId,
+            PaymentStatus paymentStatus,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+
     Page<Expense> findAllByOrganizationIdAndExpenseTypeAndCreatedDateBetween(
             long orgId,
             ExpenseType expenseType,
@@ -117,6 +144,16 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             LocalDateTime endDate,
             Pageable pageable
     );
+
+    Page<Expense> findAllByVendorAccountIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
+            long vendorAccountId,
+            PaymentStatus paymentStatus,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
 
     Page<Expense> findAllByVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
             long vendorAccountId,
@@ -132,6 +169,16 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             LocalDateTime endDate
     );
 
+    Page<Expense> findAllByProjectIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
+            long projectId,
+            PaymentStatus paymentStatus,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
+
     Page<Expense> findAllByProjectIdAndExpenseTypeAndCreatedDateBetween(
             long projectId,
             ExpenseType expenseType,
@@ -143,6 +190,17 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
     List<Expense> findAllByProjectId(
             long projectId
     );
+
+    Page<Expense> findAllByProjectIdAndPaymentStatusAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+            long projectId,
+            PaymentStatus paymentStatus,
+            long vendorAccountId,
+            ExpenseType expenseType,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable
+    );
+
 
     Page<Expense> findAllByProjectIdAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
             long projectId,

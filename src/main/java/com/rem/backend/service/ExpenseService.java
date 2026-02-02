@@ -2,6 +2,7 @@ package com.rem.backend.service;
 
 import com.rem.backend.accountmanagement.enums.TransactionCategory;
 import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
 import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.entity.expense.ExpenseDetail;
@@ -28,7 +29,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
@@ -67,11 +67,12 @@ public class ExpenseService {
             ValidationService.validate(requestDTO.getId(), "Invalid " + requestDTO.getFilteredBy());
             ValidationService.validate(requestDTO.getExpenseType(), "Invalid Expense Type");
 
+
             LocalDateTime startDate;
             LocalDateTime endDate;
 
             if (requestDTO.getStartDate() == null || requestDTO.getEndDate() == null) {
-                // Default to TODAY
+                // Default to 10 years
                 startDate = Utility.getStartOfDay(requestDTO.getStartDate());
                 endDate = Utility.getEndOfDay(requestDTO.getEndDate());
             } else {
@@ -84,57 +85,107 @@ public class ExpenseService {
             // ===========================
             if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
+                ValidationService.validate(requestDTO.getPaymentStatus(), "Payment Status");
+
                 switch (requestDTO.getFilteredBy()) {
 
                     case "vendor":
+                        if (requestDTO.getPaymentStatus().equals(PaymentStatus.ALL)) {
+                            expenses = expenseRepo.
+                                    findAllByVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+                                            requestDTO.getId(),
+                                            com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                            startDate,
+                                            endDate,
+                                            pageable
+                                    );
+                        }else{
                         expenses = expenseRepo
-                                .findAllByVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+                                .findAllByVendorAccountIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
                                         requestDTO.getId(),
+                                        requestDTO.getPaymentStatus(),
                                         com.rem.backend.enums.ExpenseType.CONSTRUCTION,
                                         startDate,
                                         endDate,
                                         pageable
                                 );
+                        }
                         break;
 
                     case "project":
-                        expenses = expenseRepo
-                                .findAllByProjectIdAndExpenseTypeAndCreatedDateBetween(
-                                        requestDTO.getId(),
-                                        com.rem.backend.enums.ExpenseType.CONSTRUCTION,
-                                        startDate,
-                                        endDate,
-                                        pageable
-                                );
+                        if (requestDTO.getPaymentStatus().equals(PaymentStatus.ALL)){
+                            expenses = expenseRepo
+                                    .findAllByProjectIdAndExpenseTypeAndCreatedDateBetween(
+                                            requestDTO.getId(),
+                                            com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                            startDate,
+                                            endDate,
+                                            pageable
+                                    );
+                        }else{
+                            expenses = expenseRepo
+                                    .findAllByProjectIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
+                                            requestDTO.getId(),
+                                            requestDTO.getPaymentStatus(),
+                                            com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                            startDate,
+                                            endDate,
+                                            pageable
+                                    );
+                        }
+
                         break;
 
                     case "project_vendor":
+
+
+                        if (requestDTO.getPaymentStatus().equals(PaymentStatus.ALL)){
+                            expenses = expenseRepo.findAllByProjectIdAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+                                    requestDTO.getId(),
+                                    requestDTO.getId2(),
+                                    com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                    startDate,
+                                    endDate,
+                                    pageable
+                            );
+                        }else{
                         expenses = expenseRepo
-                                .findAllByProjectIdAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
+                                .findAllByProjectIdAndPaymentStatusAndVendorAccountIdAndExpenseTypeAndCreatedDateBetween(
                                         requestDTO.getId(),
+                                        requestDTO.getPaymentStatus(),
                                         requestDTO.getId2(),
                                         com.rem.backend.enums.ExpenseType.CONSTRUCTION,
                                         startDate,
                                         endDate,
                                         pageable
                                 );
+                        }
                         break;
 
                     default:
+
+                        if (requestDTO.getPaymentStatus().equals(PaymentStatus.ALL)){
+                            expenses =  expenseRepo.findAllByOrganizationIdAndExpenseTypeAndCreatedDateBetween(
+                                    requestDTO.getId(),
+                                    com.rem.backend.enums.ExpenseType.CONSTRUCTION,
+                                    startDate,
+                                    endDate,
+                                    pageable
+                            );
+                        }else{
                         expenses = expenseRepo
-                                .findAllByOrganizationIdAndExpenseTypeAndCreatedDateBetween(
+                                .findAllByOrganizationIdAndPaymentStatusAndExpenseTypeAndCreatedDateBetween(
                                         requestDTO.getId(),
+                                        requestDTO.getPaymentStatus(),
                                         com.rem.backend.enums.ExpenseType.CONSTRUCTION,
                                         startDate,
                                         endDate,
                                         pageable
                                 );
+
+                        }
                 }
             }
-
-            // ===========================
-            // 3️⃣ MISCELLANEOUS Expenses
-            // ===========================
             else if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.MISCELLANEOUS)) {
 
                 // Case 1: Account Group + COA selected
@@ -209,10 +260,6 @@ public class ExpenseService {
                 });
 
             }
-
-            // ===========================
-            // 4️⃣ ALL Expenses
-            // ===========================
             else if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.ALL)) {
 
                 expenses = expenseRepo
@@ -244,6 +291,35 @@ public class ExpenseService {
                     return expense;
                 });
             }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getPayableExpenseList(FilterPaginationRequest request, Pageable pageable) {
+
+        Page<Expense> expenses = null;
+        try {
+
+            ValidationService.validate(request.getId(), "organization");
+
+
+            if (request.getId2() == 0) {
+                expenses = expenseRepo.
+                        findAllByOrganizationIdAndCreditAmountGreaterThan(request.getId(), 0.0, pageable);
+            } else {
+
+                expenses = expenseRepo.
+                        findAllByOrganizationIdAndVendorAccountIdAndCreditAmountGreaterThan(request.getId(),
+                                request.getId2(), 0.0, pageable);
+            }
+
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);
 

@@ -2,5 +2,5 @@ package com.rem.backend.enums;
 
 public enum PaymentStatus {
 
-    PENDING , PAID , UNPAID
+    PENDING , PAID , UNPAID, ALL
 }

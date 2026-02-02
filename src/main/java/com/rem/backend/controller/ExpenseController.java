@@ -77,6 +77,19 @@ public class ExpenseController {
     }
 
 
+    @PostMapping("/getAllPayableExpense")
+    public Map getAllPayableExpense(@RequestBody FilterPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        return expenseService.getPayableExpenseList(request , pageable);
+    }
+
+
     @GetMapping("/getAllExpenseTypeByOrgId/{orgId}")
     public Map getAllExpenseTypeByOrgIdList(@PathVariable long orgId) {
         return expenseService.getAllExpenseType(orgId);

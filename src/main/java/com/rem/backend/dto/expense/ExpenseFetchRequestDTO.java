@@ -1,6 +1,7 @@
 package com.rem.backend.dto.expense;
 
 import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.PaymentStatus;
 import lombok.Data;
 
 
@@ -11,6 +12,7 @@ public class ExpenseFetchRequestDTO {
     private long id2;
     private String filteredBy;
     private ExpenseType expenseType;
+    private PaymentStatus paymentStatus;
     private Long accountGroupId;
     private Long coaId;
     private int page = 0;

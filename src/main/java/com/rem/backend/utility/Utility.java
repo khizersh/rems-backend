@@ -68,13 +68,14 @@ public class Utility {
 
         LocalDate date;
         if (input == null || input.isBlank()) {
-            date = LocalDate.now();   // fallback to TODAY
+            date = LocalDate.now().minusYears(10);   // fallback to 10 years ago
         } else {
             date = LocalDate.parse(input, formatter);
         }
 
         return date.atStartOfDay(); // 00:00:00
     }
+
 
     public static LocalDateTime getEndOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");

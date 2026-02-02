@@ -142,6 +142,7 @@ public class AccountService {
 
 
             List<AccountGroupDTO> dtoList = groups.stream()
+                    .filter(g -> !"Construction".equalsIgnoreCase(g.getName()))
                     .map(g -> new AccountGroupDTO(
                             g.getId(),
                             g.getName(),
