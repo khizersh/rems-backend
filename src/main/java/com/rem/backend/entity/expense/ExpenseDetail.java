@@ -27,13 +27,11 @@ public class ExpenseDetail {
     @Column(nullable = false)
     private double amountPaid;
 
-
     @Column(nullable = false)
     private String organizationAccountTitle;
 
     @Column(nullable = false)
     private String expenseTitle;
-
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = true)

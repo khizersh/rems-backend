@@ -386,7 +386,7 @@ public class JournalEntryService {
     }
 
 
-    private ChartOfAccount getConstructionInventoryControlAccount(long organizationId) {
+    public ChartOfAccount getConstructionInventoryControlAccount(long organizationId) {
 
         return chartOfAccountRepository
                 .findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
