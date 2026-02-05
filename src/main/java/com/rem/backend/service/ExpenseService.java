@@ -186,10 +186,33 @@ public class ExpenseService {
                         }
                 }
 
+
+
+                Set<Long> expenseCoaIds = expenses.getContent().stream()
+                        .map(Expense::getExpenseCOAId)
+                        .filter(id -> id != null && id != 0)
+                        .collect(Collectors.toSet());
+
+                Map<Long, ChartOfAccount> coaMap = coaRepo.findAllById(expenseCoaIds)
+                        .stream()
+                        .collect(Collectors.toMap(ChartOfAccount::getId, Function.identity()));
+
                 expenses = expenses.map(expense -> {
-                    expense.setExpenseAccountName("Construction Inventory");
+
+                    ChartOfAccount coa = coaMap.get(expense.getExpenseCOAId());
+                    if (coa != null) {
+                        expense.setExpenseAccountName(
+                                coa.getAccountGroup().getName() + " - " + coa.getName()
+                        );
+                    }
+
                     return expense;
                 });
+
+//                expenses = expenses.map(expense -> {
+//                    expense.setExpenseAccountName("Construction Inventory");
+//                    return expense;
+//                });
             } else if (requestDTO.getExpenseType().equals(com.rem.backend.enums.ExpenseType.MISCELLANEOUS)) {
 
                 // Case 1: Account Group + COA selected
