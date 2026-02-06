@@ -1,6 +1,7 @@
 package com.rem.backend.entity.vendor;
 
 
+import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.enums.VendorPaymentType;
 import jakarta.persistence.*;
@@ -19,7 +20,7 @@ public class VendorPayment {
     private long id;
 
     @Column(nullable = false)
-    private double vendorAccountId;
+    private long vendorAccountId;
 
 
     @Column(nullable = true)
@@ -52,8 +53,33 @@ public class VendorPayment {
     @Enumerated(EnumType.STRING)
     private VendorPaymentType vendorPaymentType;
 
+
+    @Column(nullable = true)
+    @Enumerated(EnumType.STRING)
+    private PaymentType paymentMethodType;
+
+
+    @Column(nullable = true)
+    private String comments;
+
+
+    @Column(nullable = true)
+    private String paymentDocNo;
+
+    @Column(nullable = true)
+    private LocalDateTime paymentDocDate;
+
+    @Column(nullable = true, unique = true, length = 100)
+    private String idempotencyKey;
+
+
     @Transient
     private String organizationAccount;
+
+
+
+    @Transient
+    private Long organizationId;
 
     @Transient
     private String vendorAccount;

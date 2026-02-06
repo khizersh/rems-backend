@@ -1,0 +1,25 @@
+package com.rem.backend.dto.expense;
+
+import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.PaymentStatus;
+import lombok.Data;
+
+
+@Data
+public class ExpenseFetchRequestDTO {
+
+    private long id;
+    private long id2;
+    private String filteredBy;
+    private ExpenseType expenseType;
+    private PaymentStatus paymentStatus;
+    private Long accountGroupId;
+    private Long coaId;
+    private int page = 0;
+    private int size = 10;
+    private String startDate;
+    private String endDate;
+    private String sortBy = "createdDate";
+    private String sortDir = "asc";
+
+}

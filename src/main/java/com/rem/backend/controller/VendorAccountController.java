@@ -2,6 +2,7 @@ package com.rem.backend.controller;
 
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.entity.vendor.VendorAccount;
+import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.service.VendorAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
@@ -27,6 +28,13 @@ public class VendorAccountController {
     public Map addVendorAccount(@RequestBody VendorAccount vendorAccount, HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return vendorAccountService.createVendorAccount(vendorAccount, loggedInUser);
+    }
+
+
+    @PostMapping("/paybackCredit")
+    public Map addVendorAccount(@RequestBody VendorPayment vendorPayment, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return vendorAccountService.paybackCredit(vendorPayment, loggedInUser);
     }
 
 
@@ -114,5 +122,11 @@ public class VendorAccountController {
         return ResponseEntity.ok(projectPage);
     }
 
+    // New endpoint to update an existing payback payment
+    @PutMapping("/updatePayback/{paymentId}")
+    public Map updatePayback(@PathVariable Long paymentId, @RequestBody VendorPayment vendorPayment, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return vendorAccountService.updatePaybackCredit(paymentId, vendorPayment, loggedInUser);
+    }
 
 }

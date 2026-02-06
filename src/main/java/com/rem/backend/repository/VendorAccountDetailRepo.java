@@ -20,6 +20,8 @@ public interface VendorAccountDetailRepo extends JpaRepository<VendorPayment, Lo
     Page<VendorPayment> findByVendorAccountIdOrderByIdDesc(long acctId , Pageable pageable);
     List<VendorPayment> findByVendorAccountIdOrderByIdDesc(long acctId );
     List<VendorPayment> findByVendorAccountIdOrderByIdAsc(long acctId );
+    Optional<VendorPayment> findByIdempotencyKey(String idempotencyKey);
+
     Optional<VendorPayment> findByExpenseId(long expenseID );
     @Transactional
     void deleteByExpenseId(Long expenseId);

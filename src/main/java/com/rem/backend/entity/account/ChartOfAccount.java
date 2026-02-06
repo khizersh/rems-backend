@@ -1,5 +1,6 @@
 package com.rem.backend.entity.account;
 
+import com.rem.backend.entity.organization.Organization;
 import com.rem.backend.enums.AccountStatus;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -21,24 +22,13 @@ public class ChartOfAccount {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private long organizationId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_group_id", nullable = false)
     private AccountGroup accountGroup;
-
-    @Column(nullable = true)
-    private Long projectId;
-
-    @Column(nullable = true)
-    private Long unitId;
-
-    @Column(nullable = true)
-    private Long customerId;
-
-    @Column(nullable = true)
-    private Long vendorId;
 
     @Column(columnDefinition = "TINYINT(1) DEFAULT 0")
     private boolean isSystemGenerated = false;
@@ -47,7 +37,12 @@ public class ChartOfAccount {
     @Column(nullable = false)
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @Column(name = "organization_account_id")
+    private Long organizationAccountId;   // Bank / Cash accounts
+
+
     @Column(nullable = false, updatable = false)
+
     private LocalDateTime createdDate;
 
     @Column(nullable = false)

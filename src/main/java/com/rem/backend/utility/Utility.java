@@ -7,6 +7,9 @@ import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.dto.booking.BookingCancellationRequest;
+import com.rem.backend.repository.ChartOfAccountRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +18,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 import java.util.Set;
 
+@Component
+@RequiredArgsConstructor
 public class Utility {
 
     public static final String RESPONSE_CODE = "responseCode";
@@ -23,6 +28,7 @@ public class Utility {
     public static final String COMPANY_NAME = "COMPANY_NAME";
     public static final long ADMIN_ROLE_ID = 1;
     public static final long USER_ROLE_ID = 2;
+    public final ChartOfAccountRepository chartOfAccountRepository;
 
 
     public static LocalDateTime getDateInLastDays(int days) {
@@ -57,17 +63,31 @@ public class Utility {
             // Photoshop
             "image/vnd.adobe.photoshop"
     );
-
     public static LocalDateTime getStartOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
-        LocalDate date = LocalDate.parse(input, formatter);
+
+        LocalDate date;
+        if (input == null || input.isBlank()) {
+            date = LocalDate.now().minusYears(10);   // fallback to 10 years ago
+        } else {
+            date = LocalDate.parse(input, formatter);
+        }
+
         return date.atStartOfDay(); // 00:00:00
     }
 
+
     public static LocalDateTime getEndOfDay(String input) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d-M-yyyy");
-        LocalDate date = LocalDate.parse(input, formatter);
-        return date.atTime(LocalTime.MAX); // 23:59:59.999999999
+
+        LocalDate date;
+        if (input == null || input.isBlank()) {
+            date = LocalDate.now();   // fallback to TODAY
+        } else {
+            date = LocalDate.parse(input, formatter);
+        }
+
+        return date.atTime(23, 59, 59, 999_999_999);
     }
 
 
@@ -132,5 +152,12 @@ public class Utility {
     }
 
 
-
+    /**
+     * Generate a unique account code
+     */
+    public String generateAccountCode(long organizationId, String prefix) {
+        long count = chartOfAccountRepository.findAllByOrganization_OrganizationId(organizationId).size();
+        return prefix + "-" + organizationId + "-" + (count + 1);
+    }
 }
+

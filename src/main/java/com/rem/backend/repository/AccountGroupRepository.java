@@ -10,14 +10,26 @@ import java.util.Optional;
 
 @Repository
 public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long> {
-    List<AccountGroup> findAllByOrganizationId(long organizationId);
-    List<AccountGroup> findAllByAccountTypeId(long accountTypeId);
-    List<AccountGroup> findAllByOrganizationIdAndAccountTypeId(long organizationId, long accountTypeId);
-    boolean existsByNameContainingIgnoreCaseAndOrganizationId(String name, long organizationId);
-    Optional<AccountGroup> findByNameAndOrganizationId(
+
+    List<AccountGroup> findAllByOrganization_OrganizationId(long organizationId);
+
+    List<AccountGroup> findAllByAccountType_IdAndOrganization_OrganizationId(long accountType,long organizationId);
+
+    List<AccountGroup> findAllByAccountType_Id(long accountTypeId);
+
+    Optional<AccountGroup> findByNameAndOrganization_OrganizationId(
             String name, long organizationId);
-    List<AccountGroup> findAllByOrganizationIdAndAccountType(
+
+    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountType(
             long organizationId, AccountType accountType);
+
+    // OR (recommended)
+    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountType_Id(
+            long organizationId, long accountTypeId);
+
+    boolean existsByNameAndOrganization_OrganizationId(String name, Long organizationId);
+
+    boolean existsByNameAndOrganization_OrganizationIdAndIdNot(
+            String name, Long organizationId, Long id);
+
 }
-
-

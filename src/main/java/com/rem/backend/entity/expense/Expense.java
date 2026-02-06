@@ -28,13 +28,15 @@ public class Expense {
     private Long expenseTypeId;
     private Long organizationId;
     private Long projectId;
+    private Long unitId; //optional
     private String projectName;
     private String orgAccountTitle;
     private String vendorName;
     private String expenseTitle;
+    private long expenseCOAId; //only present when expense is non construction
     private String comments = "Miscellaneous Expense";
 
-
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ExpenseType expenseType;
 
@@ -53,13 +55,14 @@ public class Expense {
     @Column(nullable = false)
     private LocalDateTime updatedDate;
 
-
-
     @Transient
     private PaymentType paymentType;
 
     @Transient
     private String paymentDocNo;
+
+    @Transient
+    private String expenseAccountName;
 
     @Transient
     private LocalDateTime paymentDocDate;

@@ -21,6 +21,8 @@ public class Organization {
     @Column(nullable = true)
     private String logo;
     @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
+    private boolean paybackByVendor = true;
+    @Column(columnDefinition = "TINYINT(1) DEFAULT 1")
     private boolean isActive = true;
     @Column(nullable = false)
     private String updatedBy;

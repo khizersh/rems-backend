@@ -7,6 +7,7 @@ import com.rem.backend.entity.account.JournalEntry;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.enums.AccountStatus;
+import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.JournalEntryStatus;
 import com.rem.backend.repository.*;
 import lombok.AllArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -31,14 +33,14 @@ public class JournalEntryService {
     /**
      * Create journal entry for expense creation with payment
      * Double-entry bookkeeping: Total Debit MUST equal Total Credit
-     * 
+     * <p>
      * For cash payment (amountPaid > 0):
-     *   Debit: Expense Account (amountPaid)
-     *   Credit: Bank/Cash Account (amountPaid)
-     * 
+     * Debit: Expense Account (amountPaid)
+     * Credit: Bank/Cash Account (amountPaid)
+     * <p>
      * For credit purchase (creditAmount > 0):
-     *   Debit: Expense Account (creditAmount)
-     *   Credit: Accounts Payable - Vendor (creditAmount)
+     * Debit: Expense Account (creditAmount)
+     * Credit: Accounts Payable - Vendor (creditAmount)
      */
     @Transactional
     public void createJournalEntryForExpense(Expense expense, OrganizationAccount organizationAccount, String loggedInUser) {
@@ -52,71 +54,111 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(expense.getOrganizationId());
             journalEntry.setCreatedDate(expense.getCreatedDate() != null ? expense.getCreatedDate() : java.time.LocalDateTime.now());
             journalEntry.setReferenceType("EXPENSE");
-            journalEntry.setReferenceId(expense.getId());
-            journalEntry.setDescription("Expense: " + expense.getExpenseTitle() + 
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setVendorId(expense.getVendorAccountId());
+            journalEntry.setProjectId(expense.getProjectId());
+            journalEntry.setUnitId(expense.getUnitId());
+            journalEntry.setDescription("Expense: " + expense.getExpenseTitle() +
                     (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
             journalEntry.setStatus(JournalEntryStatus.POSTED);
             journalEntry.setCreatedBy(loggedInUser);
             journalEntry = journalEntryRepository.save(journalEntry);
-            
+
             log.info("Created Journal Entry ID: {} for Expense ID: {}", journalEntry.getId(), expense.getId());
 
             // Find or create Chart of Account for Bank/Cash Account
-            ChartOfAccount bankAccount = findOrCreateBankAccount(organizationAccount, expense.getOrganizationId());
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount, expense.getOrganizationId());
             log.info("Bank Account COA ID: {} - {}", bankAccount.getId(), bankAccount.getName());
 
-            // Find or create Chart of Account for Expense Account
-            ChartOfAccount expenseAccount = findOrCreateExpenseAccount(expense, loggedInUser);
-            log.info("Expense Account COA ID: {} - {}", expenseAccount.getId(), expenseAccount.getName());
+
 
             // If amountPaid > 0: Debit Expense, Credit Bank
-            if (expense.getAmountPaid() > 0) {
-                // Debit: Expense Account
-                JournalDetailEntry debitEntry = new JournalDetailEntry();
-                debitEntry.setJournalEntryId(journalEntry.getId());
-                debitEntry.setChartOfAccountId(expenseAccount.getId());
-                debitEntry.setDebitAmount(expense.getAmountPaid());
-                debitEntry.setCreditAmount(0.0);
-                debitEntry.setDescription("Expense: " + expense.getExpenseTitle());
-                detailEntries.add(debitEntry);
-                totalDebit += expense.getAmountPaid();
+            if (expense.getAmountPaid() > 0 && expense.getCreditAmount() == 0) {
+                    // Debit: Expense Account
 
-                // Credit: Bank Account
-                JournalDetailEntry creditEntry = new JournalDetailEntry();
-                creditEntry.setJournalEntryId(journalEntry.getId());
-                creditEntry.setChartOfAccountId(bankAccount.getId());
-                creditEntry.setDebitAmount(0.0);
-                creditEntry.setCreditAmount(expense.getAmountPaid());
-                creditEntry.setDescription("Payment from: " + organizationAccount.getName());
-                detailEntries.add(creditEntry);
-                totalCredit += expense.getAmountPaid();
+                    ChartOfAccount debitAccount =
+                            expense.getExpenseType() != ExpenseType.CONSTRUCTION
+                                    ? findExpenseAccount(expense, loggedInUser)
+                                    : getConstructionInventoryControlAccount(expense.getOrganizationId());
+
+                    if(debitAccount == null){
+                        throw new RuntimeException("No Valid Debit Account was found");
+                    }
+
+                    log.info("Debit Account COA ID: {} - {}", debitAccount.getId(), debitAccount.getName());
+
+                    JournalDetailEntry debitEntry = new JournalDetailEntry();
+                    debitEntry.setJournalEntryId(journalEntry.getId());
+                    debitEntry.setChartOfAccountId(debitAccount.getId());
+                    debitEntry.setDebitAmount(expense.getTotalAmount());
+                    debitEntry.setCreditAmount(0.0);
+                    debitEntry.setDescription("Expense: " + expense.getExpenseTitle());
+                    detailEntries.add(debitEntry);
+                    totalDebit += expense.getTotalAmount();
+
+                    // Credit: Bank Account
+                    JournalDetailEntry creditEntry = new JournalDetailEntry();
+                    creditEntry.setJournalEntryId(journalEntry.getId());
+                    creditEntry.setChartOfAccountId(bankAccount.getId());
+                    creditEntry.setDebitAmount(0.0);
+                    creditEntry.setCreditAmount(expense.getAmountPaid());
+                    creditEntry.setDescription("Payment from: " + organizationAccount.getName());
+                    detailEntries.add(creditEntry);
+                    totalCredit += expense.getAmountPaid();
+
             }
 
             // If creditAmount > 0: Debit Expense, Credit Accounts Payable (Vendor)
-            if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
+            else if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
+
+                ChartOfAccount constructionInventoryAccount = getConstructionInventoryControlAccount
+                        (organizationAccount.getOrganizationId());
+
                 // Find or create Accounts Payable account for vendor
-                ChartOfAccount accountsPayableAccount = findOrCreateAccountsPayableAccount(expense, loggedInUser);
+                ChartOfAccount accountsPayableAccount = getVendorPayableControlAccount(expense.getOrganizationId());
                 log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
 
-                // Debit: Expense Account
-                JournalDetailEntry debitEntry = new JournalDetailEntry();
-                debitEntry.setJournalEntryId(journalEntry.getId());
-                debitEntry.setChartOfAccountId(expenseAccount.getId());
-                debitEntry.setDebitAmount(expense.getCreditAmount());
-                debitEntry.setCreditAmount(0.0);
-                debitEntry.setDescription("Expense on credit: " + expense.getExpenseTitle());
-                detailEntries.add(debitEntry);
-                totalDebit += expense.getCreditAmount();
 
-                // Credit: Accounts Payable (Vendor)
-                JournalDetailEntry creditEntry = new JournalDetailEntry();
-                creditEntry.setJournalEntryId(journalEntry.getId());
-                creditEntry.setChartOfAccountId(accountsPayableAccount.getId());
-                creditEntry.setDebitAmount(0.0);
-                creditEntry.setCreditAmount(expense.getCreditAmount());
-                creditEntry.setDescription("Payable to: " + expense.getVendorName());
-                detailEntries.add(creditEntry);
-                totalCredit += expense.getCreditAmount();
+                JournalDetailEntry debitInventoryEntry = new JournalDetailEntry();
+                debitInventoryEntry.setJournalEntryId(journalEntry.getId());
+                debitInventoryEntry.setChartOfAccountId(constructionInventoryAccount.getId());
+                debitInventoryEntry.setDebitAmount(expense.getTotalAmount());
+                debitInventoryEntry.setCreditAmount(0.0);
+                debitInventoryEntry.setDescription("Expense: " + expense.getExpenseTitle());
+                detailEntries.add(debitInventoryEntry);
+                totalDebit += expense.getTotalAmount();
+
+
+                JournalDetailEntry creditVendorEntry = new JournalDetailEntry();
+                creditVendorEntry.setJournalEntryId(journalEntry.getId());
+                creditVendorEntry.setChartOfAccountId(accountsPayableAccount.getId());
+                creditVendorEntry.setDebitAmount(0.0);
+                creditVendorEntry.setCreditAmount(expense.getTotalAmount());
+                creditVendorEntry.setDescription("Expense: " + expense.getExpenseTitle());
+                detailEntries.add(creditVendorEntry);
+                totalCredit += expense.getTotalAmount();
+
+
+                JournalDetailEntry debitVendorEntry = new JournalDetailEntry();
+                debitVendorEntry.setJournalEntryId(journalEntry.getId());
+                debitVendorEntry.setChartOfAccountId(accountsPayableAccount.getId());
+                debitVendorEntry.setDebitAmount(expense.getAmountPaid());
+                debitVendorEntry.setCreditAmount(0.0);
+                debitVendorEntry.setDescription("Expense: " + expense.getExpenseTitle());
+                detailEntries.add(debitVendorEntry);
+                totalDebit += expense.getAmountPaid();
+
+
+                // Credit: Bank Account
+                JournalDetailEntry creditBankEntry = new JournalDetailEntry();
+                creditBankEntry.setJournalEntryId(journalEntry.getId());
+                creditBankEntry.setChartOfAccountId(bankAccount.getId());
+                creditBankEntry.setDebitAmount(0.0);
+                creditBankEntry.setCreditAmount(expense.getAmountPaid());
+                creditBankEntry.setDescription("Payment from: " + organizationAccount.getName());
+                detailEntries.add(creditBankEntry);
+                totalCredit += expense.getAmountPaid();
             }
 
             // Validate double-entry: Debit MUST equal Credit
@@ -127,11 +169,11 @@ public class JournalEntryService {
             // Save all detail entries
             for (JournalDetailEntry entry : detailEntries) {
                 journalDetailEntryRepository.save(entry);
-                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}", 
+                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
                         entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
             }
 
-            log.info("Journal Entry {} completed. Total Debit: {}, Total Credit: {}", 
+            log.info("Journal Entry {} completed. Total Debit: {}, Total Credit: {}",
                     journalEntry.getId(), totalDebit, totalCredit);
 
         } catch (Exception e) {
@@ -143,13 +185,13 @@ public class JournalEntryService {
     /**
      * Create journal entry for additional expense payment (ExpenseDetail)
      * This is when paying off vendor credit/debt
-     * 
+     * <p>
      * Double-entry bookkeeping:
-     *   Debit: Accounts Payable - Vendor (reducing liability)
-     *   Credit: Bank/Cash Account (reducing asset)
+     * Debit: Accounts Payable - Vendor (reducing liability)
+     * Credit: Bank/Cash Account (reducing asset)
      */
     @Transactional
-    public void createJournalEntryForExpenseDetail(Expense expense, OrganizationAccount organizationAccount, 
+    public void createJournalEntryForExpenseDetail(Expense expense, OrganizationAccount organizationAccount,
                                                    double paymentAmount, String loggedInUser) {
         try {
             double totalDebit = 0.0;
@@ -161,21 +203,22 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(expense.getOrganizationId());
             journalEntry.setCreatedDate(java.time.LocalDateTime.now());
             journalEntry.setReferenceType("EXPENSE_PAYMENT");
-            journalEntry.setReferenceId(expense.getId());
-            journalEntry.setDescription("Vendor Payment: " + expense.getExpenseTitle() + 
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setDescription("Vendor Payment: " + expense.getExpenseTitle() +
                     " - Paying debt to " + expense.getVendorName());
             journalEntry.setStatus(JournalEntryStatus.POSTED);
             journalEntry.setCreatedBy(loggedInUser);
             journalEntry = journalEntryRepository.save(journalEntry);
 
-            log.info("Created Journal Entry ID: {} for Expense Payment, Expense ID: {}", 
+            log.info("Created Journal Entry ID: {} for Expense Payment, Expense ID: {}",
                     journalEntry.getId(), expense.getId());
 
             // Find or create Chart of Account for Bank/Cash Account
-            ChartOfAccount bankAccount = findOrCreateBankAccount(organizationAccount, expense.getOrganizationId());
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount, expense.getOrganizationId());
 
             // Find or create Accounts Payable account for vendor
-            ChartOfAccount accountsPayableAccount = findOrCreateAccountsPayableAccount(expense, loggedInUser);
+            ChartOfAccount accountsPayableAccount = getVendorPayableControlAccount(expense.getOrganizationId());
 
             // Debit: Accounts Payable (Vendor) - reducing the liability
             JournalDetailEntry debitEntry = new JournalDetailEntry();
@@ -205,11 +248,11 @@ public class JournalEntryService {
             // Save all detail entries
             for (JournalDetailEntry entry : detailEntries) {
                 journalDetailEntryRepository.save(entry);
-                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}", 
+                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
                         entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
             }
 
-            log.info("Journal Entry {} completed. Total Debit: {}, Total Credit: {}", 
+            log.info("Journal Entry {} completed. Total Debit: {}, Total Credit: {}",
                     journalEntry.getId(), totalDebit, totalCredit);
 
         } catch (Exception e) {
@@ -218,182 +261,145 @@ public class JournalEntryService {
         }
     }
 
+    @Transactional
+    public void createVendorPaymentJournalEntry(Expense expense,
+                                                OrganizationAccount organizationAccount,
+                                                double paymentAmount,
+                                                String loggedInUser) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // Create Journal Entry header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(expense.getOrganizationId());
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("VENDOR_PAYMENT");
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setDescription("Vendor Payment: " + expense.getExpenseTitle() +
+                    " - Paying " + expense.getVendorName());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Journal Entry ID: {} for Vendor Payment, Expense ID: {}",
+                    journalEntry.getId(), expense.getId());
+
+            // Get Bank account
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount, expense.getOrganizationId());
+            if (bankAccount == null) throw new RuntimeException("Bank account not found");
+
+            // Get Vendor Payable (AP) account
+            ChartOfAccount accountsPayableAccount = getVendorPayableControlAccount(expense.getOrganizationId());
+
+            // Debit AP (reduce liability)
+            JournalDetailEntry debitAP = new JournalDetailEntry();
+            debitAP.setJournalEntryId(journalEntry.getId());
+            debitAP.setChartOfAccountId(accountsPayableAccount.getId());
+            debitAP.setDebitAmount(paymentAmount);
+            debitAP.setCreditAmount(0.0);
+            debitAP.setDescription("Payment to vendor: " + expense.getVendorName());
+            detailEntries.add(debitAP);
+            totalDebit += paymentAmount;
+
+            // Credit Bank (reduce asset)
+            JournalDetailEntry creditBank = new JournalDetailEntry();
+            creditBank.setJournalEntryId(journalEntry.getId());
+            creditBank.setChartOfAccountId(bankAccount.getId());
+            creditBank.setDebitAmount(0.0);
+            creditBank.setCreditAmount(paymentAmount);
+            creditBank.setDescription("Payment from: " + organizationAccount.getName());
+            detailEntries.add(creditBank);
+            totalCredit += paymentAmount;
+
+            // Validate double-entry
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Journal Entry imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // Save entries
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
+                        entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
+            }
+
+            log.info("Vendor Payment Journal Entry {} completed. Total Debit: {}, Total Credit: {}",
+                    journalEntry.getId(), totalDebit, totalCredit);
+
+        } catch (Exception e) {
+            log.error("Failed to create vendor payment journal entry for expense {}: {}", expense.getId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to create vendor payment journal entry: " + e.getMessage(), e);
+        }
+    }
+
+
+
     /**
      * Find or create Chart of Account for Bank/Cash Account
      * This links OrganizationAccount to ChartOfAccount for proper ledger entries
      */
-    private ChartOfAccount findOrCreateBankAccount(OrganizationAccount organizationAccount, long organizationId) {
+    private ChartOfAccount findBankAccount(OrganizationAccount organizationAccount, long organizationId) {
         // Find existing account by name and organization
+
+        Optional<AccountGroup> accountGroup = accountGroupRepository.
+                findByNameAndOrganization_OrganizationId("bank/cash", organizationId);
+
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationId(organizationId)
+                .findAllByOrganization_OrganizationId(organizationId)
                 .stream()
-                .filter(coa -> coa.getName().equalsIgnoreCase(organizationAccount.getName()) 
-                        && coa.getStatus() == AccountStatus.ACTIVE)
+                .filter(coa -> coa.getOrganizationAccountId() != null && coa.getOrganizationAccountId() == organizationAccount.getId()
+                        && coa.getStatus() == AccountStatus.ACTIVE && coa.getAccountGroup().getId() ==
+                        accountGroup.get().getId())
                 .findFirst();
 
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
+        return existingAccount.orElse(null);
 
-        // Find "Bank Account" or "Cash and Bank" account group (Asset type)
-        AccountGroup bankAccountGroup = accountGroupRepository.findAllByOrganizationId(organizationId)
-                .stream()
-                .filter(ag -> ag.getName().equalsIgnoreCase("Bank Account") || 
-                             ag.getName().equalsIgnoreCase("Cash and Bank") ||
-                             ag.getName().equalsIgnoreCase("Cash") ||
-                             ag.getName().equalsIgnoreCase("Bank"))
-                .findFirst()
-                .orElseGet(() -> {
-                    // If no bank account group exists, try to find any Asset group
-                    return accountGroupRepository.findAllByOrganizationId(organizationId)
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account for this bank
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(organizationId, "BANK"));
-        chartOfAccount.setName(organizationAccount.getName());
-        chartOfAccount.setOrganizationId(organizationId);
-        chartOfAccount.setAccountGroup(bankAccountGroup);
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Bank Account in Chart of Accounts: {} - {}", savedAccount.getId(), savedAccount.getName());
-        
-        return savedAccount;
     }
 
     /**
      * Find or create Chart of Account for Expense Account
      */
-    private ChartOfAccount findOrCreateExpenseAccount(Expense expense, String loggedInUser) {
-        String expenseAccountName;
-        
-        if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
-            // For construction expenses, use expense type name or default
-            expenseAccountName = expense.getExpenseTitle() != null ? expense.getExpenseTitle() : "Project Construction Cost";
-        } else {
-            expenseAccountName = "Miscellaneous Expense";
-        }
+    private ChartOfAccount findExpenseAccount(Expense expense, String loggedInUser) {
 
         // Try to find existing account
         Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(coa -> coa.getName().equalsIgnoreCase(expenseAccountName) 
-                        && coa.getStatus() == AccountStatus.ACTIVE)
-                .findFirst();
+                .findById(expense.getExpenseCOAId());
 
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
-
-        // Find appropriate expense account group - try multiple common names
-        var expenseAccountGroup = accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(ag -> {
-                    String name = ag.getName().toLowerCase();
-                    if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
-                        return name.contains("construction") || name.contains("project") || name.contains("expense");
-                    } else {
-                        return name.contains("expense") || name.contains("marketing") || name.contains("miscellaneous");
-                    }
-                })
-                .findFirst()
-                .orElseGet(() -> {
-                    // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "EXP"));
-        chartOfAccount.setName(expenseAccountName);
-        chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroup(expenseAccountGroup);
-        if (expense.getProjectId() != null && expense.getProjectId() > 0) {
-            chartOfAccount.setProjectId(expense.getProjectId());
-        }
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Expense Account in Chart of Accounts: {} - {}", savedAccount.getId(), savedAccount.getName());
-        
-        return savedAccount;
+        return existingAccount.orElse(null);
     }
 
-    /**
-     * Find or create Chart of Account for Accounts Payable (Vendor)
-     * This creates a liability account for tracking vendor payables
-     */
-    private ChartOfAccount findOrCreateAccountsPayableAccount(Expense expense, String loggedInUser) {
-        if (expense.getVendorAccountId() == null || expense.getVendorName() == null) {
-            throw new RuntimeException("Vendor information is required for accounts payable");
-        }
-
-        String vendorAccountName = "Accounts Payable - " + expense.getVendorName();
-
-        // Try to find existing account by vendor
-        Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganizationIdAndVendorId(expense.getOrganizationId(), expense.getVendorAccountId())
-                .stream()
-                .filter(coa -> coa.getStatus() == AccountStatus.ACTIVE)
-                .findFirst();
-
-        if (existingAccount.isPresent()) {
-            return existingAccount.get();
-        }
-
-        // Find liability/payable account group - try multiple common names
-        var accountsPayableGroup = accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
-                .stream()
-                .filter(ag -> {
-                    String name = ag.getName().toLowerCase();
-                    return name.contains("payable") || name.contains("liability") || 
-                           name.contains("advance") || name.contains("creditor");
-                })
-                .findFirst()
-                .orElseGet(() -> {
-                    // Fallback: use any available account group
-                    return accountGroupRepository.findAllByOrganizationId(expense.getOrganizationId())
-                            .stream()
-                            .findFirst()
-                            .orElseThrow(() -> new RuntimeException("No account groups found. Please create account groups first."));
-                });
-
-        // Create new Chart of Account
-        ChartOfAccount chartOfAccount = new ChartOfAccount();
-        chartOfAccount.setCode(generateAccountCode(expense.getOrganizationId(), "AP"));
-        chartOfAccount.setName(vendorAccountName);
-        chartOfAccount.setOrganizationId(expense.getOrganizationId());
-        chartOfAccount.setAccountGroup(accountsPayableGroup);
-        chartOfAccount.setVendorId(expense.getVendorAccountId());
-        if (expense.getProjectId() != null && expense.getProjectId() > 0) {
-            chartOfAccount.setProjectId(expense.getProjectId());
-        }
-        chartOfAccount.setSystemGenerated(true);
-        chartOfAccount.setStatus(AccountStatus.ACTIVE);
-        
-        ChartOfAccount savedAccount = chartOfAccountRepository.save(chartOfAccount);
-        log.info("Created Accounts Payable in Chart of Accounts: {} - {} for Vendor ID: {}", 
-                savedAccount.getId(), savedAccount.getName(), expense.getVendorAccountId());
-        
-        return savedAccount;
+    private ChartOfAccount getVendorPayableControlAccount(long organizationId) {
+        return chartOfAccountRepository
+                .findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
+                        organizationId,
+                        "Vendor Payable",
+                        AccountStatus.ACTIVE,
+                        true
+                )
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Vendor Payable control account not found for organization " + organizationId
+                        ));
     }
 
-    /**
-     * Generate a unique account code
-     */
-    private String generateAccountCode(long organizationId, String prefix) {
-        long count = chartOfAccountRepository.findAllByOrganizationId(organizationId).size();
-        return prefix + "-" + organizationId + "-" + (count + 1);
+
+    public ChartOfAccount getConstructionInventoryControlAccount(long organizationId) {
+
+        return chartOfAccountRepository
+                .findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
+                        organizationId,
+                        "Construction Inventory",
+                        AccountStatus.ACTIVE,
+                        true
+                )
+                .orElseThrow(() ->
+                        new RuntimeException(
+                                "Construction Inventory control account not found for organization " + organizationId
+                        ));
     }
+
 }
 

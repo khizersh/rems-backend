@@ -11,19 +11,33 @@ import java.util.Optional;
 
 @Repository
 public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, Long> {
-    List<ChartOfAccount> findAllByOrganizationId(long organizationId);
-    List<ChartOfAccount> findAllByOrganizationIdAndStatus(long organizationId, AccountStatus status);
-    List<ChartOfAccount> findAllByAccountGroupId(long accountGroupId);
-    Optional<ChartOfAccount> findByCodeAndOrganizationId(String code, long organizationId);
-    boolean existsByCodeAndOrganizationId(String code, long organizationId);
-    List<ChartOfAccount> findAllByOrganizationIdAndProjectId(long organizationId, Long projectId);
-    List<ChartOfAccount> findAllByOrganizationIdAndUnitId(long organizationId, Long unitId);
-    List<ChartOfAccount> findAllByOrganizationIdAndCustomerId(long organizationId, Long customerId);
-    List<ChartOfAccount> findAllByOrganizationIdAndVendorId(long organizationId, Long vendorId);
-    List<ChartOfAccount> findAllByOrganizationIdAndAccountGroup(
+    List<ChartOfAccount> findAllByOrganization_OrganizationId(long organizationId);
+    List<ChartOfAccount> findAllByOrganization_OrganizationIdAndStatus(long organizationId, AccountStatus status);
+    boolean existsByCodeAndOrganization_OrganizationId(String code, long organizationId);
+    List<ChartOfAccount> findAllByOrganization_OrganizationIdAndAccountGroup(
             long organizationId, AccountGroup accountGroup);
-    List<ChartOfAccount> findAllByOrganizationIdAndAccountGroupIn(
+    List<ChartOfAccount> findAllByOrganization_OrganizationIdAndAccountGroup_Id(long organizationId, long accountGroupId);
+    List<ChartOfAccount> findAllByOrganization_OrganizationIdAndAccountGroupIn(
             long organizationId, List<AccountGroup> groups);
+    Optional<ChartOfAccount> findByOrganizationAccountIdAndStatus(
+            Long organizationAccountId,
+            AccountStatus status
+    );
+    boolean existsByNameAndOrganization_OrganizationId(String name, long organizationId);
+
+    boolean existsByNameAndOrganization_OrganizationIdAndIdNot(
+            String name,
+            long organizationId,
+            long id
+    );
+
+    Optional<ChartOfAccount>
+    findByOrganization_OrganizationIdAndNameIgnoreCaseAndStatusAndIsSystemGenerated(
+            long organizationId,
+            String name,
+            AccountStatus status,
+            boolean isSystemGenerated
+    );
 
 }
 
