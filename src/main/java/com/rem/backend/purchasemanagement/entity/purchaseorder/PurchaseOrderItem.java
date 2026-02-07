@@ -30,6 +30,10 @@ public class PurchaseOrderItem {
     @Column(nullable = false)
     private Double amount;
 
+    private Double receivedQuantity;
+
+    private Double invoicedQuantity;
+
     @Column(nullable = false)
     private String createdBy;
 

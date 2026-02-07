@@ -22,7 +22,7 @@ import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 @RequiredArgsConstructor
 public class PurchaseOrderController {
 
-    private PurchaseOrderService purchaseOrderService;
+    private final PurchaseOrderService purchaseOrderService;
 
 
     @GetMapping("/getById/{poId}")
@@ -31,7 +31,7 @@ public class PurchaseOrderController {
     }
 
 
-    @GetMapping("/{organizationId}/getAll")
+    @PostMapping("/{organizationId}/getAll")
     public Map getAllPoByPagination(@PathVariable long organizationId , @RequestBody CommonPaginationRequest request) {
         Pageable pageable = PageRequest.of(
                 request.getPage(),
@@ -44,10 +44,24 @@ public class PurchaseOrderController {
     }
 
 
-    @GetMapping("/createPO")
+    @PostMapping("/createPO")
     public Map createPO(@RequestBody PurchaseOrder poRequest, HttpServletRequest request){
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         return purchaseOrderService.createOrUpdatePO(poRequest, loggedInUser);
+    }
+
+    // Approve Purchase Order
+    @PostMapping("/approve/{poId}")
+    public Map approvePO(@PathVariable long poId, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return purchaseOrderService.approvePO(poId, loggedInUser);
+    }
+
+    // Cancel Purchase Order (Soft Delete)
+    @PostMapping("/cancel/{poId}")
+    public Map cancelPO(@PathVariable long poId, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return purchaseOrderService.cancelPO(poId, loggedInUser);
     }
 
 }

@@ -308,6 +308,79 @@ public class PurchaseOrderService {
         return poRepository.save(po);
     }
 
+    // 6️⃣ Approve Purchase Order
+    @Transactional
+    public Map<String, Object> approvePO(Long poId, String loggedInUser) {
+        try {
+            PurchaseOrder po = poRepository.findById(poId)
+                    .orElseThrow(() -> new IllegalArgumentException("Purchase Order not found"));
+
+            if (po.getStatus() != PoStatus.OPEN) {
+                throw new IllegalArgumentException("Only OPEN Purchase Orders can be approved");
+            }
+
+            List<PurchaseOrderItem> items = poItemRepository.findAllByPoId(poId);
+            if (items == null || items.isEmpty()) {
+                throw new IllegalArgumentException("Cannot approve Purchase Order without items");
+            }
+
+            // Initialize received quantities
+            for (PurchaseOrderItem item : items) {
+                if (item.getReceivedQuantity() == null) {
+                    item.setReceivedQuantity(0.0);
+                    item.setInvoicedQuantity(0.0);
+                    poItemRepository.save(item);
+                }
+            }
+
+            po.setStatus(PoStatus.PARTIAL); // Move to partial to indicate it's approved and awaiting GRN
+            po.setUpdatedBy(loggedInUser);
+            po.setUpdatedDate(LocalDateTime.now());
+            poRepository.save(po);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Purchase Order approved successfully");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    // 7️⃣ Cancel/Soft Delete Purchase Order
+    @Transactional
+    public Map<String, Object> cancelPO(Long poId, String loggedInUser) {
+        try {
+            PurchaseOrder po = poRepository.findById(poId)
+                    .orElseThrow(() -> new IllegalArgumentException("Purchase Order not found"));
+
+            if (po.getStatus() == PoStatus.CLOSED) {
+                throw new IllegalArgumentException("Cannot cancel a closed Purchase Order");
+            }
+
+            // Check if any GRN exists for this PO
+            // If items have been received, cannot cancel
+            List<PurchaseOrderItem> items = poItemRepository.findAllByPoId(poId);
+            for (PurchaseOrderItem item : items) {
+                if (item.getReceivedQuantity() != null && item.getReceivedQuantity() > 0) {
+                    throw new IllegalArgumentException("Cannot cancel Purchase Order with received items");
+                }
+            }
+
+            po.setStatus(PoStatus.CANCELLED);
+            po.setUpdatedBy(loggedInUser);
+            po.setUpdatedDate(LocalDateTime.now());
+            poRepository.save(po);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Purchase Order cancelled successfully");
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
 
     public String generatePONumber() {
         // Format: PO-yyyyMMdd-XXX

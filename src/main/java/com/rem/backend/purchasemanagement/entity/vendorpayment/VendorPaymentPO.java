@@ -1,22 +1,19 @@
-package com.rem.backend.purchasemanagement.entity.grn;
+package com.rem.backend.purchasemanagement.entity.vendorpayment;
 
-import com.rem.backend.purchasemanagement.enums.GrnStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Entity
-@Table(name = "grn")
+@Table(name = "vendor_payment_po")
 @Data
-public class Grn {
+public class VendorPaymentPO {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    private String grnNumber;
 
     private Long orgId;
 
@@ -24,12 +21,17 @@ public class Grn {
 
     private Long vendorId;
 
-    private Long poId;
+    private Long invoiceId;
 
-    @Enumerated(EnumType.STRING)
-    private GrnStatus status;
+    private Double amount;
 
-    private LocalDateTime receivedDate;
+    private String paymentMode; // CASH, CHEQUE, BANK_TRANSFER
+
+    private String referenceNumber;
+
+    private LocalDate paymentDate;
+
+    private String remarks;
 
     @Column(nullable = false)
     private String createdBy;
@@ -42,7 +44,4 @@ public class Grn {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
-
-    @Transient
-    private List<GrnItems> grnItemsList;
 }

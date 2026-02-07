@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "vendor_invoice")
@@ -27,7 +28,9 @@ public class VendorInvoice {
 
     private Double totalAmount;
 
-    private Double paidAmount; // calculated or stored
+    private Double paidAmount;
+
+    private Double pendingAmount;
 
     @Enumerated(EnumType.STRING)
     private InvoiceStatus status; // UNPAID, PARTIAL, PAID
@@ -48,4 +51,7 @@ public class VendorInvoice {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+    @Transient
+    private List<VendorInvoiceItem> invoiceItemList;
 }
