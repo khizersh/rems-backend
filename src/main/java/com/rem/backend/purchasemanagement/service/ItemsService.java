@@ -110,6 +110,7 @@ public class ItemsService {
             item.setCode(input.getCode());
             item.setDescription(input.getDescription());
             item.setItemsUnit(unit);
+            item.setOrganizationId(input.getOrganizationId());
             item.setCreatedBy(loggedInUser);
             item.setUpdatedBy(loggedInUser);
             item.setCreatedDate(now);
