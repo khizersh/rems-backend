@@ -1,4 +1,4 @@
-package com.rem.backend.repository;
+package com.rem.backend.purchasemanagement.repository;
 
 import com.rem.backend.entity.expense.ExpenseDetail;
 import jakarta.transaction.Transactional;

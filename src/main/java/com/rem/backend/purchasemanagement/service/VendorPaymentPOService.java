@@ -19,12 +19,24 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+// new imports
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.repository.OrganizationAccoutRepo;
+import com.rem.backend.repository.OrganizationAccountDetailRepo;
+import com.rem.backend.enums.TransactionType;
+import com.rem.backend.accountmanagement.enums.TransactionCategory;
+
 @Service
 @RequiredArgsConstructor
 public class VendorPaymentPOService {
 
     private final VendorPaymentPORepo vendorPaymentPORepo;
     private final VendorInvoiceRepo vendorInvoiceRepo;
+
+    // new repos
+    private final OrganizationAccoutRepo organizationAccountRepo;
+    private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
 
     // ==================== 1. CREATE VENDOR PAYMENT ====================
     @Transactional
@@ -85,7 +97,47 @@ public class VendorPaymentPOService {
             payment = vendorPaymentPORepo.save(payment);
 
             // ===========================
-            // 5️⃣ Auto-calculate Pending Amount and Update Invoice Status
+            // 5️⃣ Deduct Organization Account Balance & Insert Account Detail
+            // ===========================
+            // Use organizationAccountId from request and validate it belongs to the invoice organization
+            ValidationService.validate(paymentInput.getOrganizationAccountId(), "organization account");
+
+            OrganizationAccount orgAccount = organizationAccountRepo
+                    .findByIdAndOrganizationId(paymentInput.getOrganizationAccountId(), invoice.getOrgId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Organization Account for this organization"));
+
+            double currentBalance = orgAccount.getTotalAmount();
+            double paymentAmount = payment.getAmount() != null ? payment.getAmount() : 0.0;
+
+            if (currentBalance < paymentAmount) {
+                throw new IllegalArgumentException("Insufficient organization account balance");
+            }
+
+            double newBalance = currentBalance - paymentAmount;
+            orgAccount.setTotalAmount(newBalance);
+            orgAccount.setUpdatedBy(loggedInUser);
+            organizationAccountRepo.save(orgAccount);
+
+            OrganizationAccountDetail detail = new OrganizationAccountDetail();
+            detail.setOrganizationAcctId(orgAccount.getId());
+            detail.setTransactionType(TransactionType.CREDIT);
+            detail.setTransactionCategory(TransactionCategory.OTHER);
+            detail.setAmount(paymentAmount);
+            detail.setComments("Vendor Payment: invoiceId=" + invoice.getId() + " paymentId=" + payment.getId());
+            detail.setProjectId(payment.getProjectId() != null ? payment.getProjectId().intValue() : 0);
+            // set created/updated by
+            detail.setCreatedBy(loggedInUser);
+            detail.setUpdatedBy(loggedInUser);
+
+            organizationAccountDetailRepo.save(detail);
+
+            // persist which organization account was used
+            payment.setOrganizationAccountId(orgAccount.getId());
+            payment.setUpdatedDate(LocalDateTime.now());
+            vendorPaymentPORepo.save(payment);
+
+            // ===========================
+            // 6️⃣ Auto-calculate Pending Amount and Update Invoice Status
             // ===========================
             updateInvoiceAfterPayment(invoice, paymentInput.getAmount(), loggedInUser);
 
@@ -93,6 +145,8 @@ public class VendorPaymentPOService {
             result.put("payment", payment);
             result.put("invoiceStatus", invoice.getStatus());
             result.put("pendingAmount", invoice.getPendingAmount());
+            result.put("orgAccountBalance", newBalance);
+            result.put("organizationAccountId", orgAccount.getId());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, result);
 
@@ -103,6 +157,157 @@ public class VendorPaymentPOService {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
+    }
+
+    // ==================== UPDATE VENDOR PAYMENT ====================
+    @Transactional
+    public Map<String, Object> updatePayment(Long paymentId, VendorPaymentPO request, String loggedInUser) {
+        try {
+            ValidationService.validate(paymentId, "paymentId");
+            ValidationService.validate(request.getAmount(), "amount");
+
+            VendorPaymentPO existing = vendorPaymentPORepo.findById(paymentId)
+                    .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+
+            double oldAmount = existing.getAmount() != null ? existing.getAmount() : 0.0;
+            double newAmount = request.getAmount() != null ? request.getAmount() : 0.0;
+            double delta = newAmount - oldAmount; // positive => more deducted; negative => refund
+
+            Long oldOrgAcctId = existing.getOrganizationAccountId();
+            Long newOrgAcctId = request.getOrganizationAccountId();
+
+            OrganizationAccount oldOrgAcct = null;
+            OrganizationAccount newOrgAcct = null;
+
+            if (oldOrgAcctId != null && oldOrgAcctId != 0) {
+                oldOrgAcct = organizationAccountRepo.findById(oldOrgAcctId)
+                        .orElseThrow(() -> new IllegalArgumentException("Old organization account not found"));
+            }
+            if (newOrgAcctId != null && newOrgAcctId != 0) {
+                newOrgAcct = organizationAccountRepo.findById(newOrgAcctId)
+                        .orElseThrow(() -> new IllegalArgumentException("New organization account not found"));
+            }
+
+            // if account changed, refund old and deduct new
+            if (oldOrgAcctId != null && !Objects.equals(oldOrgAcctId, newOrgAcctId)) {
+                if (oldOrgAcct != null) {
+                    oldOrgAcct.setTotalAmount(oldOrgAcct.getTotalAmount() + oldAmount);
+                    oldOrgAcct.setUpdatedBy(loggedInUser);
+                    organizationAccountRepo.save(oldOrgAcct);
+
+                    OrganizationAccountDetail refundDetail = new OrganizationAccountDetail();
+                    refundDetail.setOrganizationAcctId(oldOrgAcct.getId());
+                    refundDetail.setAmount(oldAmount);
+                    refundDetail.setComments("Refund from organization account for payment update (invoice: " + existing.getInvoiceId() + ")");
+                    refundDetail.setTransactionType(TransactionType.DEBIT);
+                    refundDetail.setCreatedBy(loggedInUser);
+                    refundDetail.setUpdatedBy(loggedInUser);
+                    organizationAccountDetailRepo.save(refundDetail);
+                }
+
+                if (newOrgAcct != null) {
+                    if (newOrgAcct.getTotalAmount() < newAmount) {
+                        throw new IllegalArgumentException("Insufficient funds in the new organization account");
+                    }
+                    newOrgAcct.setTotalAmount(newOrgAcct.getTotalAmount() - newAmount);
+                    newOrgAcct.setUpdatedBy(loggedInUser);
+                    organizationAccountRepo.save(newOrgAcct);
+
+                    OrganizationAccountDetail deduct = new OrganizationAccountDetail();
+                    deduct.setOrganizationAcctId(newOrgAcct.getId());
+                    deduct.setAmount(newAmount);
+                    deduct.setComments("Deduct for updated vendor payment (invoice: " + existing.getInvoiceId() + ")");
+                    deduct.setTransactionType(TransactionType.CREDIT);
+                    deduct.setCreatedBy(loggedInUser);
+                    deduct.setUpdatedBy(loggedInUser);
+                    organizationAccountDetailRepo.save(deduct);
+                }
+
+            } else {
+                // same account
+                OrganizationAccount target = newOrgAcct != null ? newOrgAcct : oldOrgAcct;
+                if (target != null && delta != 0) {
+                    if (delta > 0) { // need to deduct extra
+                        if (target.getTotalAmount() < delta) {
+                            throw new IllegalArgumentException("Insufficient funds in the organization account for increased amount");
+                        }
+                        target.setTotalAmount(target.getTotalAmount() - delta);
+                        target.setUpdatedBy(loggedInUser);
+                        organizationAccountRepo.save(target);
+
+                        OrganizationAccountDetail deduct = new OrganizationAccountDetail();
+                        deduct.setOrganizationAcctId(target.getId());
+                        deduct.setAmount(delta);
+                        deduct.setComments("Deduct for increased vendor payment (invoice: " + existing.getInvoiceId() + ")");
+                        deduct.setTransactionType(TransactionType.CREDIT);
+                        deduct.setCreatedBy(loggedInUser);
+                        deduct.setUpdatedBy(loggedInUser);
+                        organizationAccountDetailRepo.save(deduct);
+                    } else { // refund
+                        double refundAmt = -delta;
+                        target.setTotalAmount(target.getTotalAmount() + refundAmt);
+                        target.setUpdatedBy(loggedInUser);
+                        organizationAccountRepo.save(target);
+
+                        OrganizationAccountDetail refund = new OrganizationAccountDetail();
+                        refund.setOrganizationAcctId(target.getId());
+                        refund.setAmount(refundAmt);
+                        refund.setComments("Refund for decreased vendor payment (invoice: " + existing.getInvoiceId() + ")");
+                        refund.setTransactionType(TransactionType.DEBIT);
+                        refund.setCreatedBy(loggedInUser);
+                        refund.setUpdatedBy(loggedInUser);
+                        organizationAccountDetailRepo.save(refund);
+                    }
+                }
+            }
+
+            // Update payment
+            existing.setAmount(newAmount);
+            existing.setOrganizationAccountId(newOrgAcctId != null ? newOrgAcctId : oldOrgAcctId);
+            existing.setUpdatedBy(loggedInUser);
+            existing.setUpdatedDate(LocalDateTime.now());
+            vendorPaymentPORepo.save(existing);
+
+            // adjust invoice paid/pending by delta
+            VendorInvoice invoice = vendorInvoiceRepo.findById(existing.getInvoiceId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invoice not found"));
+
+            adjustInvoiceForUpdatedPayment(invoice, delta, loggedInUser);
+
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("payment", existing);
+            resp.put("invoiceStatus", invoice.getStatus());
+            resp.put("pendingAmount", invoice.getPendingAmount());
+            if (existing.getOrganizationAccountId() != null) {
+                organizationAccountRepo.findById(existing.getOrganizationAccountId()).ifPresent(acct -> resp.put("orgAccountBalance", acct.getTotalAmount()));
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, resp);
+
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    private void adjustInvoiceForUpdatedPayment(VendorInvoice invoice, double delta, String loggedInUser) {
+        double paid = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : 0.0;
+        paid = paid + delta;
+        if (paid < 0) paid = 0.0;
+        double pending = invoice.getTotalAmount() - paid;
+        if (pending < 0) pending = 0.0;
+
+        invoice.setPaidAmount(paid);
+        invoice.setPendingAmount(pending);
+        if (pending == 0.0) invoice.setStatus(InvoiceStatus.PAID);
+        else if (paid > 0.0) invoice.setStatus(InvoiceStatus.PARTIAL);
+
+        invoice.setUpdatedBy(loggedInUser);
+        invoice.setUpdatedDate(LocalDateTime.now());
+        vendorInvoiceRepo.save(invoice);
     }
 
     // ==================== 2. GET PAYMENT BY ID ====================
@@ -174,18 +379,18 @@ public class VendorPaymentPOService {
 
     // ==================== HELPER: Update Invoice After Payment ====================
     private void updateInvoiceAfterPayment(VendorInvoice invoice, Double paymentAmount, String loggedInUser) {
-        Double currentPaid = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : 0.0;
-        Double newPaidAmount = currentPaid + paymentAmount;
-        Double newPendingAmount = invoice.getTotalAmount() - newPaidAmount;
+        double currentPaid = invoice.getPaidAmount() != null ? invoice.getPaidAmount() : 0.0;
+        double newPaidAmount = currentPaid + (paymentAmount != null ? paymentAmount : 0.0);
+        double newPendingAmount = invoice.getTotalAmount() - newPaidAmount;
 
         invoice.setPaidAmount(newPaidAmount);
         invoice.setPendingAmount(newPendingAmount);
 
         // Auto-update status based on payment
-        if (newPendingAmount <= 0) {
+        if (newPendingAmount <= 0.0) {
             invoice.setStatus(InvoiceStatus.PAID);
             invoice.setPendingAmount(0.0);
-        } else if (newPaidAmount > 0) {
+        } else if (newPaidAmount > 0.0) {
             invoice.setStatus(InvoiceStatus.PARTIAL);
         }
 

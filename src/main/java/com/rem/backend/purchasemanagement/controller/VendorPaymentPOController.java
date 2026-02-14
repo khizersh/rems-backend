@@ -71,4 +71,12 @@ public class VendorPaymentPOController {
     public Map getTotalPaidForInvoice(@PathVariable long invoiceId) {
         return vendorPaymentPOService.getTotalPaidForInvoice(invoiceId);
     }
+
+    // Update an existing payment
+    @PutMapping("/update/{paymentId}")
+    public Map updatePayment(@PathVariable long paymentId, @RequestBody VendorPaymentPO paymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return vendorPaymentPOService.updatePayment(paymentId, paymentRequest, loggedInUser);
+    }
+
 }

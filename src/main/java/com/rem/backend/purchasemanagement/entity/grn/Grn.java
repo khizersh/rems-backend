@@ -1,6 +1,7 @@
 package com.rem.backend.purchasemanagement.entity.grn;
 
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
+import com.rem.backend.enums.ReceiptType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -30,6 +31,13 @@ public class Grn {
     private GrnStatus status;
 
     private LocalDateTime receivedDate;
+
+    @Enumerated(EnumType.STRING)
+    private ReceiptType receiptType;
+
+    private Long warehouseId;
+
+    private Long directConsumeProjectId;
 
     @Column(nullable = false)
     private String createdBy;

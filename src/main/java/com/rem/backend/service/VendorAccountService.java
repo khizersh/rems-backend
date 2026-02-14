@@ -10,6 +10,8 @@ import com.rem.backend.entity.vendor.VendorPayment;
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.enums.VendorPaymentType;
+import com.rem.backend.purchasemanagement.repository.ExpenseDetailRepo;
+import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;

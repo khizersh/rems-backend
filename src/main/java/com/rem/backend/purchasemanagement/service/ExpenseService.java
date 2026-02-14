@@ -1,4 +1,4 @@
-package com.rem.backend.service;
+package com.rem.backend.purchasemanagement.service;
 
 import com.rem.backend.accountmanagement.enums.TransactionCategory;
 import com.rem.backend.accountmanagement.service.OrganizationAccountService;
@@ -17,7 +17,13 @@ import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.enums.VendorPaymentType;
+import com.rem.backend.purchasemanagement.repository.ExpenseDetailRepo;
+import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
+import com.rem.backend.purchasemanagement.repository.ExpenseTypeRepo;
 import com.rem.backend.repository.*;
+import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.service.VendorAccountService;
+import com.rem.backend.warehousemanagement.service.WarehouseIntegrationService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
@@ -54,6 +60,7 @@ public class ExpenseService {
     private final JournalEntryService journalEntryService;
     private final AccountGroupRepository accountGroupRepository;
     private final ChartOfAccountRepository coaRepo;
+    private final WarehouseIntegrationService warehouseIntegrationService;
 
     public Map<String, Object> getExpenseList(ExpenseFetchRequestDTO requestDTO, Pageable pageable) {
 

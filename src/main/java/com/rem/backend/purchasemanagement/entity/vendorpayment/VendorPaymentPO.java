@@ -33,6 +33,9 @@ public class VendorPaymentPO {
 
     private String remarks;
 
+    // track which organization account was used for this payment (nullable)
+    private Long organizationAccountId;
+
     @Column(nullable = false)
     private String createdBy;
 
@@ -44,4 +47,5 @@ public class VendorPaymentPO {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
 }

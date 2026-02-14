@@ -80,8 +80,20 @@ public class PurchaseOrderService {
             // 4️⃣ Save PO first
             po = poRepository.save(po);
 
+            // If updating, load existing PO items to detect deletes
+            Map<Long, PurchaseOrderItem> existingItemsMap = new HashMap<>();
+            Set<Long> processedExistingIds = new HashSet<>();
+            if (poInput.getId() != null) {
+                List<PurchaseOrderItem> existingItems = poItemRepository.findAllByPoId(po.getId());
+                for (PurchaseOrderItem existing : existingItems) {
+                    if (existing.getId() != null) {
+                        existingItemsMap.put(existing.getId(), existing);
+                    }
+                }
+            }
+
             // ===========================
-            // 5️⃣ Items Validation + Save
+            // 5️⃣ Items Validation + Save (add/update)
             // ===========================
             double totalAmount = 0;
             Set<Long> uniqueItemIds = new HashSet<>();
@@ -112,9 +124,14 @@ public class PurchaseOrderService {
                 PurchaseOrderItem poItem;
 
                 if (itemInput.getId() != null) {
+                    // Update existing poItem
                     poItem = poItemRepository.findById(itemInput.getId())
                             .orElseThrow(() -> new IllegalArgumentException("PO Item not found with id: " + itemInput.getId()));
+
+                    // mark as processed so it won't be deleted later
+                    processedExistingIds.add(poItem.getId());
                 } else {
+                    // Create new poItem
                     poItem = new PurchaseOrderItem();
                     poItem.setPoId(po.getId());
                     poItem.setCreatedBy(loggedInUser);
@@ -134,7 +151,22 @@ public class PurchaseOrderService {
             }
 
             // ===========================
-            // 6️⃣ Final PO Update
+            // 6️⃣ Delete removed items (only when updating)
+            // ===========================
+            if (!existingItemsMap.isEmpty()) {
+                for (Long existingId : existingItemsMap.keySet()) {
+                    if (!processedExistingIds.contains(existingId)) {
+                        // delete item removed by user
+                        poItemRepository.deleteById(existingId);
+                    }
+                }
+                // Recompute total amount from DB to ensure correctness after deletes
+                List<PurchaseOrderItem> allItemsAfter = poItemRepository.findAllByPoId(po.getId());
+                totalAmount = allItemsAfter.stream().mapToDouble(PurchaseOrderItem::getAmount).sum();
+            }
+
+            // ===========================
+            // 7️⃣ Final PO Update
             // ===========================
             if (totalAmount <= 0) {
                 throw new IllegalArgumentException("Total amount must be greater than 0");
@@ -169,6 +201,16 @@ public class PurchaseOrderService {
             PurchaseOrder po = poRepository.findById(poId)
                     .orElseThrow(() -> new RuntimeException("PO not found"));
 
+            // Load existing items to detect deletions
+            List<PurchaseOrderItem> existingItems = poItemRepository.findAllByPoId(poId);
+            Map<Long, PurchaseOrderItem> existingItemsMap = new HashMap<>();
+            for (PurchaseOrderItem existing : existingItems) {
+                if (existing.getId() != null) {
+                    existingItemsMap.put(existing.getId(), existing);
+                }
+            }
+            Set<Long> processedExistingIds = new HashSet<>();
+
             double totalAmount = 0;
 
             for (PurchaseOrderItem itemInput : itemsInput) {
@@ -189,6 +231,9 @@ public class PurchaseOrderService {
                     poItem.setAmount(itemInput.getQuantity() * itemInput.getRate());
                     poItem.setUpdatedBy(loggedInUser);
                     poItem.setUpdatedDate(now);
+
+                    // mark as processed so it won't be deleted
+                    processedExistingIds.add(poItem.getId());
 
                 } else {
                     // Create new poItem
@@ -214,10 +259,24 @@ public class PurchaseOrderService {
                 totalAmount += poItem.getAmount();
             }
 
-            // 2️⃣ Update PO totalAmount
+            // Delete removed items
+            if (!existingItemsMap.isEmpty()) {
+                for (Long existingId : existingItemsMap.keySet()) {
+                    if (!processedExistingIds.contains(existingId)) {
+                        poItemRepository.deleteById(existingId);
+                    }
+                }
+                // Recompute total after deletions
+                List<PurchaseOrderItem> allItemsAfter = poItemRepository.findAllByPoId(poId);
+                totalAmount = allItemsAfter.stream().mapToDouble(PurchaseOrderItem::getAmount).sum();
+            }
+
+            // 2️⃣ Update PO totalAmount and persist
             po.setTotalAmount(totalAmount);
             po.setUpdatedBy(loggedInUser);
             po.setUpdatedDate(now);
+            poRepository.save(po);
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, po);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());

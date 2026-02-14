@@ -7,6 +7,8 @@ import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
 import com.rem.backend.purchasemanagement.enums.PoStatus;
 import com.rem.backend.purchasemanagement.repository.*;
+import com.rem.backend.enums.ReceiptType;
+import com.rem.backend.warehousemanagement.service.WarehouseIntegrationService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -29,6 +31,7 @@ public class GrnService {
     private final GrnItemsRepo grnItemsRepo;
     private final PurchaseOrderRepo poRepository;
     private final PurchaseOrderItemRepo poItemRepository;
+    private final WarehouseIntegrationService warehouseIntegrationService;
 
     // ==================== 1. CREATE GRN FROM PURCHASE ORDER ====================
     @Transactional
@@ -137,6 +140,28 @@ public class GrnService {
             // 6️⃣ Update PO Status based on received quantities
             // ===========================
             updatePOStatusAfterGRN(po.getId(), loggedInUser);
+
+            // ===========================
+            // 7️⃣ Process warehouse integration if receipt type and warehouse ID are set
+            // ===========================
+            if (grnInput.getReceiptType() != null && grnInput.getReceiptType() == ReceiptType.WAREHOUSE_STOCK
+                && grnInput.getWarehouseId() != null) {
+
+                grn.setReceiptType(grnInput.getReceiptType());
+                grn.setWarehouseId(grnInput.getWarehouseId());
+                grn = grnRepo.save(grn);
+
+                // Process warehouse stock addition
+                List<GrnItems> grnItemsList = grnItemsRepo.findByGrnId(grn.getId());
+                warehouseIntegrationService.processGrnApproval(grn, grnItemsList, loggedInUser);
+
+            } else if (grnInput.getReceiptType() != null && grnInput.getReceiptType() == ReceiptType.DIRECT_CONSUME
+                && grnInput.getDirectConsumeProjectId() != null) {
+
+                grn.setReceiptType(grnInput.getReceiptType());
+                grn.setDirectConsumeProjectId(grnInput.getDirectConsumeProjectId());
+                grn = grnRepo.save(grn);
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "GRN created successfully");
 

@@ -4,7 +4,7 @@ import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.repository.BookingRepository;
 import com.rem.backend.repository.CustomerAccountRepo;
-import com.rem.backend.repository.ExpenseRepo;
+import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
