@@ -134,6 +134,10 @@ public class BookingService {
             validateBooking(booking);
 
 
+            Booking bookingSaved = bookingRepository.findById(booking.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Booking!"));
+
+
 
             if (booking.getCustomerId() == null)
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
@@ -180,11 +184,12 @@ public class BookingService {
                 booking.setProjectId(optionalFloor.get().getProjectId());
             }
 
-            booking.setUnitSerial(unit.getSerialNo());
-            booking.setCreatedBy(loggedInUser);
-            booking.setUpdatedBy(loggedInUser);
-            booking.setFloorId(unit.getFloorId());
-            Booking bookingSaved = bookingRepository.save(booking);
+            bookingSaved.setUnitSerial(unit.getSerialNo());
+            bookingSaved.setCreatedBy(loggedInUser);
+            bookingSaved.setUpdatedBy(loggedInUser);
+            bookingSaved.setFloorId(unit.getFloorId());
+            bookingSaved = bookingRepository.save(bookingSaved);
+            bookingSaved.setPaymentSchedule(booking.getPaymentSchedule());
             updateCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
