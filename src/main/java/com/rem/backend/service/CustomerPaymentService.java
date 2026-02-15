@@ -34,6 +34,7 @@ public class CustomerPaymentService {
     private final UnitRepo unitRepo;
     private final OrganizationAccountService organizationAccountService;
     private final BookingRepository bookingRepository;
+    private final JournalEntryService journalEntryService;
 
     public Map<String, Object> getPaymentsByCustomerAccountId(long customerAccountId, Pageable pageable) {
         try {
@@ -245,11 +246,13 @@ public class CustomerPaymentService {
 
             String customerName = "", unitSerial = "", projectName = "";
             long projectId = 0l;
+            long bookingId = 0l;
             if (customerData != null) {
                 customerName = customerData.get("customerName").toString();
                 projectName = customerData.get("projectName").toString();
                 unitSerial = customerData.get("unitSerial").toString();
                 projectId = Long.valueOf(customerData.get("projectId").toString());
+                bookingId = Long.valueOf(customerData.get("bookingId").toString());
 
             }
 
@@ -266,6 +269,15 @@ public class CustomerPaymentService {
                     organizationAccountDetail.setProjectId(projectId);
                     organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
                     organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+                    journalEntryService.createJournalEntryForCustomerPayment(
+                            customerAccount.getCustomer().getOrganizationId(),
+                            customerPayment,
+                            organizationAccountDetail,
+                            customerAccountOptional.get().getUnit().getId(),
+                            bookingId,
+                            loggedInUser
+
+                    );
                 }
             }
 
@@ -328,11 +340,13 @@ public class CustomerPaymentService {
 
             String customerName = "", unitSerial = "", projectName = "";
             long projectId = 0l;
+            long bookingId = 0l;
             if (customerData != null) {
                 customerName = customerData.get("customerName").toString();
                 projectName = customerData.get("projectName").toString();
                 unitSerial = customerData.get("unitSerial").toString();
                 projectId = Long.valueOf(customerData.get("projectId").toString());
+                bookingId = Long.valueOf(customerData.get("bookingId").toString());
 
             }
 
@@ -349,6 +363,15 @@ public class CustomerPaymentService {
                     organizationAccountDetail.setCustomerPaymentId(customerPaymentRequest.getId());
                     organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
                     organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
+                    journalEntryService.createJournalEntryForCustomerPayment(
+                            customerAccountOp.get().getCustomer().getOrganizationId(),
+                            customerPayment,
+                            organizationAccountDetail,
+                            customerAccountOptional.get().getUnit().getId(),
+                            bookingId,
+                            loggedInUser
+
+                    );
                 }
             }
 
