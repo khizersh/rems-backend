@@ -12,6 +12,7 @@ import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountDetailRepo;
 import com.rem.backend.service.AccountService;
+import com.rem.backend.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
@@ -37,6 +38,7 @@ public class OrganizationAccountService {
     private final ProjectRepo projectRepo;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final AccountService accountService;
+    private final JournalEntryService journalEntryService;
 
     public Map<String, Object> getOrgAccountsByOrgId(long orgId) {
         try {
@@ -260,6 +262,7 @@ public class OrganizationAccountService {
             organizationAccountDetail.setCreatedBy(loggedInUser);
             organizationAccountDetail.setUpdatedBy(loggedInUser);
             organizationAccountRepo.save(organizationAccount);
+//            journalEntryService.createJournalEntryForAccountDetail(organizationAccountDetail,organizationAccount.getOrganizationId() ,loggedInUser);
             return ResponseMapper.buildResponse(Responses.SUCCESS, organizationAccountDetailRepo.save(organizationAccountDetail));
 
         } catch (IllegalArgumentException e) {
@@ -316,6 +319,8 @@ public class OrganizationAccountService {
 
             organizationAccountRepo.save(fromAccount);
             organizationAccountRepo.save(toAccount);
+            journalEntryService.internalFundTransfer(fromAccount.getOrganizationId(),transferFundRequest, loggedInUser);
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully updated!");
 
         } catch (IllegalArgumentException e) {
@@ -439,6 +444,7 @@ public class OrganizationAccountService {
             request.setUpdatedBy(loggedInUser);
             request.setCreatedBy(loggedInUser);
             OrganizationAccountDetail savedDetail = organizationAccountDetailRepo.save(request);
+            journalEntryService.createJournalEntryForAccountDetail(request, organizationId ,loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS ,savedDetail);
         }catch (IllegalArgumentException e){

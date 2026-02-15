@@ -18,10 +18,7 @@ import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.enums.VendorPaymentType;
 import com.rem.backend.repository.*;
-import com.rem.backend.utility.ResponseMapper;
-import com.rem.backend.utility.Responses;
-import com.rem.backend.utility.Utility;
-import com.rem.backend.utility.ValidationService;
+import com.rem.backend.utility.*;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -52,6 +49,7 @@ public class ExpenseService {
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final OrganizationAccoutRepo organizationAccountRepo;
     private final JournalEntryService journalEntryService;
+    private final JournalUtilities journalUtilities;
     private final AccountGroupRepository accountGroupRepository;
     private final ChartOfAccountRepository coaRepo;
 
@@ -461,23 +459,9 @@ public class ExpenseService {
                 expense.setVendorName(accountOptional.get().getName());
                 expense.setExpenseTitle(expenseTypeOptional.get().getName());
                 organizationAccountDetail.setProjectId(expense.getProjectId());
-                expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(expense.getOrganizationId()).getId());
 
-//                if (expense.getCreditAmount() > 0){
-//                    // adding organization detail only for credit so transaction history filled
-//                    OrganizationAccountDetail organizationAccountDetailCredit = new OrganizationAccountDetail();
-//                    organizationAccountDetailCredit.setAccountName("");
-//                    organizationAccountDetailCredit.setComments("Material Purchased as Credit");
-//                    organizationAccountDetailCredit.setExpenseId(expense.getId());
-//                    organizationAccountDetailCredit.setOrganizationAcctId(expense.getOrganizationAccountId());
-//                    organizationAccountDetailCredit.setAmount(expense.getCreditAmount());
-//                    organizationAccountDetailCredit.setProjectId(expense.getProjectId());
-//                    organizationAccountDetailCredit.setProjectName(expense.getProjectName());
-//                    organizationAccountDetailCredit.setCreatedBy(loggedInUser);
-//                    organizationAccountDetailCredit.setUpdatedBy(loggedInUser);
-//                    organizationAccountDetailCredit.setTransactionType(TransactionType.DEBIT); // this is wrong but this works for now
-//                    organizationAccountDetailRepo.save(organizationAccountDetailCredit);
-//                }
+                expense.setExpenseCOAId(journalUtilities.getChartOfAccount(expense.getOrganizationId(),
+                        JournalUtilities.CONSTRUCTION_INVENTORY).getId());
 
             } else {
                 expense.setExpenseTitle("Miscellaneous Expense");
