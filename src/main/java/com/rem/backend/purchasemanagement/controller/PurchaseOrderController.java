@@ -3,6 +3,7 @@ package com.rem.backend.purchasemanagement.controller;
 
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrder;
+import com.rem.backend.purchasemanagement.enums.PoStatus;
 import com.rem.backend.purchasemanagement.repository.PurchaseOrderRepo;
 import com.rem.backend.purchasemanagement.service.PurchaseOrderService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -41,6 +42,13 @@ public class PurchaseOrderController {
                         : Sort.by(request.getSortBy()).descending());
 
         return purchaseOrderService.getAll(organizationId, pageable);
+    }
+
+    // New: Get all POs by status (no pagination)
+    @GetMapping("/{organizationId}/getByStatus")
+    public Map getAllByStatus(@PathVariable long organizationId, @RequestParam("status") String status) {
+        PoStatus poStatus = PoStatus.valueOf(status.toUpperCase());
+        return purchaseOrderService.getAllByStatus(organizationId, poStatus);
     }
 
 

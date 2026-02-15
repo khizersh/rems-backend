@@ -72,9 +72,9 @@ public class GrnService {
                 ValidationService.validate(grnItem.getPoItemId(), "PO Item Id");
                 ValidationService.validate(grnItem.getQuantityReceived(), "Quantity Received");
 
-                if (grnItem.getQuantityReceived() <= 0) {
-                    throw new IllegalArgumentException("Quantity received must be greater than 0");
-                }
+//                if (grnItem.getQuantityReceived() <= 0) {
+//                    throw new IllegalArgumentException("Quantity received must be greater than 0");
+//                }
 
                 PurchaseOrderItem poItem = poItemMap.get(grnItem.getPoItemId());
                 if (poItem == null) {

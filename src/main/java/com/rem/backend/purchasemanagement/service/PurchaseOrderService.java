@@ -354,6 +354,27 @@ public class PurchaseOrderService {
         }
     }
 
+    @Transactional
+    public Map<String, Object> getAllByStatus(Long organizationId, PoStatus status) {
+        try {
+            ValidationService.validate(organizationId, "Organization Id");
+            ValidationService.validate(status, "PoStatus");
+
+            List<PurchaseOrder> poList = poRepository.findByOrgIdAndStatus(organizationId, status);
+
+            for (PurchaseOrder po : poList) {
+                List<PurchaseOrderItem> items = poItemRepository.findAllByPoId(po.getId());
+                po.setPurchaseOrderItemList(items);
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, poList);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
     // 5️⃣ Close PO safely
     @Transactional
     public PurchaseOrder closePO(Long poId, String loggedInUser) {

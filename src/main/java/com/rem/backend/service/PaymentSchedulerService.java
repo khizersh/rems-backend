@@ -104,6 +104,8 @@ public class PaymentSchedulerService {
             paymentSchedule.setTotalAmount(totalAmount);
             if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
                 validateMonthWisePayments(paymentSchedule.getMonthWisePaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
+            } else if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                validateMonthSpecificPayments(paymentSchedule.getMonthSpecificPaymentList(), paymentSchedule.getDurationInMonths(), paymentPlanType);
             }
             validatePaymentSchedule(paymentSchedule);
             paymentSchedule.setPaymentPlanType(paymentPlanType);
@@ -124,27 +126,51 @@ public class PaymentSchedulerService {
                 throw new IllegalArgumentException("Amounts not matched!");
             }
 
-            List<MonthWisePayment> existingList = monthWisePaymentRepo.findByPaymentScheduleId(paymentScheduleSaved.getId());
-
-            List<MonthWisePayment> updatedList = paymentSchedule.getMonthWisePaymentList();
-
-            Set<Long> updatedIds = updatedList.stream()
-                    .map(MonthWisePayment::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-
-            List<MonthWisePayment> toDelete = existingList.stream()
-                    .filter(existing -> !updatedIds.contains(existing.getId()))
-                    .collect(Collectors.toList());
-
-            if (!toDelete.isEmpty()) {
-                monthWisePaymentRepo.deleteAll(toDelete);
-            }
-
+            // Handle MonthWisePayment updates (for INSTALLMENT_RANGE)
             if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_RANGE)) {
+                List<MonthWisePayment> existingList = monthWisePaymentRepo.findByPaymentScheduleId(paymentScheduleSaved.getId());
+                List<MonthWisePayment> updatedList = paymentSchedule.getMonthWisePaymentList();
+
+                Set<Long> updatedIds = updatedList.stream()
+                        .map(MonthWisePayment::getId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                List<MonthWisePayment> toDelete = existingList.stream()
+                        .filter(existing -> !updatedIds.contains(existing.getId()))
+                        .collect(Collectors.toList());
+
+                if (!toDelete.isEmpty()) {
+                    monthWisePaymentRepo.deleteAll(toDelete);
+                }
+
                 for (MonthWisePayment payment : updatedList) {
                     payment.setPaymentScheduleId(paymentScheduleSaved.getId());
                     monthWisePaymentRepo.save(payment);
+                }
+            }
+
+            // Handle MonthSpecificPayment updates (for INSTALLMENT_SPECIFIC)
+            if (paymentPlanType.equals(PaymentPlanType.INSTALLMENT_SPECIFIC)) {
+                List<MonthSpecificPayment> existingSpecificList = monthSpecificPaymentRepo.findByPaymentScheduleId(paymentScheduleSaved.getId());
+                List<MonthSpecificPayment> updatedSpecificList = paymentSchedule.getMonthSpecificPaymentList();
+
+                Set<Long> updatedSpecificIds = updatedSpecificList.stream()
+                        .map(MonthSpecificPayment::getId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                List<MonthSpecificPayment> toDeleteSpecific = existingSpecificList.stream()
+                        .filter(existing -> !updatedSpecificIds.contains(existing.getId()))
+                        .collect(Collectors.toList());
+
+                if (!toDeleteSpecific.isEmpty()) {
+                    monthSpecificPaymentRepo.deleteAll(toDeleteSpecific);
+                }
+
+                for (MonthSpecificPayment payment : updatedSpecificList) {
+                    payment.setPaymentScheduleId(paymentScheduleSaved.getId());
+                    monthSpecificPaymentRepo.save(payment);
                 }
             }
 
