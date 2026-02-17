@@ -1,6 +1,7 @@
 package com.rem.backend.purchasemanagement.controller;
 
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.service.GrnService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,5 +46,18 @@ public class GrnController {
                         : Sort.by(request.getSortBy()).descending());
 
         return grnService.getByPoId(poId, pageable);
+    }
+
+    // Get GRNs grouped by PO ID with count
+    @PostMapping("/getGroupedByPoId")
+    public Map getGrnGroupedByPoId(@RequestBody FilterPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        return grnService.getGrnGroupedByPoId(request.getId(), pageable);
     }
 }

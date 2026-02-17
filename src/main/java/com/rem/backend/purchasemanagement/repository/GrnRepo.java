@@ -4,6 +4,8 @@ import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +19,32 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
     Optional<Grn> findTopByOrderByIdDesc();
 
     Page<Grn> findByPoId(Long poId, Pageable pageable);
+
+    @Query(value = """
+        SELECT 
+            g.po_id as poId,
+            po.po_number as poNumber,
+            po.vendor_id as vendorId,
+            v.vendor_name as vendorName,
+            po.project_id as projectId,
+            p.project_name as projectName,
+            po.po_date as poDate,
+            COUNT(g.id) as totalGrnCount,
+            MAX(g.received_date) as lastGrnDate,
+            MIN(g.received_date) as firstGrnDate
+        FROM grn g 
+        INNER JOIN po po ON g.po_id = po.id 
+        LEFT JOIN vendor_account v ON po.vendor_id = v.id
+        LEFT JOIN project p ON po.project_id = p.project_id
+        WHERE g.org_id = :orgId
+        GROUP BY g.po_id, po.po_number, po.vendor_id, v.vendor_name, po.project_id, p.project_name, po.po_date
+        ORDER BY MAX(g.received_date) DESC
+        """,
+        countQuery = """
+        SELECT COUNT(DISTINCT g.po_id) 
+        FROM grn g 
+        WHERE g.org_id = :orgId
+        """,
+        nativeQuery = true)
+    Page<Object[]> findGrnGroupedByPoId(@Param("orgId") Long orgId, Pageable pageable);
 }

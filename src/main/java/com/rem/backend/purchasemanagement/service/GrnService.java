@@ -1,5 +1,6 @@
 package com.rem.backend.purchasemanagement.service;
 
+import com.rem.backend.purchasemanagement.dto.GrnByPoGroupedResponseDTO;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrder;
@@ -14,6 +15,7 @@ import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -256,5 +258,47 @@ public class GrnService {
         }
 
         return String.format("GRN-%s-%03d", datePart, nextSequence);
+    }
+
+    // ==================== GET GRNs GROUPED BY PO ID ====================
+    public Map<String, Object> getGrnGroupedByPoId(Long orgId, Pageable pageable) {
+        try {
+            ValidationService.validate(orgId, "Organization ID");
+
+            Page<Object[]> grnGroupedPage = grnRepo.findGrnGroupedByPoId(orgId, pageable);
+
+            List<GrnByPoGroupedResponseDTO> responseList = grnGroupedPage.getContent().stream()
+                    .map(this::mapToGrnByPoGroupedResponseDTO)
+                    .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", responseList);
+            response.put("totalElements", grnGroupedPage.getTotalElements());
+            response.put("totalPages", grnGroupedPage.getTotalPages());
+            response.put("currentPage", grnGroupedPage.getNumber());
+            response.put("pageSize", grnGroupedPage.getSize());
+            response.put("hasNext", grnGroupedPage.hasNext());
+            response.put("hasPrevious", grnGroupedPage.hasPrevious());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    private GrnByPoGroupedResponseDTO mapToGrnByPoGroupedResponseDTO(Object[] row) {
+        GrnByPoGroupedResponseDTO dto = new GrnByPoGroupedResponseDTO();
+        dto.setPoId(((Number) row[0]).longValue());
+        dto.setPoNumber((String) row[1]);
+        dto.setVendorId(row[2] != null ? ((Number) row[2]).longValue() : null);
+        dto.setVendorName((String) row[3]);
+        dto.setProjectId(row[4] != null ? ((Number) row[4]).longValue() : null);
+        dto.setProjectName((String) row[5]);
+        dto.setPoDate(row[6] != null ? ((java.sql.Timestamp) row[6]).toLocalDateTime() : null);
+        dto.setTotalGrnCount(((Number) row[7]).longValue());
+        dto.setLastGrnDate(row[8] != null ? ((java.sql.Timestamp) row[8]).toLocalDateTime() : null);
+        dto.setFirstGrnDate(row[9] != null ? ((java.sql.Timestamp) row[9]).toLocalDateTime() : null);
+        return dto;
     }
 }
