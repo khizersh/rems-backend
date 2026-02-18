@@ -301,4 +301,52 @@ public class GrnService {
         dto.setFirstGrnDate(row[9] != null ? ((java.sql.Timestamp) row[9]).toLocalDateTime() : null);
         return dto;
     }
+
+    // ==================== GET GRNs BY CONDITIONAL FILTERS (ALL OPTIONAL) ====================
+    public Map<String, Object> getByConditionalFilters(
+            Long poId,
+            Long vendorId,
+            GrnStatus status,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            Pageable pageable) {
+        try {
+            // If dates are provided, set end date to end of day
+            if (endDate != null) {
+                endDate = endDate.withHour(23).withMinute(59).withSecond(59);
+            }
+
+            // Call repository with all optional parameters
+            Page<Grn> grnPage = grnRepo.findByConditionalFilters(
+                    poId,
+                    vendorId,
+                    status,
+                    startDate,
+                    endDate,
+                    pageable
+            );
+
+            // Fetch GRN items for each GRN
+            List<Grn> grnsWithItems = grnPage.getContent().stream()
+                    .peek(grn -> {
+                        List<GrnItems> items = grnItemsRepo.findByGrnId(grn.getId());
+                        grn.setGrnItemsList(items);
+                    })
+                    .toList();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", grnsWithItems);
+            response.put("totalElements", grnPage.getTotalElements());
+            response.put("totalPages", grnPage.getTotalPages());
+            response.put("currentPage", grnPage.getNumber());
+            response.put("pageSize", grnPage.getSize());
+            response.put("hasNext", grnPage.hasNext());
+            response.put("hasPrevious", grnPage.hasPrevious());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
 }

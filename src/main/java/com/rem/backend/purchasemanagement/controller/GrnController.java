@@ -2,6 +2,7 @@ package com.rem.backend.purchasemanagement.controller;
 
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
+import com.rem.backend.purchasemanagement.dto.GrnFilterRequest;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.service.GrnService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -59,5 +60,25 @@ public class GrnController {
                         : Sort.by(request.getSortBy()).descending());
 
         return grnService.getGrnGroupedByPoId(request.getId(), pageable);
+    }
+
+    // Get GRNs by status and date range with pagination
+    @PostMapping("/getByStatusAndDateRange")
+    public Map getGrnsByStatusAndDateRange(@RequestBody GrnFilterRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        return grnService.getByConditionalFilters(
+                request.getPoId(),
+                request.getVendorId(),
+                request.getStatus(),
+                request.getStartDate(),
+                request.getEndDate(),
+                pageable
+        );
     }
 }
