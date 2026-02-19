@@ -302,22 +302,22 @@ public class GrnService {
         return dto;
     }
 
-    // ==================== GET GRNs BY CONDITIONAL FILTERS (ALL OPTIONAL) ====================
+    // ==================== GET GRNs BY CONDITIONAL FILTERS (orgId REQUIRED, others optional) ====================
     public Map<String, Object> getByConditionalFilters(
+            Long orgId,
             Long poId,
             Long vendorId,
             GrnStatus status,
-            LocalDateTime startDate,
-            LocalDateTime endDate,
+            LocalDate startDate,
+            LocalDate endDate,
             Pageable pageable) {
         try {
-            // If dates are provided, set end date to end of day
-            if (endDate != null) {
-                endDate = endDate.withHour(23).withMinute(59).withSecond(59);
-            }
+            // Validate mandatory orgId
+            ValidationService.validate(orgId, "Organization ID");
 
-            // Call repository with all optional parameters
+            // Call repository with all parameters
             Page<Grn> grnPage = grnRepo.findByConditionalFilters(
+                    orgId,
                     poId,
                     vendorId,
                     status,
@@ -345,6 +345,8 @@ public class GrnService {
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, response);
 
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }

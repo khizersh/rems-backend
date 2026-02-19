@@ -26,8 +26,8 @@ Requires JWT token in Authorization header.
   "poId": 123,
   "vendorId": 456,
   "status": "RECEIVED",
-  "startDate": "2024-01-01T00:00:00",
-  "endDate": "2024-12-31T23:59:59",
+  "startDate": "2024-01-01",
+  "endDate": "2024-12-31",
   "page": 0,
   "size": 10,
   "sortBy": "createdDate",
@@ -42,8 +42,8 @@ Requires JWT token in Authorization header.
 | poId | Long | No | Purchase Order ID filter | null |
 | vendorId | Long | No | Vendor ID filter | null |
 | status | GrnStatus | No | Status of GRN (RECEIVED, PARTIAL, CANCELLED) | null |
-| startDate | LocalDateTime | No | Start date for filtering (ISO 8601 format) | null |
-| endDate | LocalDateTime | No | End date for filtering (ISO 8601 format) | null |
+| startDate | LocalDate | No | Start date for filtering (YYYY-MM-DD format) | null |
+| endDate | LocalDate | No | End date for filtering (YYYY-MM-DD format) | null |
 | page | int | No | Page number (0-based) | 0 |
 | size | int | No | Number of records per page | 10 |
 | sortBy | String | No | Field to sort by | "createdDate" |
@@ -423,10 +423,10 @@ The query applies filters based on what's provided:
 
 - All filter fields are optional - send null or omit them to ignore that filter
 - If all filters are null, API returns all GRNs with pagination
-- Date fields should be in ISO 8601 format: `YYYY-MM-DDTHH:mm:ss`
+- Date fields should be in format: `YYYY-MM-DD` (e.g., "2024-01-15")
 - If only startDate is provided, fetches from that date onwards
-- If only endDate is provided, fetches up to that date
-- End date is automatically adjusted to 23:59:59 to include the entire day
+- If only endDate is provided, fetches up to that date (inclusive of entire day)
+- Dates are compared at the day level - start date is inclusive from 00:00:00, end date is inclusive until 23:59:59
 - Multiple filters use AND logic (all provided filters must match)
 - Results are ordered by createdDate DESC by default (can be changed via sortBy/sortDir)
 

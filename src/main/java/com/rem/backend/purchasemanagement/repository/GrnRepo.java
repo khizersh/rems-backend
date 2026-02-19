@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,20 +50,22 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
         nativeQuery = true)
     Page<Object[]> findGrnGroupedByPoId(@Param("orgId") Long orgId, Pageable pageable);
 
-    // Get GRNs with conditional filters (all parameters optional)
+    // Get GRNs with conditional filters (orgId is mandatory, others optional)
     @Query("SELECT g FROM Grn g WHERE " +
-           "(:poId IS NULL OR g.poId = :poId) " +
+           "g.orgId = :orgId " +
+           "AND (:poId IS NULL OR g.poId = :poId) " +
            "AND (:vendorId IS NULL OR g.vendorId = :vendorId) " +
            "AND (:status IS NULL OR g.status = :status) " +
-           "AND (:startDate IS NULL OR g.createdDate >= :startDate) " +
-           "AND (:endDate IS NULL OR g.createdDate <= :endDate) " +
+           "AND (:startDate IS NULL OR DATE(g.createdDate) >= :startDate) " +
+           "AND (:endDate IS NULL OR DATE(g.createdDate) <= :endDate) " +
            "ORDER BY g.createdDate DESC")
     Page<Grn> findByConditionalFilters(
+            @Param("orgId") Long orgId,
             @Param("poId") Long poId,
             @Param("vendorId") Long vendorId,
             @Param("status") GrnStatus status,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
             Pageable pageable
     );
 }

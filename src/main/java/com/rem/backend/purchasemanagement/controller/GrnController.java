@@ -73,6 +73,7 @@ public class GrnController {
                         : Sort.by(request.getSortBy()).descending());
 
         return grnService.getByConditionalFilters(
+                request.getOrgId(),
                 request.getPoId(),
                 request.getVendorId(),
                 request.getStatus(),
