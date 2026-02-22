@@ -256,19 +256,23 @@ public class CustomerLedgerService {
             Customer customer = getCustomerFromUsername(username);
 
             List<CustomerAccount> accounts = customerAccountRepo.findByCustomer_CustomerIdAndIsActiveTrue(customer.getCustomerId());
-            List<Long> accountIds = accounts.stream().map(CustomerAccount::getId).collect(Collectors.toList());
+            List<Long> accountIds = accounts.stream().map(CustomerAccount::getId).toList();
 
             Map<String, Object> summary = new HashMap<>();
 
             if (!accountIds.isEmpty()) {
+                // Calculate total amounts from accounts
+                double totalAmount = accounts.stream().mapToDouble(CustomerAccount::getTotalAmount).sum();
+
                 List<CustomerPayment> allPayments = customerPaymentRepo.findByCustomerAccountIdIn(accountIds);
-                List<Long> paymentIds = allPayments.stream().map(CustomerPayment::getId).collect(Collectors.toList());
+                List<Long> paymentIds = allPayments.stream().map(CustomerPayment::getId).toList();
 
                 if (!paymentIds.isEmpty()) {
                     List<CustomerPaymentDetail> allDetails = customerPaymentDetailRepo.findByCustomerPaymentIdIn(paymentIds);
 
                     // Calculate totals
-                    double totalCredits = allDetails.stream().mapToDouble(CustomerPaymentDetail::getAmount).sum();
+                    double totalPaidAmount = allDetails.stream().mapToDouble(CustomerPaymentDetail::getAmount).sum();
+                    double totalRemainingBalance = totalAmount - totalPaidAmount;
                     int totalTransactions = allDetails.size();
 
                     // Group by payment type
@@ -278,24 +282,24 @@ public class CustomerLedgerService {
                             Collectors.summingDouble(CustomerPaymentDetail::getAmount)
                         ));
 
-                    summary.put("totalCredits", totalCredits);
+                    summary.put("totalPaidAmount", totalPaidAmount);
+                    summary.put("totalRemainingBalance", totalRemainingBalance);
                     summary.put("totalDebits", 0.0); // No debits in current system
                     summary.put("totalTransactions", totalTransactions);
                     summary.put("paymentTypeBreakdown", paymentTypeBreakdown);
-                    summary.put("netBalance", totalCredits);
                 } else {
-                    summary.put("totalCredits", 0.0);
+                    summary.put("totalPaidAmount", 0.0);
+                    summary.put("totalRemainingBalance", totalAmount);
                     summary.put("totalDebits", 0.0);
                     summary.put("totalTransactions", 0);
                     summary.put("paymentTypeBreakdown", new HashMap<>());
-                    summary.put("netBalance", 0.0);
                 }
             } else {
-                summary.put("totalCredits", 0.0);
+                summary.put("totalPaidAmount", 0.0);
+                summary.put("totalRemainingBalance", 0.0);
                 summary.put("totalDebits", 0.0);
                 summary.put("totalTransactions", 0);
                 summary.put("paymentTypeBreakdown", new HashMap<>());
-                summary.put("netBalance", 0.0);
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, summary);
