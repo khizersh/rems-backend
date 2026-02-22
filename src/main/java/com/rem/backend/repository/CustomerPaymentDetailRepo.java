@@ -29,5 +29,19 @@ public interface CustomerPaymentDetailRepo extends JpaRepository<CustomerPayment
     """, nativeQuery = true)
     List<Map<String, Object>> getPaymentModeDistributionByCustomerId(@Param("customerId") Long customerId);
 
+    // Dashboard query - recent payment details with limit
+    @Query(value = """
+        SELECT cpd.*
+        FROM customer_payment_detail cpd
+        JOIN customer_payment cp ON cpd.customer_payment_id = cp.id
+        JOIN customer_account ca ON cp.customer_account_id = ca.id
+        WHERE ca.customer_id = :customerId
+        AND ca.is_active = 1
+        AND cp.payment_status != 'UNPAID'
+        ORDER BY cp.paid_date DESC, cpd.id DESC
+        LIMIT :limit
+    """, nativeQuery = true)
+    List<CustomerPaymentDetail> getRecentPaymentDetailsByCustomerId(@Param("customerId") Long customerId, @Param("limit") int limit);
+
     List<CustomerPaymentDetail> findByCustomerPaymentIdIn(List<Long> paymentIds);
 }

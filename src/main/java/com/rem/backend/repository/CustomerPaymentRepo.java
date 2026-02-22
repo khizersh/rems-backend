@@ -21,17 +21,18 @@ public interface CustomerPaymentRepo extends JpaRepository<CustomerPayment , Lon
     // Dashboard queries
     @Query(value = """
         SELECT 
-            MONTH(cp.paid_date) as month,
-            YEAR(cp.paid_date) as year,
-            COALESCE(SUM(cp.received_amount), 0) as totalPaid
+            MONTH(cpd.created_date) as month,
+            YEAR(cpd.created_date) as year,
+            COALESCE(SUM(cpd.amount), 0) as totalPaid
         FROM customer_payment cp
+        JOIN customer_payment_detail cpd ON cp.id = cpd.customer_payment_id
         JOIN customer_account ca ON cp.customer_account_id = ca.id
         WHERE ca.customer_id = :customerId
         AND cp.payment_status != 'UNPAID'
-        AND cp.paid_date IS NOT NULL
+        AND cpd.created_date IS NOT NULL
         AND ca.is_active = 1
-        GROUP BY YEAR(cp.paid_date), MONTH(cp.paid_date)
-        ORDER BY YEAR(cp.paid_date) DESC, MONTH(cp.paid_date) DESC
+        GROUP BY YEAR(cpd.created_date), MONTH(cpd.created_date)
+        ORDER BY YEAR(cpd.created_date) DESC, MONTH(cpd.created_date) DESC
     """, nativeQuery = true)
     List<Map<String, Object>> getMonthlyPaymentsByCustomerId(@Param("customerId") Long customerId);
 

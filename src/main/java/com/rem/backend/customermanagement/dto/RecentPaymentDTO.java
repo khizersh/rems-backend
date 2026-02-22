@@ -17,7 +17,6 @@ public class RecentPaymentDTO {
     private String unitSerial;
     private double totalPaymentAmount;
     private double receivedAmount;
-    private LocalDateTime paidDate;
     private String paymentStatus;
     private List<PaymentDetailDTO> paymentDetails;
 
@@ -29,5 +28,6 @@ public class RecentPaymentDTO {
         private double amount;
         private String chequeNo;
         private LocalDateTime chequeDate;
+        private LocalDateTime paidDate;
     }
 }

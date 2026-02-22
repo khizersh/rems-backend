@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.format.TextStyle;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -135,49 +134,73 @@ public class CustomerDashboardService {
 
     /**
      * Get recent payment transactions
+     * Limited by total payment detail rows, not by number of payments
      */
     public Map<String, Object> getRecentPayments(String username, int limit) {
         try {
             Customer customer = getCustomerFromUsername(username);
 
-            List<CustomerPayment> recentPayments = customerPaymentRepo.getRecentPaymentsByCustomerId(customer.getCustomerId(), limit);
+            // Get recent payment details directly with limit to control total rows
+            List<CustomerPaymentDetail> recentPaymentDetails = customerPaymentDetailRepo.getRecentPaymentDetailsByCustomerId(customer.getCustomerId(), limit);
 
             List<RecentPaymentDTO> recentPaymentDTOs = new ArrayList<>();
+            Map<Long, RecentPaymentDTO> paymentDTOMap = new HashMap<>();
 
-            for (CustomerPayment payment : recentPayments) {
-                RecentPaymentDTO dto = new RecentPaymentDTO();
-                dto.setPaymentId(payment.getId());
-                dto.setAccountId(payment.getCustomerAccountId());
-                dto.setTotalPaymentAmount(payment.getAmount());
-                dto.setReceivedAmount(payment.getReceivedAmount());
-                dto.setPaidDate(payment.getPaidDate());
-                dto.setPaymentStatus(payment.getPaymentStatus().name());
+            int detailCount = 0;
 
-                // Get account details for project and unit info
-                Optional<CustomerAccount> accountOpt = customerAccountRepo.findById(payment.getCustomerAccountId());
-                if (accountOpt.isPresent()) {
-                    CustomerAccount account = accountOpt.get();
-
-                    Optional<Unit> unitOpt = unitRepo.findById(account.getUnit().getId());
-                    unitOpt.ifPresent(unit -> dto.setUnitSerial(unit.getSerialNo()));
-
-                    Optional<Project> projectOpt = projectRepo.findById(account.getProject().getProjectId());
-                    projectOpt.ifPresent(project -> dto.setProjectName(project.getName()));
+            for (CustomerPaymentDetail paymentDetail : recentPaymentDetails) {
+                if (detailCount >= limit) {
+                    break;
                 }
 
-                // Get payment details
-                List<CustomerPaymentDetail> details = customerPaymentDetailRepo.findByCustomerPaymentId(payment.getId());
-                List<RecentPaymentDTO.PaymentDetailDTO> paymentDetails = details.stream()
-                        .map(detail -> new RecentPaymentDTO.PaymentDetailDTO(
-                                detail.getPaymentType().name(),
-                                detail.getAmount(),
-                                detail.getChequeNo(),
-                                detail.getChequeDate()
-                        ))
-                        .collect(Collectors.toList());
-                dto.setPaymentDetails(paymentDetails);
+                Long paymentId = paymentDetail.getCustomerPaymentId();
 
-                recentPaymentDTOs.add(dto);
+                // Find existing DTO or create new one
+                RecentPaymentDTO existingDto = paymentDTOMap.get(paymentId);
+
+                if (existingDto == null) {
+                    // Create new payment DTO
+                    Optional<CustomerPayment> paymentOpt = customerPaymentRepo.findById(paymentId);
+                    if (paymentOpt.isEmpty()) {
+                        continue;
+                    }
+
+                    CustomerPayment payment = paymentOpt.get();
+                    RecentPaymentDTO dto = new RecentPaymentDTO();
+                    dto.setPaymentId(payment.getId());
+                    dto.setAccountId(payment.getCustomerAccountId());
+                    dto.setTotalPaymentAmount(payment.getAmount());
+                    dto.setReceivedAmount(payment.getReceivedAmount());
+                    dto.setPaymentStatus(payment.getPaymentStatus().name());
+
+                    // Get account details for project and unit info
+                    Optional<CustomerAccount> accountOpt = customerAccountRepo.findById(payment.getCustomerAccountId());
+                    if (accountOpt.isPresent()) {
+                        CustomerAccount account = accountOpt.get();
+
+                        Optional<Unit> unitOpt = unitRepo.findById(account.getUnit().getId());
+                        unitOpt.ifPresent(unit -> dto.setUnitSerial(unit.getSerialNo()));
+
+                        Optional<Project> projectOpt = projectRepo.findById(account.getProject().getProjectId());
+                        projectOpt.ifPresent(project -> dto.setProjectName(project.getName()));
+                    }
+
+                    dto.setPaymentDetails(new ArrayList<>());
+                    recentPaymentDTOs.add(dto);
+                    paymentDTOMap.put(paymentId, dto);
+                    existingDto = dto;
+                }
+
+                // Add payment detail
+                RecentPaymentDTO.PaymentDetailDTO paymentDetailDTO = new RecentPaymentDTO.PaymentDetailDTO(
+                        paymentDetail.getPaymentType().name(),
+                        paymentDetail.getAmount(),
+                        paymentDetail.getChequeNo(),
+                        paymentDetail.getChequeDate(),
+                        paymentDetail.getCreatedDate()
+                );
+                existingDto.getPaymentDetails().add(paymentDetailDTO);
+                detailCount++;
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, recentPaymentDTOs);
