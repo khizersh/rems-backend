@@ -30,6 +30,13 @@ public class GrnController {
         return grnService.createGrn(grnRequest, loggedInUser);
     }
 
+    // Update existing GRN
+    @PostMapping("/update/{grnId}")
+    public Map updateGrn(@PathVariable long grnId, @RequestBody Grn grnRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return grnService.updateGrn(grnId, grnRequest, loggedInUser);
+    }
+
     // Get GRN by ID
     @GetMapping("/getById/{grnId}")
     public Map getGrnById(@PathVariable long grnId) {
