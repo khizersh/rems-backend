@@ -4,13 +4,11 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Data
-@Table(name = "sidebar")
-public class Sidebar {
+@Table(name = "grand_child_sidebar")
+public class GrandChildSidebar {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,10 +28,6 @@ public class Sidebar {
 
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isPage = false;
-
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "parent_id")
-    private List<ChildSidebar> childList = new ArrayList<>();
 
     @Column(nullable = false)
     private String createdBy;

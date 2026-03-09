@@ -35,4 +35,7 @@ public class GrnItems {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+    @Transient
+    private String itemName;
 }

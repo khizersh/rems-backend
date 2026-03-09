@@ -86,6 +86,7 @@ public class GrnController {
                 request.getStatus(),
                 request.getStartDate(),
                 request.getEndDate(),
+                request.getInvoiceStatus(),
                 pageable
         );
     }

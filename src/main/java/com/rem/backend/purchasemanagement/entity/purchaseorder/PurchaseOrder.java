@@ -52,4 +52,12 @@ public class PurchaseOrder {
 
     @Transient
     private List<PurchaseOrderItem> purchaseOrderItemList;
+
+    // Transient display fields populated by services
+    @Transient
+    private String projectName;
+
+    @Transient
+    private String vendorName;
+
 }

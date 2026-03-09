@@ -40,4 +40,7 @@ public class VendorInvoiceItem {
 
     @Column(nullable = false)
     private LocalDateTime updatedDate;
+
+    @Transient
+    private String itemName;
 }

@@ -1,5 +1,6 @@
 package com.rem.backend.purchasemanagement.service;
 
+import com.rem.backend.purchasemanagement.dto.PoBasicDTO;
 import com.rem.backend.purchasemanagement.entity.items.Items;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrder;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem;
@@ -12,6 +13,7 @@ import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -21,6 +23,9 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import com.rem.backend.repository.ProjectRepo;
+import com.rem.backend.repository.VendorAccountRepo;
+
 @Service
 @RequiredArgsConstructor
 public class PurchaseOrderService {
@@ -28,6 +33,8 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepo poRepository;
     private final PurchaseOrderItemRepo poItemRepository;
     private final ItemsRepo itemsRepo;
+    private final ProjectRepo projectRepo;
+    private final VendorAccountRepo vendorAccountRepo;
 
     // 1️⃣ Add or Update Purchase Order
     @Transactional
@@ -336,16 +343,32 @@ public class PurchaseOrderService {
 
         try{
 
-            List<PurchaseOrder>  poList = poRepository.findByOrgId(organizationId , pageable);
+            Page<PurchaseOrder> poPage = poRepository.findByOrgId(organizationId , pageable);
 
-            for (PurchaseOrder po : poList){
-
+            // populate items for content list
+            List<PurchaseOrder> content = poPage.getContent();
+            for (PurchaseOrder po : content){
                 List<PurchaseOrderItem> items = poItemRepository.findAllByPoId(po.getId());
                 po.setPurchaseOrderItemList(items);
 
+                // Populate project and vendor names
+                if (po.getProjectId() != null) {
+                    projectRepo.findById(po.getProjectId()).ifPresent(project -> po.setProjectName(project.getName()));
+                }
+                if (po.getVendorId() != null) {
+                    vendorAccountRepo.findById(po.getVendorId()).ifPresent(vendor -> po.setVendorName(vendor.getName()));
+                }
             }
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS , poList);
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", content);
+            response.put("page", poPage.getNumber());
+            response.put("size", poPage.getSize());
+            response.put("totalElements", poPage.getTotalElements());
+            response.put("totalPages", poPage.getTotalPages());
+            response.put("last", poPage.isLast());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS , response);
 
         }catch (IllegalArgumentException e){
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER , e.getMessage());
@@ -374,6 +397,9 @@ public class PurchaseOrderService {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
+
+
+
 
     // 5️⃣ Close PO safely
     @Transactional
@@ -481,6 +507,20 @@ public class PurchaseOrderService {
         }
 
         return String.format("PO-%s-%03d", datePart, nextSequence);
+    }
+
+    // New helper: get lightweight PO list (id & number) ordered newest-first
+    @Transactional
+    public Map<String, Object> getBasicPoListByOrg(long organizationId) {
+        try {
+            ValidationService.validate(organizationId, "Organization Id");
+            List<PoBasicDTO> list = poRepository.findBasicByOrgIdOrderByCreatedDateDesc(organizationId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
     }
 
 }

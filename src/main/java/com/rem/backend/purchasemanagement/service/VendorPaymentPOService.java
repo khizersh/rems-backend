@@ -81,7 +81,9 @@ public class VendorPaymentPOService {
             // ===========================
             VendorPaymentPO payment = new VendorPaymentPO();
             payment.setOrgId(invoice.getOrgId());
-            payment.setProjectId(invoice.getProjectId());
+            // Prefer projectId from request if provided (optional override)
+            Long effectiveProjectId = paymentInput.getProjectId() != null ? paymentInput.getProjectId() : invoice.getProjectId();
+            payment.setProjectId(effectiveProjectId);
             payment.setVendorId(invoice.getVendorId());
             payment.setInvoiceId(invoice.getId());
             payment.setAmount(paymentInput.getAmount());
@@ -124,7 +126,8 @@ public class VendorPaymentPOService {
             detail.setTransactionCategory(TransactionCategory.OTHER);
             detail.setAmount(paymentAmount);
             detail.setComments("Vendor Payment: invoiceId=" + invoice.getId() + " paymentId=" + payment.getId());
-            detail.setProjectId(payment.getProjectId() != null ? payment.getProjectId().intValue() : 0);
+            // ensure the detail carries the effective project id (from request if provided else invoice)
+            detail.setProjectId(effectiveProjectId != null ? effectiveProjectId.intValue() : 0);
             // set created/updated by
             detail.setCreatedBy(loggedInUser);
             detail.setUpdatedBy(loggedInUser);

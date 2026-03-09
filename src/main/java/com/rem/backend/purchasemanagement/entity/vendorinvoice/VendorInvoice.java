@@ -54,4 +54,16 @@ public class VendorInvoice {
 
     @Transient
     private List<VendorInvoiceItem> invoiceItemList;
+
+    @Transient
+    private String projectName;
+
+    @Transient
+    private String vendorName;
+
+    @Transient
+    private String poNumber;
+
+    @Transient
+    private String grnNumber;
 }

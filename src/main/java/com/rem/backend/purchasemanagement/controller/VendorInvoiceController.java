@@ -79,6 +79,16 @@ public class VendorInvoiceController {
         return vendorInvoiceService.getByStatus(organizationId, invoiceStatus, pageable);
     }
 
+    // Update Invoice (Only UNPAID invoices can be updated)
+    @PutMapping("/update/{invoiceId}")
+    public Map updateInvoice(
+            @PathVariable long invoiceId,
+            @RequestBody VendorInvoice invoiceRequest,
+            HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return vendorInvoiceService.updateInvoice(invoiceId, invoiceRequest, loggedInUser);
+    }
+
     // Get Pending Amount by Vendor
     @GetMapping("/getPendingAmount/{vendorId}")
     public Map getPendingAmountByVendor(@PathVariable long vendorId) {

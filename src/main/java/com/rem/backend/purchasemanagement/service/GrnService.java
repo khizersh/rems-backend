@@ -6,8 +6,11 @@ import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrder;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem;
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
+import com.rem.backend.purchasemanagement.enums.GrnInvoiceStatus;
 import com.rem.backend.purchasemanagement.enums.PoStatus;
 import com.rem.backend.purchasemanagement.repository.*;
+import com.rem.backend.repository.ProjectRepo;
+import com.rem.backend.repository.VendorAccountRepo;
 import com.rem.backend.enums.ReceiptType;
 import com.rem.backend.warehousemanagement.service.WarehouseIntegrationService;
 import com.rem.backend.utility.ResponseMapper;
@@ -34,6 +37,9 @@ public class GrnService {
     private final PurchaseOrderRepo poRepository;
     private final PurchaseOrderItemRepo poItemRepository;
     private final WarehouseIntegrationService warehouseIntegrationService;
+    private final ProjectRepo projectRepo;
+    private final VendorAccountRepo vendorAccountRepo;
+    private final ItemsRepo itemsRepo;
 
     // ==================== 1. CREATE GRN FROM PURCHASE ORDER ====================
     @Transactional
@@ -346,7 +352,33 @@ public class GrnService {
                     .orElseThrow(() -> new IllegalArgumentException("GRN not found"));
 
             List<GrnItems> items = grnItemsRepo.findByGrnId(grnId);
+
+            // Populate itemName for each GRN item
+            items.forEach(grnItem -> {
+                if (grnItem.getItemId() != null) {
+                    itemsRepo.findById(grnItem.getItemId()).ifPresent(item -> grnItem.setItemName(item.getName()));
+                }
+            });
+
             grn.setGrnItemsList(items);
+
+            // Populate projectName
+            if (grn.getProjectId() != null) {
+                projectRepo.findById(grn.getProjectId())
+                        .ifPresent(project -> grn.setProjectName(project.getName()));
+            }
+
+            // Populate vendorName
+            if (grn.getVendorId() != null) {
+                vendorAccountRepo.findById(grn.getVendorId())
+                        .ifPresent(vendor -> grn.setVendorName(vendor.getName()));
+            }
+
+            // Populate poNumber
+            if (grn.getPoId() != null) {
+                poRepository.findById(grn.getPoId())
+                        .ifPresent(po -> grn.setPoNumber(po.getPoNumber()));
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, grn);
         } catch (IllegalArgumentException e) {
@@ -360,14 +392,52 @@ public class GrnService {
     @Transactional
     public Map<String, Object> getByPoId(Long poId, Pageable pageable) {
         try {
-            List<Grn> grnList = grnRepo.findByPoId(poId);
+            // Use pageable repo method
+            Page<Grn> grnPage = grnRepo.findByPoId(poId, pageable);
 
+            List<Grn> grnList = grnPage.getContent();
+
+            // Populate items and transient display fields
             for (Grn grn : grnList) {
                 List<GrnItems> items = grnItemsRepo.findByGrnId(grn.getId());
+                // Populate itemName for each GRN item
+                items.forEach(grnItem -> {
+                    if (grnItem.getItemId() != null) {
+                        itemsRepo.findById(grnItem.getItemId()).ifPresent(item -> grnItem.setItemName(item.getName()));
+                    }
+                });
                 grn.setGrnItemsList(items);
+
+                // Populate poNumber and poStatus
+                if (grn.getPoId() != null) {
+                    poRepository.findById(grn.getPoId()).ifPresent(po -> {
+                        grn.setPoNumber(po.getPoNumber());
+                        grn.setPoStatus(po.getStatus());
+                    });
+                }
+
+                // Populate projectName
+                if (grn.getProjectId() != null) {
+                    projectRepo.findById(grn.getProjectId())
+                            .ifPresent(project -> grn.setProjectName(project.getName()));
+                }
+
+                // Populate vendorName
+                if (grn.getVendorId() != null) {
+                    vendorAccountRepo.findById(grn.getVendorId())
+                            .ifPresent(vendor -> grn.setVendorName(vendor.getName()));
+                }
             }
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, grnList);
+            Map<String, Object> response = new HashMap<>();
+            response.put("content", grnList);
+            response.put("page", grnPage.getNumber());
+            response.put("size", grnPage.getSize());
+            response.put("totalElements", grnPage.getTotalElements());
+            response.put("totalPages", grnPage.getTotalPages());
+            response.put("last", grnPage.isLast());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
@@ -472,6 +542,7 @@ public class GrnService {
             GrnStatus status,
             LocalDate startDate,
             LocalDate endDate,
+            GrnInvoiceStatus invoiceStatus,
             Pageable pageable) {
         try {
             // Validate mandatory orgId
@@ -485,14 +556,42 @@ public class GrnService {
                     status,
                     startDate,
                     endDate,
+                    invoiceStatus,
                     pageable
             );
 
-            // Fetch GRN items for each GRN
+            // Fetch GRN items for each GRN and populate transient fields
             List<Grn> grnsWithItems = grnPage.getContent().stream()
                     .peek(grn -> {
                         List<GrnItems> items = grnItemsRepo.findByGrnId(grn.getId());
+
+                        // Populate itemName for each GRN item
+                        items.forEach(grnItem -> {
+                            if (grnItem.getItemId() != null) {
+                                itemsRepo.findById(grnItem.getItemId())
+                                        .ifPresent(item -> grnItem.setItemName(item.getName()));
+                            }
+                        });
+
                         grn.setGrnItemsList(items);
+
+                        // Populate projectName
+                        if (grn.getProjectId() != null) {
+                            projectRepo.findById(grn.getProjectId())
+                                    .ifPresent(project -> grn.setProjectName(project.getName()));
+                        }
+
+                        // Populate vendorName
+                        if (grn.getVendorId() != null) {
+                            vendorAccountRepo.findById(grn.getVendorId())
+                                    .ifPresent(vendor -> grn.setVendorName(vendor.getName()));
+                        }
+
+                        // Populate poNumber
+                        if (grn.getPoId() != null) {
+                            poRepository.findById(grn.getPoId())
+                                    .ifPresent(po -> grn.setPoNumber(po.getPoNumber()));
+                        }
                     })
                     .toList();
 
@@ -512,5 +611,80 @@ public class GrnService {
         } catch (Exception e) {
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
+    }
+
+    // ==================== HELPER: Calculate and Update GRN Invoice Status ====================
+    /**
+     * Calculates GRN invoice status based on all GRN items' invoiced quantities
+     * This method should be called after any invoice create, update, or delete operation
+     *
+     * Business Logic:
+     * - If all items have 0 invoiced qty → NOT_INVOICED
+     * - If all items are fully invoiced → FULLY_INVOICED
+     * - Otherwise → PARTIALLY_INVOICED
+     *
+     * @param grnId The GRN ID to calculate status for
+     * @param loggedInUser Username for audit trail
+     * @throws IllegalArgumentException if over-invoicing is detected
+     */
+    @Transactional
+    public void calculateAndUpdateGrnInvoiceStatus(Long grnId, String loggedInUser) {
+        Grn grn = grnRepo.findById(grnId)
+                .orElseThrow(() -> new IllegalArgumentException("GRN not found with id: " + grnId));
+
+            List<GrnItems> grnItems = grnItemsRepo.findByGrnId(grnId);
+
+            if (grnItems.isEmpty()) {
+                throw new IllegalArgumentException("GRN has no items");
+            }
+
+            int notInvoicedCount = 0;
+            int fullyInvoicedCount = 0;
+            int partiallyInvoicedCount = 0;
+
+            for (GrnItems item : grnItems) {
+                Double quantityReceived = item.getQuantityReceived() != null ? item.getQuantityReceived() : 0.0;
+                Double quantityInvoiced = item.getQuantityInvoiced() != null ? item.getQuantityInvoiced() : 0.0;
+
+                // Validation: Prevent over-invoicing
+                if (quantityInvoiced > quantityReceived) {
+                    throw new IllegalArgumentException(
+                        "Over-invoicing detected for GRN Item ID: " + item.getId() +
+                        ". Invoiced quantity (" + quantityInvoiced +
+                        ") exceeds received quantity (" + quantityReceived + ")"
+                    );
+                }
+
+                // Categorize item status
+                if (quantityInvoiced == 0) {
+                    notInvoicedCount++;
+                } else if (quantityInvoiced.equals(quantityReceived)) {
+                    fullyInvoicedCount++;
+                } else {
+                    partiallyInvoicedCount++;
+                }
+            }
+
+            // Determine GRN level status
+            GrnInvoiceStatus newStatus;
+
+            if (notInvoicedCount == grnItems.size()) {
+                // All items not invoiced
+                newStatus = GrnInvoiceStatus.NOT_INVOICED;
+            } else if (fullyInvoicedCount == grnItems.size()) {
+                // All items fully invoiced
+                newStatus = GrnInvoiceStatus.FULLY_INVOICED;
+            } else {
+                // Mixed state - at least one item is partially invoiced or some items invoiced, some not
+                newStatus = GrnInvoiceStatus.PARTIALLY_INVOICED;
+            }
+
+            // Update GRN status if changed
+            if (grn.getInvoiceStatus() != newStatus) {
+                grn.setInvoiceStatus(newStatus);
+                grn.setUpdatedBy(loggedInUser);
+                grn.setUpdatedDate(LocalDateTime.now());
+                grnRepo.save(grn);
+            }
     }
 }

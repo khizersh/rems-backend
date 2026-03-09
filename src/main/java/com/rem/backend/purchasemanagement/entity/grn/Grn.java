@@ -1,7 +1,9 @@
 package com.rem.backend.purchasemanagement.entity.grn;
 
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
+import com.rem.backend.purchasemanagement.enums.GrnInvoiceStatus;
 import com.rem.backend.enums.ReceiptType;
+import com.rem.backend.purchasemanagement.enums.PoStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -39,6 +41,10 @@ public class Grn {
 
     private Long directConsumeProjectId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private GrnInvoiceStatus invoiceStatus = GrnInvoiceStatus.NOT_INVOICED;
+
     @Column(nullable = false)
     private String createdBy;
 
@@ -53,4 +59,16 @@ public class Grn {
 
     @Transient
     private List<GrnItems> grnItemsList;
+
+    @Transient
+    private String projectName;
+
+    @Transient
+    private String vendorName;
+
+    @Transient
+    private String poNumber;
+
+    @Transient
+    private PoStatus poStatus;
 }

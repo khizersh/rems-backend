@@ -4,6 +4,10 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+// GrandChildSidebar is in the same package — no explicit import needed
 
 
 @Entity
@@ -28,6 +32,12 @@ public class ChildSidebar {
     @Column(nullable = false)
     private String roles;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isPage = false;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "parent_id")
+    private List<GrandChildSidebar> grandChildList = new ArrayList<>();
 
     @Column(nullable = false)
     private String createdBy;

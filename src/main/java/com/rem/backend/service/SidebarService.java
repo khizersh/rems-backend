@@ -2,9 +2,11 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.sidebar.ChildSidebar;
+import com.rem.backend.entity.sidebar.GrandChildSidebar;
 import com.rem.backend.entity.sidebar.Sidebar;
 import com.rem.backend.repository.ChildSidebarRepository;
 import com.rem.backend.repository.CustomerRepo;
+import com.rem.backend.repository.GrandChildSidebarRepository;
 import com.rem.backend.repository.SidebarRepo;
 import com.rem.backend.usermanagement.entity.Role;
 import com.rem.backend.usermanagement.entity.User;
@@ -25,18 +27,19 @@ public class SidebarService {
 
     private final SidebarRepo sidebarRepo;
     private final ChildSidebarRepository childSidebarRepository;
+    private final GrandChildSidebarRepository grandChildSidebarRepository;
     private final UserRepo userRepo;
     private final RoleService roleService;
     private final CustomerRepo customerRepo;
 
-    // Add new Sidebar with children
+    // Add new Sidebar with children and grand children
     public Map<String, Object> addSidebar(Sidebar sidebar, String loggedInUser) {
-
         try {
             ValidationService.validate(sidebar.getIcon(), "icon");
             ValidationService.validate(sidebar.getUrl(), "url");
             ValidationService.validate(sidebar.getTitle(), "title");
             ValidationService.validate(sidebar.getRoles(), "roles");
+
             if (sidebar.getChildList() != null) {
                 for (ChildSidebar child : sidebar.getChildList()) {
                     ValidationService.validate(child.getIcon(), "icon");
@@ -45,6 +48,17 @@ public class SidebarService {
                     ValidationService.validate(child.getRoles(), "roles");
                     child.setUpdatedBy(loggedInUser);
                     child.setCreatedBy(loggedInUser);
+
+                    if (child.getGrandChildList() != null) {
+                        for (GrandChildSidebar grandChild : child.getGrandChildList()) {
+                            ValidationService.validate(grandChild.getIcon(), "icon");
+                            ValidationService.validate(grandChild.getUrl(), "url");
+                            ValidationService.validate(grandChild.getTitle(), "title");
+                            ValidationService.validate(grandChild.getRoles(), "roles");
+                            grandChild.setUpdatedBy(loggedInUser);
+                            grandChild.setCreatedBy(loggedInUser);
+                        }
+                    }
                 }
             }
             sidebar.setUpdatedBy(loggedInUser);
@@ -60,7 +74,7 @@ public class SidebarService {
         }
     }
 
-    // Get all Sidebars with children
+    // Get all Sidebars with children and grand children
     public Map<String, Object> getAllSidebars() {
         try {
             List<Sidebar> sidebarList = sidebarRepo.findAll();
@@ -71,26 +85,24 @@ public class SidebarService {
         }
     }
 
-    // Update Sidebar and its children
+    // Update Sidebar and its children and grand children
     public Map<String, Object> updateSidebar(Long id, Sidebar updatedSidebar, String loggedInUser) {
         try {
-            // Validate top-level sidebar fields
             ValidationService.validate(id, "id");
             ValidationService.validate(updatedSidebar.getIcon(), "icon");
             ValidationService.validate(updatedSidebar.getUrl(), "url");
             ValidationService.validate(updatedSidebar.getTitle(), "title");
 
-            // Fetch existing sidebar
             Sidebar existing = sidebarRepo.findById(id)
                     .orElseThrow(() -> new IllegalArgumentException("Sidebar not found with ID: " + id));
 
-            // Update fields
             existing.setIcon(updatedSidebar.getIcon());
             existing.setUrl(updatedSidebar.getUrl());
             existing.setTitle(updatedSidebar.getTitle());
+            existing.setPage(updatedSidebar.isPage());
             existing.setUpdatedBy(loggedInUser);
 
-            // Clear and replace children
+            // Clear and replace children (orphanRemoval handles grand children cascaded)
             existing.getChildList().clear();
 
             if (updatedSidebar.getChildList() != null) {
@@ -99,6 +111,15 @@ public class SidebarService {
                     ValidationService.validate(child.getUrl(), "url");
                     ValidationService.validate(child.getTitle(), "title");
                     child.setUpdatedBy(loggedInUser);
+
+                    if (child.getGrandChildList() != null) {
+                        for (GrandChildSidebar grandChild : child.getGrandChildList()) {
+                            ValidationService.validate(grandChild.getIcon(), "icon");
+                            ValidationService.validate(grandChild.getUrl(), "url");
+                            ValidationService.validate(grandChild.getTitle(), "title");
+                            grandChild.setUpdatedBy(loggedInUser);
+                        }
+                    }
                     existing.getChildList().add(child);
                 }
             }
@@ -112,7 +133,7 @@ public class SidebarService {
         }
     }
 
-    // Optional: Get sidebar by ID
+    // Get sidebar by ID
     public Map<String, Object> getSidebarById(Long id) {
         try {
             Sidebar sidebar = sidebarRepo.findById(id)
@@ -125,8 +146,7 @@ public class SidebarService {
         }
     }
 
-
-    // Optional: Get sidebar by ID
+    // Get sidebar filtered by user roles — 3-level hierarchy
     public List<Sidebar> getSidebarByRole(String username) {
         List<Sidebar> finalSidebarList = new ArrayList<>();
 
@@ -144,42 +164,69 @@ public class SidebarService {
                 for (Sidebar sidebar : allSidebars) {
                     boolean parentMatched = false;
 
-                    // Check if parent sidebar matches any of the user roles
-
                     for (UserRoles role : userRoles) {
-
-                        Optional<Role> roleOptional = roleList.stream().filter(singleRole -> singleRole.getId() == role.getRoleId()).findFirst();
+                        Optional<Role> roleOptional = roleList.stream()
+                                .filter(singleRole -> singleRole.getId() == role.getRoleId())
+                                .findFirst();
                         if (roleOptional.isPresent()) {
-                            if (sidebar.getRoles().toLowerCase().contains(roleOptional.get().getName().toString().toLowerCase())) {
+                            if (sidebar.getRoles().toLowerCase().contains(roleOptional.get().getName().toLowerCase())) {
                                 parentMatched = true;
                                 break;
                             }
                         }
-
                     }
 
                     if (parentMatched) {
                         List<ChildSidebar> matchingChildren = new ArrayList<>();
 
                         for (ChildSidebar child : sidebar.getChildList()) {
+                            boolean childMatched = false;
+
                             for (UserRoles role : userRoles) {
-                                Optional<Role> roleOptional = roleList.stream().filter(singleRole -> singleRole.getId() == role.getRoleId()).findFirst();
+                                Optional<Role> roleOptional = roleList.stream()
+                                        .filter(singleRole -> singleRole.getId() == role.getRoleId())
+                                        .findFirst();
                                 if (roleOptional.isPresent()) {
-                                    if (child.getRoles().toLowerCase().contains(roleOptional.get().getName().toString().toLowerCase())) {
+                                    if (child.getRoles().toLowerCase().contains(roleOptional.get().getName().toLowerCase())) {
+                                        childMatched = true;
                                         if (customerOptional.isPresent()) {
                                             child.setUrl(child.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId())));
                                         }
-                                        matchingChildren.add(child);
                                         break;
                                     }
                                 }
+                            }
+
+                            if (childMatched) {
+                                // Filter grand children by role
+                                List<GrandChildSidebar> matchingGrandChildren = new ArrayList<>();
+
+                                for (GrandChildSidebar grandChild : child.getGrandChildList()) {
+                                    for (UserRoles role : userRoles) {
+                                        Optional<Role> roleOptional = roleList.stream()
+                                                .filter(singleRole -> singleRole.getId() == role.getRoleId())
+                                                .findFirst();
+                                        if (roleOptional.isPresent()) {
+                                            if (grandChild.getRoles().toLowerCase().contains(roleOptional.get().getName().toLowerCase())) {
+                                                if (customerOptional.isPresent()) {
+                                                    grandChild.setUrl(grandChild.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId())));
+                                                }
+                                                matchingGrandChildren.add(grandChild);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                child.setGrandChildList(matchingGrandChildren);
+                                matchingChildren.add(child);
                             }
                         }
 
                         sidebar.setChildList(matchingChildren);
 
                         if (customerOptional.isPresent()) {
-                            sidebar.setUrl(sidebar.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId()))); ;
+                            sidebar.setUrl(sidebar.getUrl().replace("{cId}", String.valueOf(customerOptional.get().getCustomerId())));
                         }
                         finalSidebarList.add(sidebar);
                     }

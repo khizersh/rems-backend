@@ -2,6 +2,7 @@ package com.rem.backend.purchasemanagement.repository;
 
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
+import com.rem.backend.purchasemanagement.enums.GrnInvoiceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -58,6 +59,7 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
            "AND (:status IS NULL OR g.status = :status) " +
            "AND (:startDate IS NULL OR DATE(g.createdDate) >= :startDate) " +
            "AND (:endDate IS NULL OR DATE(g.createdDate) <= :endDate) " +
+           "AND (:invoiceStatus IS NULL OR g.invoiceStatus = :invoiceStatus) " +
            "ORDER BY g.createdDate DESC")
     Page<Grn> findByConditionalFilters(
             @Param("orgId") Long orgId,
@@ -66,6 +68,7 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
             @Param("status") GrnStatus status,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
+            @Param("invoiceStatus") GrnInvoiceStatus invoiceStatus,
             Pageable pageable
     );
 }
