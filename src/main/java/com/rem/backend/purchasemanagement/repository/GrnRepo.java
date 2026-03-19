@@ -1,5 +1,6 @@
 package com.rem.backend.purchasemanagement.repository;
 
+import com.rem.backend.enums.ReceiptType;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.enums.GrnStatus;
 import com.rem.backend.purchasemanagement.enums.GrnInvoiceStatus;
@@ -60,6 +61,8 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
            "AND (:startDate IS NULL OR DATE(g.createdDate) >= :startDate) " +
            "AND (:endDate IS NULL OR DATE(g.createdDate) <= :endDate) " +
            "AND (:invoiceStatus IS NULL OR g.invoiceStatus = :invoiceStatus) " +
+           "AND (:warehouseId IS NULL OR g.warehouseId = :warehouseId) " +
+           "AND (:receiptType IS NULL OR g.receiptType = :receiptType) " +
            "ORDER BY g.createdDate DESC")
     Page<Grn> findByConditionalFilters(
             @Param("orgId") Long orgId,
@@ -69,6 +72,8 @@ public interface GrnRepo extends JpaRepository<Grn, Long> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
             @Param("invoiceStatus") GrnInvoiceStatus invoiceStatus,
+            @Param("warehouseId") Long warehouseId,
+            @Param("receiptType") ReceiptType receiptType,
             Pageable pageable
     );
 }

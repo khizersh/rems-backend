@@ -71,4 +71,10 @@ public class Grn {
 
     @Transient
     private PoStatus poStatus;
+
+    @Transient
+    private String warehouseName;
+
+    @Transient
+    private String directConsumeProjectName;
 }

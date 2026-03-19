@@ -12,6 +12,8 @@ import com.rem.backend.purchasemanagement.repository.*;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountRepo;
 import com.rem.backend.enums.ReceiptType;
+import com.rem.backend.warehousemanagement.entity.Warehouse;
+import com.rem.backend.warehousemanagement.repo.WarehouseRepository;
 import com.rem.backend.warehousemanagement.service.WarehouseIntegrationService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -37,6 +39,7 @@ public class GrnService {
     private final PurchaseOrderRepo poRepository;
     private final PurchaseOrderItemRepo poItemRepository;
     private final WarehouseIntegrationService warehouseIntegrationService;
+    private final WarehouseRepository warehouseRepository;
     private final ProjectRepo projectRepo;
     private final VendorAccountRepo vendorAccountRepo;
     private final ItemsRepo itemsRepo;
@@ -58,7 +61,12 @@ public class GrnService {
             }
 
             // ===========================
-            // 2️⃣ Fetch and Validate PO
+            // 2️⃣ Validate Receipt Type & Warehouse / Project
+            // ===========================
+            validateReceiptTypeAndWarehouse(grnInput);
+
+            // ===========================
+            // 3️⃣ Fetch and Validate PO
             // ===========================
             PurchaseOrder po = poRepository.findById(grnInput.getPoId())
                     .orElseThrow(() -> new IllegalArgumentException("Purchase Order not found"));
@@ -68,7 +76,7 @@ public class GrnService {
             }
 
             // ===========================
-            // 3️⃣ Validate GRN Quantities against PO
+            // 4️⃣ Validate GRN Quantities against PO
             // ===========================
             List<PurchaseOrderItem> poItems = poItemRepository.findAllByPoId(po.getId());
             Map<Long, PurchaseOrderItem> poItemMap = new HashMap<>();
@@ -79,10 +87,6 @@ public class GrnService {
             for (GrnItems grnItem : grnInput.getGrnItemsList()) {
                 ValidationService.validate(grnItem.getPoItemId(), "PO Item Id");
                 ValidationService.validate(grnItem.getQuantityReceived(), "Quantity Received");
-
-//                if (grnItem.getQuantityReceived() <= 0) {
-//                    throw new IllegalArgumentException("Quantity received must be greater than 0");
-//                }
 
                 PurchaseOrderItem poItem = poItemMap.get(grnItem.getPoItemId());
                 if (poItem == null) {
@@ -100,7 +104,7 @@ public class GrnService {
             }
 
             // ===========================
-            // 4️⃣ Create GRN
+            // 5️⃣ Create GRN
             // ===========================
             Grn grn = new Grn();
             grn.setGrnNumber(generateGRNNumber());
@@ -110,6 +114,9 @@ public class GrnService {
             grn.setPoId(po.getId());
             grn.setStatus(GrnStatus.RECEIVED);
             grn.setReceivedDate(grnInput.getReceivedDate() != null ? grnInput.getReceivedDate() : now);
+            grn.setReceiptType(grnInput.getReceiptType());
+            grn.setWarehouseId(grnInput.getWarehouseId());
+            grn.setDirectConsumeProjectId(grnInput.getDirectConsumeProjectId());
             grn.setCreatedBy(loggedInUser);
             grn.setUpdatedBy(loggedInUser);
             grn.setCreatedDate(now);
@@ -118,8 +125,9 @@ public class GrnService {
             grn = grnRepo.save(grn);
 
             // ===========================
-            // 5️⃣ Save GRN Items and Update PO Item Received Quantities
+            // 6️⃣ Save GRN Items and Update PO Item Received Quantities
             // ===========================
+            Map<Long, Double> itemRateMap = new HashMap<>();
             for (GrnItems grnItem : grnInput.getGrnItemsList()) {
                 PurchaseOrderItem poItem = poItemMap.get(grnItem.getPoItemId());
 
@@ -136,6 +144,9 @@ public class GrnService {
 
                 grnItemsRepo.save(newGrnItem);
 
+                // Collect rate from PO item for warehouse stock
+                itemRateMap.put(grnItem.getPoItemId(), poItem.getRate());
+
                 // Update received quantity in PO item
                 Double currentReceived = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0.0;
                 poItem.setReceivedQuantity(currentReceived + grnItem.getQuantityReceived());
@@ -145,31 +156,18 @@ public class GrnService {
             }
 
             // ===========================
-            // 6️⃣ Update PO Status based on received quantities
+            // 7️⃣ Update PO Status based on received quantities
             // ===========================
             updatePOStatusAfterGRN(po.getId(), loggedInUser);
 
             // ===========================
-            // 7️⃣ Process warehouse integration if receipt type and warehouse ID are set
+            // 8️⃣ Process warehouse integration based on receipt type
             // ===========================
-            if (grnInput.getReceiptType() != null && grnInput.getReceiptType() == ReceiptType.WAREHOUSE_STOCK
-                && grnInput.getWarehouseId() != null) {
-
-                grn.setReceiptType(grnInput.getReceiptType());
-                grn.setWarehouseId(grnInput.getWarehouseId());
-                grn = grnRepo.save(grn);
-
-                // Process warehouse stock addition
+            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
                 List<GrnItems> grnItemsList = grnItemsRepo.findByGrnId(grn.getId());
-                warehouseIntegrationService.processGrnApproval(grn, grnItemsList, loggedInUser);
-
-            } else if (grnInput.getReceiptType() != null && grnInput.getReceiptType() == ReceiptType.DIRECT_CONSUME
-                && grnInput.getDirectConsumeProjectId() != null) {
-
-                grn.setReceiptType(grnInput.getReceiptType());
-                grn.setDirectConsumeProjectId(grnInput.getDirectConsumeProjectId());
-                grn = grnRepo.save(grn);
+                warehouseIntegrationService.processGrnApprovalWithRate(grn, grnItemsList, itemRateMap, loggedInUser);
             }
+            // If DIRECT_CONSUME — no stock entry needed, goods consumed directly by project
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "GRN created successfully");
 
@@ -199,7 +197,12 @@ public class GrnService {
             }
 
             // ===========================
-            // 2️⃣ Fetch and Validate Existing GRN
+            // 2️⃣ Validate Receipt Type & Warehouse / Project
+            // ===========================
+            validateReceiptTypeAndWarehouse(grnInput);
+
+            // ===========================
+            // 3️⃣ Fetch and Validate Existing GRN
             // ===========================
             Grn existingGrn = grnRepo.findById(grnId)
                     .orElseThrow(() -> new IllegalArgumentException("GRN not found"));
@@ -209,7 +212,7 @@ public class GrnService {
             }
 
             // ===========================
-            // 3️⃣ Fetch and Validate PO
+            // 4️⃣ Fetch and Validate PO
             // ===========================
             PurchaseOrder po = poRepository.findById(grnInput.getPoId())
                     .orElseThrow(() -> new IllegalArgumentException("Purchase Order not found"));
@@ -224,9 +227,16 @@ public class GrnService {
             }
 
             // ===========================
-            // 4️⃣ Get existing GRN items and revert PO quantities
+            // 5️⃣ Reverse old warehouse stock if previously set
             // ===========================
             List<GrnItems> existingGrnItems = grnItemsRepo.findByGrnId(grnId);
+            if (existingGrn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && existingGrn.getWarehouseId() != null) {
+                warehouseIntegrationService.reverseGrnStock(existingGrn, existingGrnItems, loggedInUser);
+            }
+
+            // ===========================
+            // 6️⃣ Get PO items and revert PO quantities
+            // ===========================
             List<PurchaseOrderItem> poItems = poItemRepository.findAllByPoId(po.getId());
             Map<Long, PurchaseOrderItem> poItemMap = new HashMap<>();
             for (PurchaseOrderItem item : poItems) {
@@ -246,7 +256,7 @@ public class GrnService {
             }
 
             // ===========================
-            // 5️⃣ Validate new GRN quantities against updated PO quantities
+            // 7️⃣ Validate new GRN quantities against updated PO quantities
             // ===========================
             for (GrnItems newGrnItem : grnInput.getGrnItemsList()) {
                 ValidationService.validate(newGrnItem.getPoItemId(), "PO Item Id");
@@ -274,12 +284,12 @@ public class GrnService {
             }
 
             // ===========================
-            // 6️⃣ Delete existing GRN items
+            // 8️⃣ Delete existing GRN items
             // ===========================
             grnItemsRepo.deleteAll(existingGrnItems);
 
             // ===========================
-            // 7️⃣ Update GRN header
+            // 9️⃣ Update GRN header
             // ===========================
             existingGrn.setReceivedDate(grnInput.getReceivedDate() != null ? grnInput.getReceivedDate() : existingGrn.getReceivedDate());
             existingGrn.setReceiptType(grnInput.getReceiptType());
@@ -291,8 +301,9 @@ public class GrnService {
             grnRepo.save(existingGrn);
 
             // ===========================
-            // 8️⃣ Save new GRN Items and Update PO Item Received Quantities
+            // 🔟 Save new GRN Items and Update PO Item Received Quantities
             // ===========================
+            Map<Long, Double> itemRateMap = new HashMap<>();
             for (GrnItems grnItem : grnInput.getGrnItemsList()) {
                 PurchaseOrderItem poItem = poItemMap.get(grnItem.getPoItemId());
 
@@ -309,6 +320,9 @@ public class GrnService {
 
                 grnItemsRepo.save(newGrnItem);
 
+                // Collect rate from PO item for warehouse stock
+                itemRateMap.put(grnItem.getPoItemId(), poItem.getRate());
+
                 // Update received quantity in PO item with new quantities
                 Double currentReceived = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0.0;
                 poItem.setReceivedQuantity(currentReceived + grnItem.getQuantityReceived());
@@ -318,20 +332,18 @@ public class GrnService {
             }
 
             // ===========================
-            // 9️⃣ Update PO Status based on received quantities
+            // 1️⃣1️⃣ Update PO Status based on received quantities
             // ===========================
             updatePOStatusAfterGRN(po.getId(), loggedInUser);
 
             // ===========================
-            // 🔟 Process warehouse integration if receipt type and warehouse ID are set
+            // 1️⃣2️⃣ Process new warehouse integration based on receipt type
             // ===========================
-            if (existingGrn.getReceiptType() != null && existingGrn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK
-                && existingGrn.getWarehouseId() != null) {
-
-                // Process warehouse stock addition with updated items
+            if (existingGrn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && existingGrn.getWarehouseId() != null) {
                 List<GrnItems> updatedGrnItemsList = grnItemsRepo.findByGrnId(existingGrn.getId());
-                warehouseIntegrationService.processGrnApproval(existingGrn, updatedGrnItemsList, loggedInUser);
+                warehouseIntegrationService.processGrnApprovalWithRate(existingGrn, updatedGrnItemsList, itemRateMap, loggedInUser);
             }
+            // If DIRECT_CONSUME — no stock entry needed
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "GRN updated successfully");
 
@@ -380,6 +392,18 @@ public class GrnService {
                         .ifPresent(po -> grn.setPoNumber(po.getPoNumber()));
             }
 
+            // Populate warehouseName
+            if (grn.getWarehouseId() != null) {
+                warehouseRepository.findById(grn.getWarehouseId())
+                        .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
+            }
+
+            // Populate directConsumeProjectName
+            if (grn.getDirectConsumeProjectId() != null) {
+                projectRepo.findById(grn.getDirectConsumeProjectId())
+                        .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
+            }
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, grn);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
@@ -426,6 +450,18 @@ public class GrnService {
                 if (grn.getVendorId() != null) {
                     vendorAccountRepo.findById(grn.getVendorId())
                             .ifPresent(vendor -> grn.setVendorName(vendor.getName()));
+                }
+
+                // Populate warehouseName
+                if (grn.getWarehouseId() != null) {
+                    warehouseRepository.findById(grn.getWarehouseId())
+                            .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
+                }
+
+                // Populate directConsumeProjectName
+                if (grn.getDirectConsumeProjectId() != null) {
+                    projectRepo.findById(grn.getDirectConsumeProjectId())
+                            .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
                 }
             }
 
@@ -543,6 +579,8 @@ public class GrnService {
             LocalDate startDate,
             LocalDate endDate,
             GrnInvoiceStatus invoiceStatus,
+            Long warehouseId,
+            ReceiptType receiptType,
             Pageable pageable) {
         try {
             // Validate mandatory orgId
@@ -557,6 +595,8 @@ public class GrnService {
                     startDate,
                     endDate,
                     invoiceStatus,
+                    warehouseId,
+                    receiptType,
                     pageable
             );
 
@@ -592,6 +632,18 @@ public class GrnService {
                             poRepository.findById(grn.getPoId())
                                     .ifPresent(po -> grn.setPoNumber(po.getPoNumber()));
                         }
+
+                        // Populate warehouseName
+                        if (grn.getWarehouseId() != null) {
+                            warehouseRepository.findById(grn.getWarehouseId())
+                                    .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
+                        }
+
+                        // Populate directConsumeProjectName
+                        if (grn.getDirectConsumeProjectId() != null) {
+                            projectRepo.findById(grn.getDirectConsumeProjectId())
+                                    .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
+                        }
                     })
                     .toList();
 
@@ -609,6 +661,104 @@ public class GrnService {
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+    // ==================== HELPER: Validate Receipt Type and Warehouse ====================
+    private void validateReceiptTypeAndWarehouse(Grn grnInput) {
+        if (grnInput.getReceiptType() != null) {
+            if (grnInput.getReceiptType() == ReceiptType.WAREHOUSE_STOCK) {
+                if (grnInput.getWarehouseId() == null) {
+                    throw new IllegalArgumentException("Warehouse ID is required when receipt type is WAREHOUSE_STOCK");
+                }
+                // Validate warehouse exists and is active
+                Warehouse warehouse = warehouseRepository.findById(grnInput.getWarehouseId())
+                        .orElseThrow(() -> new IllegalArgumentException("Warehouse not found with ID: " + grnInput.getWarehouseId()));
+                if (!warehouse.getActive()) {
+                    throw new IllegalArgumentException("Cannot use inactive warehouse");
+                }
+                // Clear directConsumeProjectId if receipt type is WAREHOUSE_STOCK
+                grnInput.setDirectConsumeProjectId(null);
+
+            } else if (grnInput.getReceiptType() == ReceiptType.DIRECT_CONSUME) {
+                if (grnInput.getDirectConsumeProjectId() == null) {
+                    throw new IllegalArgumentException("Direct consume project ID is required when receipt type is DIRECT_CONSUME");
+                }
+                // Validate project exists
+                projectRepo.findById(grnInput.getDirectConsumeProjectId())
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found with ID: " + grnInput.getDirectConsumeProjectId()));
+                // Clear warehouseId if receipt type is DIRECT_CONSUME
+                grnInput.setWarehouseId(null);
+            }
+        }
+    }
+
+    // ==================== CANCEL GRN ====================
+    @Transactional
+    public Map<String, Object> cancelGrn(Long grnId, String loggedInUser) {
+        LocalDateTime now = LocalDateTime.now();
+
+        try {
+            ValidationService.validate(grnId, "GRN ID");
+
+            Grn grn = grnRepo.findById(grnId)
+                    .orElseThrow(() -> new IllegalArgumentException("GRN not found"));
+
+            if (grn.getStatus() == GrnStatus.CANCELLED) {
+                throw new IllegalArgumentException("GRN is already cancelled");
+            }
+
+            // Check if any items are invoiced
+            if (grn.getInvoiceStatus() != null && grn.getInvoiceStatus() != GrnInvoiceStatus.NOT_INVOICED) {
+                throw new IllegalArgumentException("Cannot cancel GRN that has invoiced items. Please cancel invoices first.");
+            }
+
+            List<GrnItems> grnItems = grnItemsRepo.findByGrnId(grnId);
+
+            // ===========================
+            // 1️⃣ Reverse warehouse stock if WAREHOUSE_STOCK
+            // ===========================
+            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+                warehouseIntegrationService.reverseGrnStock(grn, grnItems, loggedInUser);
+            }
+
+            // ===========================
+            // 2️⃣ Revert PO received quantities
+            // ===========================
+            for (GrnItems grnItem : grnItems) {
+                if (grnItem.getPoItemId() != null) {
+                    PurchaseOrderItem poItem = poItemRepository.findById(grnItem.getPoItemId()).orElse(null);
+                    if (poItem != null) {
+                        Double currentReceived = poItem.getReceivedQuantity() != null ? poItem.getReceivedQuantity() : 0.0;
+                        poItem.setReceivedQuantity(Math.max(0, currentReceived - grnItem.getQuantityReceived()));
+                        poItem.setUpdatedBy(loggedInUser);
+                        poItem.setUpdatedDate(now);
+                        poItemRepository.save(poItem);
+                    }
+                }
+            }
+
+            // ===========================
+            // 3️⃣ Update GRN status to CANCELLED
+            // ===========================
+            grn.setStatus(GrnStatus.CANCELLED);
+            grn.setUpdatedBy(loggedInUser);
+            grn.setUpdatedDate(now);
+            grnRepo.save(grn);
+
+            // ===========================
+            // 4️⃣ Recalculate PO status
+            // ===========================
+            updatePOStatusAfterGRN(grn.getPoId(), loggedInUser);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "GRN cancelled successfully");
+
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }

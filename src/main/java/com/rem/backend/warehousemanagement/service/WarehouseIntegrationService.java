@@ -66,6 +66,76 @@ public class WarehouseIntegrationService {
     }
 
     /**
+     * Process GRN approval with rate from PO items
+     */
+    @Transactional
+    public void processGrnApprovalWithRate(Grn grn, List<GrnItems> grnItems, Map<Long, Double> itemRateMap, String loggedInUser) {
+        try {
+            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+
+                for (GrnItems grnItem : grnItems) {
+                    BigDecimal rate = BigDecimal.ZERO;
+                    if (itemRateMap != null && itemRateMap.containsKey(grnItem.getPoItemId())) {
+                        rate = BigDecimal.valueOf(itemRateMap.get(grnItem.getPoItemId()));
+                    }
+
+                    inventoryService.addStock(
+                        grn.getWarehouseId(),
+                        grnItem.getItemId(),
+                        BigDecimal.valueOf(grnItem.getQuantityReceived()),
+                        rate,
+                        StockRefType.GRN,
+                        grnItem.getId(),
+                        "Stock received from GRN: " + grn.getGrnNumber(),
+                        loggedInUser
+                    );
+                }
+
+                log.info("GRN processed for warehouse stock with rates: GRN={}, Warehouse={}", grn.getId(), grn.getWarehouseId());
+
+            } else if (grn.getReceiptType() == ReceiptType.DIRECT_CONSUME) {
+                log.info("GRN processed for direct consumption: GRN={}, Project={}", grn.getId(), grn.getDirectConsumeProjectId());
+            }
+
+        } catch (Exception e) {
+            log.error("Error processing GRN approval with rate: {}", e.getMessage());
+            throw new RuntimeException("Failed to process GRN approval: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reverse GRN stock entries when GRN is updated or cancelled.
+     * This deducts previously added stock for each GRN item from the warehouse.
+     */
+    @Transactional
+    public void reverseGrnStock(Grn grn, List<GrnItems> grnItems, String loggedInUser) {
+        try {
+            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+
+                for (GrnItems grnItem : grnItems) {
+                    if (grnItem.getQuantityReceived() != null && grnItem.getQuantityReceived() > 0) {
+                        inventoryService.deductStock(
+                            grn.getWarehouseId(),
+                            grnItem.getItemId(),
+                            BigDecimal.valueOf(grnItem.getQuantityReceived()),
+                            StockRefType.GRN,
+                            grnItem.getId(),
+                            "Stock reversed from GRN update/cancel: " + grn.getGrnNumber(),
+                            loggedInUser
+                        );
+                    }
+                }
+
+                log.info("GRN stock reversed: GRN={}, Warehouse={}", grn.getId(), grn.getWarehouseId());
+            }
+
+        } catch (Exception e) {
+            log.error("Error reversing GRN stock: {}", e.getMessage());
+            throw new RuntimeException("Failed to reverse GRN stock: " + e.getMessage());
+        }
+    }
+
+    /**
      * Process expense items and add stock if stockEffect is true
      */
     @Transactional

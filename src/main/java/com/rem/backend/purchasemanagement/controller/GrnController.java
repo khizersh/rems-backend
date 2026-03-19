@@ -87,7 +87,16 @@ public class GrnController {
                 request.getStartDate(),
                 request.getEndDate(),
                 request.getInvoiceStatus(),
+                request.getWarehouseId(),
+                request.getReceiptType(),
                 pageable
         );
+    }
+
+    // Cancel GRN (reverses warehouse stock and PO quantities)
+    @PostMapping("/cancel/{grnId}")
+    public Map cancelGrn(@PathVariable long grnId, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return grnService.cancelGrn(grnId, loggedInUser);
     }
 }
