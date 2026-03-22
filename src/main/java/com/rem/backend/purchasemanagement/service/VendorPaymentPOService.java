@@ -2,14 +2,20 @@ package com.rem.backend.purchasemanagement.service;
 
 import com.rem.backend.purchasemanagement.entity.vendorinvoice.VendorInvoice;
 import com.rem.backend.purchasemanagement.entity.vendorpayment.VendorPaymentPO;
+import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.enums.InvoiceStatus;
 import com.rem.backend.purchasemanagement.repository.VendorInvoiceRepo;
 import com.rem.backend.purchasemanagement.repository.VendorPaymentPORepo;
+import com.rem.backend.purchasemanagement.repository.GrnRepo;
+import com.rem.backend.entity.project.Project;
+import com.rem.backend.repository.ProjectRepo;
+import com.rem.backend.enums.ReceiptType;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,10 +35,13 @@ import com.rem.backend.accountmanagement.enums.TransactionCategory;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VendorPaymentPOService {
 
     private final VendorPaymentPORepo vendorPaymentPORepo;
     private final VendorInvoiceRepo vendorInvoiceRepo;
+    private final GrnRepo grnRepo;
+    private final ProjectRepo projectRepo;
 
     // new repos
     private final OrganizationAccoutRepo organizationAccountRepo;
@@ -143,6 +152,11 @@ public class VendorPaymentPOService {
             // 6️⃣ Auto-calculate Pending Amount and Update Invoice Status
             // ===========================
             updateInvoiceAfterPayment(invoice, paymentInput.getAmount(), loggedInUser);
+
+            // ===========================
+            // 7️⃣ Update Project Construction Amount for DIRECT GRNs
+            // ===========================
+            updateConstructionAmountForDirectGrn(invoice, paymentAmount, loggedInUser);
 
             Map<String, Object> result = new HashMap<>();
             result.put("payment", payment);
@@ -400,5 +414,64 @@ public class VendorPaymentPOService {
         invoice.setUpdatedBy(loggedInUser);
         invoice.setUpdatedDate(LocalDateTime.now());
         vendorInvoiceRepo.save(invoice);
+    }
+
+    // ==================== HELPER: Update Construction Amount for DIRECT GRN ====================
+    /**
+     * When vendor payment is made for a GRN with receipt type DIRECT,
+     * the payment amount should be added to the project's construction amount.
+     * This is because DIRECT means material was directly consumed by the project
+     * without going through warehouse stock.
+     */
+    private void updateConstructionAmountForDirectGrn(VendorInvoice invoice, double paymentAmount, String loggedInUser) {
+        try {
+            // Get the GRN associated with this invoice
+            if (invoice.getGrnId() == null) {
+                log.debug("No GRN associated with invoice {}, skipping construction amount update", invoice.getId());
+                return;
+            }
+
+            Grn grn = grnRepo.findById(invoice.getGrnId()).orElse(null);
+            if (grn == null) {
+                log.debug("GRN {} not found for invoice {}, skipping construction amount update", invoice.getGrnId(), invoice.getId());
+                return;
+            }
+
+            // Only update construction amount for DIRECT receipt type
+            if (grn.getReceiptType() != ReceiptType.DIRECT) {
+                log.debug("GRN {} is not DIRECT type (type={}), skipping construction amount update", grn.getId(), grn.getReceiptType());
+                return;
+            }
+
+            // Get the project to update - use directProjectId from GRN for DIRECT type
+            Long projectIdToUpdate = grn.getDirectProjectId();
+            if (projectIdToUpdate == null) {
+                log.warn("GRN {} is DIRECT type but has no directProjectId, skipping construction amount update", grn.getId());
+                return;
+            }
+
+            Project project = projectRepo.findById(projectIdToUpdate).orElse(null);
+            if (project == null) {
+                log.warn("Project {} not found for DIRECT GRN {}, skipping construction amount update", projectIdToUpdate, grn.getId());
+                return;
+            }
+
+            // Update construction amount and total amount
+            double currentConstructionAmount = project.getConstructionAmount();
+            double currentTotalAmount = project.getTotalAmount();
+
+            project.setConstructionAmount(currentConstructionAmount + paymentAmount);
+            project.setTotalAmount(currentTotalAmount + paymentAmount);
+            project.setUpdatedBy(loggedInUser);
+
+            projectRepo.save(project);
+
+            log.info("Updated construction amount for project {} (DIRECT GRN {}): added {} to construction amount. New construction amount: {}",
+                    project.getProjectId(), grn.getId(), paymentAmount, project.getConstructionAmount());
+
+        } catch (Exception e) {
+            log.error("Error updating construction amount for DIRECT GRN: {}", e.getMessage());
+            // Don't throw - allow payment to proceed even if construction update fails
+        }
     }
 }

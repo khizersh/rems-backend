@@ -17,7 +17,7 @@ public class GrnFilterRequest {
     private LocalDate endDate;               // Optional - End date filter
     private GrnInvoiceStatus invoiceStatus;  // Optional - Invoice status filter (NOT_INVOICED, PARTIALLY_INVOICED, FULLY_INVOICED, null: all)
     private Long warehouseId;                // Optional - Warehouse ID filter
-    private ReceiptType receiptType;         // Optional - Receipt type filter (WAREHOUSE_STOCK, DIRECT_CONSUME)
+    private ReceiptType receiptType;         // Optional - Receipt type filter (STOCK, DIRECT)
     private int page = 0;
     private int size = 10;
     private String sortBy = "createdDate";

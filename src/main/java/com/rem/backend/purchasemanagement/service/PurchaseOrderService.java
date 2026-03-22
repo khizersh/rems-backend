@@ -49,7 +49,6 @@ public class PurchaseOrderService {
             // 1️⃣ Basic PO Validations
             // ===========================
             ValidationService.validate(poInput.getOrgId(), "Organization Id");
-            ValidationService.validate(poInput.getProjectId(), "Project Id");
             ValidationService.validate(poInput.getVendorId(), "Vendor Id");
 
             // ===========================

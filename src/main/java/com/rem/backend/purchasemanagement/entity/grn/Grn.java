@@ -39,7 +39,7 @@ public class Grn {
 
     private Long warehouseId;
 
-    private Long directConsumeProjectId;
+    private Long directProjectId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -76,5 +76,5 @@ public class Grn {
     private String warehouseName;
 
     @Transient
-    private String directConsumeProjectName;
+    private String directProjectName;
 }

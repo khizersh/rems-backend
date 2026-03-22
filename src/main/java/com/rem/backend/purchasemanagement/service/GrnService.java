@@ -116,7 +116,7 @@ public class GrnService {
             grn.setReceivedDate(grnInput.getReceivedDate() != null ? grnInput.getReceivedDate() : now);
             grn.setReceiptType(grnInput.getReceiptType());
             grn.setWarehouseId(grnInput.getWarehouseId());
-            grn.setDirectConsumeProjectId(grnInput.getDirectConsumeProjectId());
+            grn.setDirectProjectId(grnInput.getDirectProjectId());
             grn.setCreatedBy(loggedInUser);
             grn.setUpdatedBy(loggedInUser);
             grn.setCreatedDate(now);
@@ -163,7 +163,7 @@ public class GrnService {
             // ===========================
             // 8️⃣ Process warehouse integration based on receipt type
             // ===========================
-            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+            if (grn.getReceiptType() == ReceiptType.STOCK && grn.getWarehouseId() != null) {
                 List<GrnItems> grnItemsList = grnItemsRepo.findByGrnId(grn.getId());
                 warehouseIntegrationService.processGrnApprovalWithRate(grn, grnItemsList, itemRateMap, loggedInUser);
             }
@@ -230,7 +230,7 @@ public class GrnService {
             // 5️⃣ Reverse old warehouse stock if previously set
             // ===========================
             List<GrnItems> existingGrnItems = grnItemsRepo.findByGrnId(grnId);
-            if (existingGrn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && existingGrn.getWarehouseId() != null) {
+            if (existingGrn.getReceiptType() == ReceiptType.STOCK && existingGrn.getWarehouseId() != null) {
                 warehouseIntegrationService.reverseGrnStock(existingGrn, existingGrnItems, loggedInUser);
             }
 
@@ -294,7 +294,7 @@ public class GrnService {
             existingGrn.setReceivedDate(grnInput.getReceivedDate() != null ? grnInput.getReceivedDate() : existingGrn.getReceivedDate());
             existingGrn.setReceiptType(grnInput.getReceiptType());
             existingGrn.setWarehouseId(grnInput.getWarehouseId());
-            existingGrn.setDirectConsumeProjectId(grnInput.getDirectConsumeProjectId());
+            existingGrn.setDirectProjectId(grnInput.getDirectProjectId());
             existingGrn.setUpdatedBy(loggedInUser);
             existingGrn.setUpdatedDate(now);
 
@@ -339,7 +339,7 @@ public class GrnService {
             // ===========================
             // 1️⃣2️⃣ Process new warehouse integration based on receipt type
             // ===========================
-            if (existingGrn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && existingGrn.getWarehouseId() != null) {
+            if (existingGrn.getReceiptType() == ReceiptType.STOCK && existingGrn.getWarehouseId() != null) {
                 List<GrnItems> updatedGrnItemsList = grnItemsRepo.findByGrnId(existingGrn.getId());
                 warehouseIntegrationService.processGrnApprovalWithRate(existingGrn, updatedGrnItemsList, itemRateMap, loggedInUser);
             }
@@ -398,10 +398,10 @@ public class GrnService {
                         .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
             }
 
-            // Populate directConsumeProjectName
-            if (grn.getDirectConsumeProjectId() != null) {
-                projectRepo.findById(grn.getDirectConsumeProjectId())
-                        .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
+            // Populate directProjectName
+            if (grn.getDirectProjectId() != null) {
+                projectRepo.findById(grn.getDirectProjectId())
+                        .ifPresent(project -> grn.setDirectProjectName(project.getName()));
             }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, grn);
@@ -458,10 +458,10 @@ public class GrnService {
                             .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
                 }
 
-                // Populate directConsumeProjectName
-                if (grn.getDirectConsumeProjectId() != null) {
-                    projectRepo.findById(grn.getDirectConsumeProjectId())
-                            .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
+                // Populate directProjectName
+                if (grn.getDirectProjectId() != null) {
+                    projectRepo.findById(grn.getDirectProjectId())
+                            .ifPresent(project -> grn.setDirectProjectName(project.getName()));
                 }
             }
 
@@ -639,10 +639,10 @@ public class GrnService {
                                     .ifPresent(wh -> grn.setWarehouseName(wh.getName()));
                         }
 
-                        // Populate directConsumeProjectName
-                        if (grn.getDirectConsumeProjectId() != null) {
-                            projectRepo.findById(grn.getDirectConsumeProjectId())
-                                    .ifPresent(project -> grn.setDirectConsumeProjectName(project.getName()));
+                        // Populate directProjectName
+                        if (grn.getDirectProjectId() != null) {
+                            projectRepo.findById(grn.getDirectProjectId())
+                                    .ifPresent(project -> grn.setDirectProjectName(project.getName()));
                         }
                     })
                     .toList();
@@ -668,9 +668,9 @@ public class GrnService {
     // ==================== HELPER: Validate Receipt Type and Warehouse ====================
     private void validateReceiptTypeAndWarehouse(Grn grnInput) {
         if (grnInput.getReceiptType() != null) {
-            if (grnInput.getReceiptType() == ReceiptType.WAREHOUSE_STOCK) {
+            if (grnInput.getReceiptType() == ReceiptType.STOCK) {
                 if (grnInput.getWarehouseId() == null) {
-                    throw new IllegalArgumentException("Warehouse ID is required when receipt type is WAREHOUSE_STOCK");
+                    throw new IllegalArgumentException("Warehouse ID is required when receipt type is STOCK");
                 }
                 // Validate warehouse exists and is active
                 Warehouse warehouse = warehouseRepository.findById(grnInput.getWarehouseId())
@@ -678,17 +678,17 @@ public class GrnService {
                 if (!warehouse.getActive()) {
                     throw new IllegalArgumentException("Cannot use inactive warehouse");
                 }
-                // Clear directConsumeProjectId if receipt type is WAREHOUSE_STOCK
-                grnInput.setDirectConsumeProjectId(null);
+                // Clear directProjectId if receipt type is STOCK
+                grnInput.setDirectProjectId(null);
 
-            } else if (grnInput.getReceiptType() == ReceiptType.DIRECT_CONSUME) {
-                if (grnInput.getDirectConsumeProjectId() == null) {
-                    throw new IllegalArgumentException("Direct consume project ID is required when receipt type is DIRECT_CONSUME");
+            } else if (grnInput.getReceiptType() == ReceiptType.DIRECT) {
+                if (grnInput.getDirectProjectId() == null) {
+                    throw new IllegalArgumentException("Direct project ID is required when receipt type is DIRECT");
                 }
                 // Validate project exists
-                projectRepo.findById(grnInput.getDirectConsumeProjectId())
-                        .orElseThrow(() -> new IllegalArgumentException("Project not found with ID: " + grnInput.getDirectConsumeProjectId()));
-                // Clear warehouseId if receipt type is DIRECT_CONSUME
+                projectRepo.findById(grnInput.getDirectProjectId())
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found with ID: " + grnInput.getDirectProjectId()));
+                // Clear warehouseId if receipt type is DIRECT
                 grnInput.setWarehouseId(null);
             }
         }
@@ -719,7 +719,7 @@ public class GrnService {
             // ===========================
             // 1️⃣ Reverse warehouse stock if WAREHOUSE_STOCK
             // ===========================
-            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+            if (grn.getReceiptType() == ReceiptType.STOCK && grn.getWarehouseId() != null) {
                 warehouseIntegrationService.reverseGrnStock(grn, grnItems, loggedInUser);
             }
 

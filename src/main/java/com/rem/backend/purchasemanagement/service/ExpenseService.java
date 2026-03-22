@@ -430,7 +430,8 @@ public class ExpenseService {
             double updatedCreditBalance = 0;
             if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
-                ValidationService.validate(expense.getProjectId(), "Project");
+                // Project is optional for CONSTRUCTION expenses (e.g., for purchase orders)
+                // ValidationService.validate(expense.getProjectId(), "Project"); // Removed - project is now optional
                 ValidationService.validate(expense.getVendorAccountId(), "Vendor");
                 ValidationService.validate(expense.getOrganizationAccountId(), "Organization Account");
 
@@ -467,7 +468,7 @@ public class ExpenseService {
                 }
                 expense.setVendorName(accountOptional.get().getName());
                 expense.setExpenseTitle(expenseTypeOptional.get().getName());
-                organizationAccountDetail.setProjectId(expense.getProjectId());
+                organizationAccountDetail.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
                 expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(expense.getOrganizationId()).getId());
 
 //                if (expense.getCreditAmount() > 0){
@@ -535,8 +536,7 @@ public class ExpenseService {
                 vendorPayment.setOrganizationAccountId(expense.getOrganizationAccountId());
                 vendorPayment.setCreditAmount(expense.getCreditAmount());
                 vendorPayment.setBalanceAmount(updatedCreditBalance);
-                vendorPayment.setProjectId(expense.getProjectId());
-                vendorPayment.setProjectId(expense.getProjectId());
+                vendorPayment.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
                 vendorPayment.setVendorPaymentType(VendorPaymentType.DIRECT_PURCHASE);
                 if (expense.getCreditAmount() == 0) {
                     vendorPayment.setTransactionType(TransactionType.DEBIT);
@@ -618,26 +618,31 @@ public class ExpenseService {
                     newExpense.setVendorName("");
                     newExpense.setExpenseTitle("Miscellaneous Expense");
 
+                    // Only update project if old expense had a project
+                    if (oldExpense.getProjectId() != null && oldExpense.getProjectId() > 0) {
+                        Optional<Project> projectOptional = projectRepo.findById(oldExpense.getProjectId());
+                        if (projectOptional.isPresent()) {
+                            Project oldProject = projectOptional.get();
 
-                    Optional<Project> projectOptional = projectRepo.findById(oldExpense.getProjectId());
-                    if (projectOptional.isEmpty())
-                        throw new IllegalArgumentException("Invalid Project!");
+                            oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
+                            oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
 
-                    Project oldProject = projectOptional.get();
-
-                    oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
-                    oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
-
+                            projectRepo.save(oldProject);
+                        }
+                    }
 
                     expenseRepo.save(newExpense);
-                    projectRepo.save(oldProject);
 
 
                 } else if (newExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
-                    Optional<Project> projectOptional = projectRepo.findById(newExpense.getProjectId());
-                    if (projectOptional.isEmpty())
-                        throw new IllegalArgumentException("Invalid Project!");
+                    // Project is optional when changing to CONSTRUCTION type
+                    Optional<Project> newProjectOptional = Optional.empty();
+                    if (newExpense.getProjectId() != null && newExpense.getProjectId() > 0) {
+                        newProjectOptional = projectRepo.findById(newExpense.getProjectId());
+                        if (newProjectOptional.isEmpty())
+                            throw new IllegalArgumentException("Invalid Project!");
+                    }
 
 
                     Optional<VendorAccount> vendorAccountOptional = vendorAccountRepo.findById(newExpense.getVendorAccountId());
@@ -663,8 +668,7 @@ public class ExpenseService {
                     vendorPayment.setAmountPaid(newExpense.getAmountPaid());
                     vendorPayment.setOrganizationAccountId(newExpense.getOrganizationAccountId());
                     vendorPayment.setCreditAmount(newExpense.getCreditAmount());
-                    vendorPayment.setProjectId(newExpense.getProjectId());
-                    vendorPayment.setProjectId(newExpense.getProjectId());
+                    vendorPayment.setProjectId(newExpense.getProjectId() != null ? newExpense.getProjectId() : 0L);
                     if (newExpense.getCreditAmount() == 0) {
                         vendorPayment.setTransactionType(TransactionType.DEBIT);
                     } else if (newExpense.getAmountPaid() == 0) {
@@ -680,25 +684,24 @@ public class ExpenseService {
 
                     newExpense.setVendorName(vendorAccount.getName());
 
+                    // Update project amounts only if project is provided
+                    if (newProjectOptional.isPresent()) {
+                        Project newProject = newProjectOptional.get();
 
-                    Optional<Project> newProjectOptional = projectRepo.findById(newExpense.getProjectId());
-                    if (newProjectOptional.isEmpty())
-                        throw new IllegalArgumentException("Invalid Updated Project!");
+                        newExpense.setProjectName(newProject.getName());
+                        newExpense.setExpenseTitle(expenseTypeOptional.get().getName());
 
-                    Project newProject = newProjectOptional.get();
+                        double updatedConstructionAmount = newProject.getConstructionAmount() + newExpense.getTotalAmount();
+                        double updatedTotalAmount = newProject.getTotalAmount() + newExpense.getTotalAmount();
 
+                        newProject.setTotalAmount(updatedTotalAmount);
+                        newProject.setConstructionAmount(updatedConstructionAmount);
+                        newProject.setUpdatedBy(loggedInUser);
 
-                    newExpense.setProjectName(newProject.getName());
-                    newExpense.setExpenseTitle(expenseTypeOptional.get().getName());
-
-                    double updatedConstructionAmount = newProject.getConstructionAmount() + (newExpense.getTotalAmount());
-                    double updatedTotalAmount = newProject.getTotalAmount() + (newExpense.getTotalAmount());
-
-                    newProject.setTotalAmount(updatedTotalAmount);
-                    newProject.setConstructionAmount(updatedConstructionAmount);
-                    newProject.setUpdatedBy(loggedInUser);
-
-                    projectRepo.save(newProject);
+                        projectRepo.save(newProject);
+                    } else {
+                        newExpense.setExpenseTitle(expenseTypeOptional.get().getName());
+                    }
 
                 }
             }
@@ -707,7 +710,8 @@ public class ExpenseService {
 
             if (newExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
-                ValidationService.validate(newExpense.getProjectId(), "Project");
+                // Project is optional for CONSTRUCTION expenses (e.g., for purchase orders)
+                // ValidationService.validate(newExpense.getProjectId(), "Project"); // Removed - project is now optional
                 ValidationService.validate(newExpense.getVendorAccountId(), "Vendor");
 
                 if (newExpense.getOrganizationAccountId() != oldExpense.getOrganizationAccountId()) {
@@ -770,11 +774,14 @@ public class ExpenseService {
 
                 if (isExpenseTypeChanges == false) {
 
-                    Optional<Project> projectOptional = projectRepo.findById(oldExpense.getProjectId());
-                    if (projectOptional.isEmpty())
-                        throw new IllegalArgumentException("Invalid Project!");
-
-                    Project oldProject = projectOptional.get();
+                    // Handle old project if it exists
+                    Project oldProject = null;
+                    if (oldExpense.getProjectId() != null && oldExpense.getProjectId() > 0) {
+                        Optional<Project> projectOptional = projectRepo.findById(oldExpense.getProjectId());
+                        if (projectOptional.isPresent()) {
+                            oldProject = projectOptional.get();
+                        }
+                    }
 
                     Optional<VendorAccount> vendorAccountOptional = vendorAccountRepo.findById(oldExpense.getVendorAccountId());
                     if (vendorAccountOptional.isEmpty())
@@ -815,8 +822,7 @@ public class ExpenseService {
                         vendorPayment.setAmountPaid(newExpense.getAmountPaid());
                         vendorPayment.setOrganizationAccountId(newExpense.getOrganizationAccountId());
                         vendorPayment.setCreditAmount(newExpense.getCreditAmount());
-                        vendorPayment.setProjectId(newExpense.getProjectId());
-                        vendorPayment.setProjectId(newExpense.getProjectId());
+                        vendorPayment.setProjectId(newExpense.getProjectId() != null ? newExpense.getProjectId() : 0L);
                         if (newExpense.getCreditAmount() == 0) {
                             vendorPayment.setTransactionType(TransactionType.DEBIT);
                         } else if (newExpense.getAmountPaid() == 0) {
@@ -851,33 +857,42 @@ public class ExpenseService {
                         vendorAccountDetailRepo.save(vendorPayment);
                     }
 
-                    if (newExpense.getProjectId() != oldExpense.getProjectId()) {
+                    // Handle project changes only if projects are involved
+                    Long oldProjectId = oldExpense.getProjectId() != null ? oldExpense.getProjectId() : 0L;
+                    Long newProjectId = newExpense.getProjectId() != null ? newExpense.getProjectId() : 0L;
 
-                        Optional<Project> newProjectOptional = projectRepo.findById(newExpense.getProjectId());
-                        if (newProjectOptional.isEmpty())
-                            throw new IllegalArgumentException("Invalid Updated Project!");
+                    if (!oldProjectId.equals(newProjectId)) {
+                        // Project changed or added/removed
 
-                        oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
-                        oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
+                        // Remove from old project if it existed
+                        if (oldProject != null) {
+                            oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
+                            oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
+                            projectRepo.save(oldProject);
+                        }
 
-                        projectRepo.save(oldProject);
+                        // Add to new project if provided
+                        if (newProjectId > 0) {
+                            Optional<Project> newProjectOptional = projectRepo.findById(newProjectId);
+                            if (newProjectOptional.isEmpty())
+                                throw new IllegalArgumentException("Invalid Updated Project!");
 
+                            Project newProject = newProjectOptional.get();
 
-                        Project newProject = newProjectOptional.get();
+                            double updatedConstructionAmount = newProject.getConstructionAmount() + newExpense.getTotalAmount();
+                            double updatedTotalAmount = newProject.getTotalAmount() + newExpense.getTotalAmount();
 
-                        double updatedConstructionAmount = newProject.getConstructionAmount() + (newExpense.getTotalAmount());
-                        double updatedTotalAmount = newProject.getTotalAmount() + (newExpense.getTotalAmount());
+                            newProject.setTotalAmount(updatedTotalAmount);
+                            newProject.setConstructionAmount(updatedConstructionAmount);
+                            newProject.setUpdatedBy(loggedInUser);
 
-                        newProject.setTotalAmount(updatedTotalAmount);
-                        newProject.setConstructionAmount(updatedConstructionAmount);
-                        newProject.setUpdatedBy(loggedInUser);
+                            projectRepo.save(newProject);
 
-                        projectRepo.save(newProject);
+                            newExpense.setProjectName(newProject.getName());
+                        }
 
-                        newExpense.setProjectName(newProject.getName());
-
-
-                    } else {
+                    } else if (oldProject != null) {
+                        // Same project, update the amounts
 
                         double updatedConstructionAmount = oldProject.getConstructionAmount() + (newExpense.getTotalAmount() - oldExpense.getTotalAmount());
                         double updatedTotalAmount = oldProject.getTotalAmount() + (newExpense.getTotalAmount() - oldExpense.getTotalAmount());

@@ -29,12 +29,12 @@ public class WarehouseIntegrationService {
     private final ExpenseItemRepository expenseItemRepository;
 
     /**
-     * Process GRN approval and add stock to warehouse if receipt type is WAREHOUSE_STOCK
+     * Process GRN approval and add stock to warehouse if receipt type is STOCK
      */
     @Transactional
     public void processGrnApproval(Grn grn, List<GrnItems> grnItems, String loggedInUser) {
         try {
-            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+            if (grn.getReceiptType() == ReceiptType.STOCK && grn.getWarehouseId() != null) {
 
                 for (GrnItems grnItem : grnItems) {
                     // For GRN, we might not have rate info in GrnItems, use zero or get from PO
@@ -54,9 +54,10 @@ public class WarehouseIntegrationService {
 
                 log.info("GRN processed for warehouse stock: GRN={}, Warehouse={}", grn.getId(), grn.getWarehouseId());
 
-            } else if (grn.getReceiptType() == ReceiptType.DIRECT_CONSUME) {
+            } else if (grn.getReceiptType() == ReceiptType.DIRECT) {
                 // Direct consumption - no stock entry needed
-                log.info("GRN processed for direct consumption: GRN={}, Project={}", grn.getId(), grn.getDirectConsumeProjectId());
+                // Construction amount will be updated when vendor payment is made
+                log.info("GRN processed for direct consumption: GRN={}, Project={}", grn.getId(), grn.getDirectProjectId());
             }
 
         } catch (Exception e) {
@@ -71,7 +72,7 @@ public class WarehouseIntegrationService {
     @Transactional
     public void processGrnApprovalWithRate(Grn grn, List<GrnItems> grnItems, Map<Long, Double> itemRateMap, String loggedInUser) {
         try {
-            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+            if (grn.getReceiptType() == ReceiptType.STOCK && grn.getWarehouseId() != null) {
 
                 for (GrnItems grnItem : grnItems) {
                     BigDecimal rate = BigDecimal.ZERO;
@@ -93,8 +94,10 @@ public class WarehouseIntegrationService {
 
                 log.info("GRN processed for warehouse stock with rates: GRN={}, Warehouse={}", grn.getId(), grn.getWarehouseId());
 
-            } else if (grn.getReceiptType() == ReceiptType.DIRECT_CONSUME) {
-                log.info("GRN processed for direct consumption: GRN={}, Project={}", grn.getId(), grn.getDirectConsumeProjectId());
+            } else if (grn.getReceiptType() == ReceiptType.DIRECT) {
+                // Direct consumption - no stock entry needed
+                // Construction amount will be updated when vendor payment is made
+                log.info("GRN processed for direct consumption: GRN={}, Project={}", grn.getId(), grn.getDirectProjectId());
             }
 
         } catch (Exception e) {
@@ -110,7 +113,7 @@ public class WarehouseIntegrationService {
     @Transactional
     public void reverseGrnStock(Grn grn, List<GrnItems> grnItems, String loggedInUser) {
         try {
-            if (grn.getReceiptType() == ReceiptType.WAREHOUSE_STOCK && grn.getWarehouseId() != null) {
+            if (grn.getReceiptType() == ReceiptType.STOCK && grn.getWarehouseId() != null) {
 
                 for (GrnItems grnItem : grnItems) {
                     if (grnItem.getQuantityReceived() != null && grnItem.getQuantityReceived() > 0) {
