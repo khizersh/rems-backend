@@ -1,0 +1,174 @@
+{
+  "info": {
+    "name": "Customer Dashboard API",
+    "description": "Customer Dashboard endpoints for Real Estate ERP System. All endpoints require JWT authentication.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{jwt_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.collectionVariables.set('jwt_token', jsonData.data.token);",
+                  "        console.log('JWT Token saved:', jsonData.data.token);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"customer_username\",\n  \"password\": \"customer_password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/user/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "user", "login"]
+            },
+            "description": "Login to get JWT token. Replace username and password with actual customer credentials."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Get Customer Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/summary",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "summary"]
+            },
+            "description": "Get customer summary with KPIs: total bookings, total amount, paid amount, remaining amount, overdue amount."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Chart Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/payment-chart",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "payment-chart"]
+            },
+            "description": "Get monthly payment data for visualization (bar charts, line graphs)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Payment Mode Distribution",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/payment-modes",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "payment-modes"]
+            },
+            "description": "Get payment breakdown by mode (Cash, Bank Transfer, Cheque, etc.) for pie chart."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recent Payments (Default)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/recent-payments",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "recent-payments"]
+            },
+            "description": "Get last 10 recent payment transactions (default limit)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recent Payments (Custom Limit)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/recent-payments?limit=5",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "recent-payments"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5",
+                  "description": "Number of recent payments to fetch"
+                }
+              ]
+            },
+            "description": "Get recent payments with custom limit (e.g., last 5 payments)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Account Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/customer/dashboard/accounts",
+              "host": ["{{base_url}}"],
+              "path": ["api", "customer", "dashboard", "accounts"]
+            },
+            "description": "Get all customer accounts (bookings/units) with payment status and remaining balance."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

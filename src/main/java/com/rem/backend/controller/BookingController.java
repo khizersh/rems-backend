@@ -2,6 +2,7 @@ package com.rem.backend.controller;
 
 
 import com.rem.backend.dto.booking.BookingCancellationRequest;
+import com.rem.backend.dto.booking.BookingCompleteRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.service.BookingCancellationService;
@@ -82,4 +83,11 @@ public class BookingController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/markComplete")
+    public ResponseEntity<?> markBookingComplete(@RequestBody BookingCompleteRequest request,
+                                                 HttpServletRequest httpRequest) {
+        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> response = bookingService.markBookingComplete(request.getBookingId(), request.isBookingComplete(), loggedInUser);
+        return ResponseEntity.ok(response);
+    }
 }

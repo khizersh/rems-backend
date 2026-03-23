@@ -79,6 +79,7 @@ public class CustomerService {
                 User user = userOptional.get();
 
                 customer.setEmail(user.getEmail());
+                customer.setUsername(user.getUsername());
 
                 return ResponseMapper.buildResponse(Responses.SUCCESS, customer);
 
@@ -185,11 +186,13 @@ public class CustomerService {
                     customers = customerRepo.findByOrganizationId(id, pageable);
             }
 
-//            customers.getContent().forEach(customer -> {
-//                customer.setProjectName(projectRepo.findProjectNameById(customer.getProjectId()));
-//                customer.setFloorNo(floorRepo.findFloorNoById(customer.getFloorId()));
-//                customer.setUnitSerialNo(unitRepo.findUnitSerialById(customer.getUnitId()));
-//            });
+            customers.getContent().forEach(customer -> {
+               Optional<User> userOptional = userRepo.findById(customer.getUserId());
+                userOptional.ifPresent(user ->{
+                    customer.setUsername(user.getUsername());
+                    customer.setPassword(user.getPassword());
+                } );
+            });
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, customers);
 
@@ -388,15 +391,52 @@ public class CustomerService {
             ValidationService.validate(loggedInUser, "Updated By");
             ValidationService.validate(customer.getContactNo(), "Contact No");
 
-            if (customer.getEmail() != null) {
-                Optional<User> userOptional = userRepo.findById(customer.getUserId());
-                User user = userOptional.get();
+            // Get the existing user record
+            Optional<User> userOptional = userRepo.findById(customer.getUserId());
+            if (userOptional.isEmpty()) {
+                throw new IllegalArgumentException("Invalid User");
+            }
+
+            User user = userOptional.get();
+            boolean userUpdated = false;
+
+            // Update email if provided
+            if (customer.getEmail() != null && !customer.getEmail().equals(user.getEmail())) {
+                if (!ValidationService.isValidEmail(customer.getEmail())) {
+                    throw new IllegalArgumentException("Invalid Email format!");
+                }
                 user.setEmail(customer.getEmail());
+                userUpdated = true;
+            }
+
+            // Update username if provided and different from current
+            if (customer.getUsername() != null && !customer.getUsername().equals(user.getUsername())) {
+                ValidationService.validate(customer.getUsername(), "Username");
+
+                // Check if username already exists in the same organization
+                Optional<User> existingUserWithUsername = userRepo.findByUsernameAndOrganizationId(
+                    customer.getUsername(), customer.getOrganizationId());
+
+                if (existingUserWithUsername.isPresent() &&
+                    !existingUserWithUsername.get().getId().equals(user.getId())) {
+                    throw new IllegalArgumentException("Username '" + customer.getUsername() +
+                        "' already exists in this organization!");
+                }
+
+                user.setUsername(customer.getUsername());
+                userUpdated = true;
+            }
+
+            // Save user if any updates were made
+            if (userUpdated) {
+                user.setUpdatedBy(loggedInUser);
                 userRepo.save(user);
             }
 
+            // Update customer
             customer.setUpdatedBy(loggedInUser);
             Customer savedCustomer = customerRepo.save(customer);
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, savedCustomer);
 
         } catch (IllegalArgumentException e) {

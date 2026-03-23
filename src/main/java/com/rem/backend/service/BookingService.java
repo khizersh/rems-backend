@@ -134,6 +134,10 @@ public class BookingService {
             validateBooking(booking);
 
 
+            Booking bookingSaved = bookingRepository.findById(booking.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Booking!"));
+
+
 
             if (booking.getCustomerId() == null)
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
@@ -180,11 +184,12 @@ public class BookingService {
                 booking.setProjectId(optionalFloor.get().getProjectId());
             }
 
-            booking.setUnitSerial(unit.getSerialNo());
-            booking.setCreatedBy(loggedInUser);
-            booking.setUpdatedBy(loggedInUser);
-            booking.setFloorId(unit.getFloorId());
-            Booking bookingSaved = bookingRepository.save(booking);
+            bookingSaved.setUnitSerial(unit.getSerialNo());
+            bookingSaved.setCreatedBy(loggedInUser);
+            bookingSaved.setUpdatedBy(loggedInUser);
+            bookingSaved.setFloorId(unit.getFloorId());
+            bookingSaved = bookingRepository.save(bookingSaved);
+            bookingSaved.setPaymentSchedule(booking.getPaymentSchedule());
             updateCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
@@ -518,5 +523,29 @@ public class BookingService {
         }
     }
 
+    @Transactional
+    public Map<String, Object> markBookingComplete(long bookingId, boolean bookingComplete, String loggedInUser) {
+        try {
+            ValidationService.validate(bookingId, "bookingId");
+            Optional<Booking> bookingOptional = bookingRepository.findById(bookingId);
+            if (bookingOptional.isEmpty()) {
+                return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, "Booking not found");
+            }
 
+            Booking booking = bookingOptional.get();
+            booking.setBookingComplete(bookingComplete);
+            booking.setUpdatedBy(loggedInUser);
+            booking.setUpdatedDate(java.time.LocalDateTime.now());
+
+            Booking saved = bookingRepository.save(booking);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
 }

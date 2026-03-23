@@ -142,6 +142,39 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 //""", nativeQuery = true)
 //    Double getTotalReceiveableAmountByOrganizationId(@Param("organizationId") Long organizationId);
 
+    // Dashboard queries - customer specific
+    @Query(value = """
+        SELECT COUNT(DISTINCT ca.id)
+        FROM customer_account ca
+        WHERE ca.customer_id = :customerId
+        AND ca.is_active = 1
+    """, nativeQuery = true)
+    Integer countBookingsByCustomerId(@Param("customerId") Long customerId);
 
+    @Query(value = """
+        SELECT COALESCE(SUM(ca.total_amount), 0)
+        FROM customer_account ca
+        WHERE ca.customer_id = :customerId
+        AND ca.is_active = 1
+    """, nativeQuery = true)
+    Double getTotalAmountByCustomerId(@Param("customerId") Long customerId);
+
+    @Query(value = """
+        SELECT COALESCE(SUM(ca.total_paid_amount), 0)
+        FROM customer_account ca
+        WHERE ca.customer_id = :customerId
+        AND ca.is_active = 1
+    """, nativeQuery = true)
+    Double getTotalPaidAmountByCustomerId(@Param("customerId") Long customerId);
+
+    @Query(value = """
+        SELECT COALESCE(SUM(ca.total_balance_amount), 0)
+        FROM customer_account ca
+        WHERE ca.customer_id = :customerId
+        AND ca.is_active = 1
+    """, nativeQuery = true)
+    Double getTotalRemainingAmountByCustomerId(@Param("customerId") Long customerId);
+
+    List<CustomerAccount> findByCustomer_CustomerIdAndIsActiveTrue(Long customerId);
 
 }

@@ -1,11 +1,11 @@
-package com.rem.backend.controller;
+package com.rem.backend.purchasemanagement.controller;
 
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
-import com.rem.backend.service.ExpenseService;
+import com.rem.backend.purchasemanagement.service.ExpenseService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
