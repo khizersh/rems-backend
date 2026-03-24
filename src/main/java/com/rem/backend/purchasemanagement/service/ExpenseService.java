@@ -471,7 +471,6 @@ public class ExpenseService {
                 expense.setVendorName(accountOptional.get().getName());
                 expense.setExpenseTitle(expenseTypeOptional.get().getName());
                 organizationAccountDetail.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
-                expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(expense.getOrganizationId()).getId());
 
                 expense.setExpenseCOAId(journalUtilities.getChartOfAccount(expense.getOrganizationId(),
                         JournalUtilities.CONSTRUCTION_INVENTORY).getId());
