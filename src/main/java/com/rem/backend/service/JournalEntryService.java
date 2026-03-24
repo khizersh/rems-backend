@@ -7,7 +7,9 @@ import com.rem.backend.entity.account.AccountGroup;
 import com.rem.backend.entity.account.ChartOfAccount;
 import com.rem.backend.entity.account.JournalDetailEntry;
 import com.rem.backend.entity.account.JournalEntry;
+import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.CustomerPayment;
+import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.entity.vendor.VendorAccount;
@@ -697,6 +699,98 @@ public class JournalEntryService {
 
     }
 
+    @Transactional
+    public void createJournalEntryForBookingCancellation(
+            Long organizationId,
+            Booking booking,
+            double deposited,
+            double totalFees,
+            String loggedInUser
+    ) {
+
+        double totalDebit = 0;
+        double totalCredit = 0;
+
+        ChartOfAccount bookingLiability =
+                journalUtilities.getChartOfAccount(organizationId, BOOKING_LIABILITY);
+
+        ChartOfAccount cancellationRevenue =
+                journalUtilities.getChartOfAccount(organizationId, CANCELLATION_REVENUE_ACCOUNT);
+
+        ChartOfAccount refundPayable =
+                journalUtilities.getChartOfAccount(organizationId, REFUND_ACCOUNT);
+
+        double refund = deposited - totalFees;
+
+        JournalEntry journalEntry = new JournalEntry();
+        journalEntry.setOrganizationId(organizationId);
+        journalEntry.setReferenceType("BOOKING_CANCELLATION");
+        journalEntry.setBookingId(booking.getId());
+        journalEntry.setUnitId(booking.getUnitId());
+        journalEntry.setDescription("Booking cancelled. ID: " + booking.getId());
+        journalEntry.setStatus(JournalEntryStatus.POSTED);
+        journalEntry.setCreatedBy(loggedInUser);
+
+        journalEntry = journalEntryRepository.save(journalEntry);
+
+        List<JournalDetailEntry> entries = new ArrayList<>();
+
+        entries.add(buildEntry(journalEntry.getId(), bookingLiability.getId(), deposited, 0));
+        totalDebit += deposited;
+
+        if (totalFees > 0) {
+            entries.add(buildEntry(journalEntry.getId(), cancellationRevenue.getId(), 0, totalFees));
+            totalCredit += totalFees;
+        }
+
+        if (refund > 0) {
+            entries.add(buildEntry(journalEntry.getId(), refundPayable.getId(), 0, refund));
+            totalCredit += refund;
+        }
+
+        validateAndSave(entries, totalDebit, totalCredit);
+    }
+
+
+
+    @Transactional
+    public void createJournalEntryForRefundPayment(
+            Long organizationId,
+            OrganizationAccountDetail orgAccountDetail,
+            double amount,
+            CustomerPayable customerPayable,
+            String loggedInUser
+    ) {
+
+        double totalDebit = 0;
+        double totalCredit = 0;
+
+        ChartOfAccount bank =
+                findBankAccount(orgAccountDetail.getOrganizationAcctId(), organizationId);
+
+        ChartOfAccount refundPayable =
+                journalUtilities.getChartOfAccount(organizationId, REFUND_ACCOUNT);
+
+        JournalEntry journalEntry = new JournalEntry();
+        journalEntry.setOrganizationId(organizationId);
+        journalEntry.setReferenceType("REFUND_PAYMENT");
+        journalEntry.setBookingId(customerPayable.getBooking().getId());
+        journalEntry.setDescription("Refund paid to customer");
+        journalEntry.setStatus(JournalEntryStatus.POSTED);
+        journalEntry.setCreatedBy(loggedInUser);
+
+        journalEntry = journalEntryRepository.save(journalEntry);
+
+        List<JournalDetailEntry> entries = new ArrayList<>();
+
+        entries.add(buildEntry(journalEntry.getId(), refundPayable.getId(), amount, 0));
+        totalDebit += amount;
+
+        entries.add(buildEntry(journalEntry.getId(), bank.getId(), 0, amount));
+        totalCredit += amount;
+
+        validateAndSave(entries, totalDebit, totalCredit);
+    }
 
     @Transactional
     public void internalFundTransfer(
@@ -764,6 +858,38 @@ public class JournalEntryService {
     }
 
 
+    private JournalDetailEntry buildEntry(
+            Long journalEntryId,
+            Long chartOfAccountId,
+            double debit,
+            double credit
+    ) {
+        JournalDetailEntry entry = new JournalDetailEntry();
+
+        entry.setJournalEntryId(journalEntryId);
+        entry.setChartOfAccountId(chartOfAccountId);
+        entry.setDebitAmount(debit);
+        entry.setCreditAmount(credit);
+
+        return entry;
+    }
+
+
+    private void validateAndSave(
+            List<JournalDetailEntry> entries,
+            double totalDebit,
+            double totalCredit
+    ) {
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            throw new RuntimeException(
+                    "Journal imbalance Debit: " + totalDebit + " Credit: " + totalCredit
+            );
+        }
+
+        for (JournalDetailEntry entry : entries) {
+            journalDetailEntryRepository.save(entry);
+        }
+    }
 
 }
 

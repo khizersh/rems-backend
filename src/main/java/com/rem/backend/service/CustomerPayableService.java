@@ -39,6 +39,7 @@ public class CustomerPayableService {
     private final CustomerPayableDetailRepository customerPayableDetailRepository;
     private final CustomerPayableFeeDetailRepo customerPayableFeeDetailRepo;
     private final OrganizationAccountService organizationAccountService;
+    private final JournalEntryService journalEntryService;
 
 
     public Map<String, Object> getCustomerPayable(long bookingId, long unitId) {
@@ -120,6 +121,7 @@ public class CustomerPayableService {
         try {
             CustomerPayable customerPayable = customerPayableRepository.findById(customerPayableId)
                     .orElseThrow(() -> new Exception("Customer Payable doesn't exist or is already cancelled"));
+            OrganizationAccountDetail organizationAccountDetail = null;
 
             if (customerPayable.getBalanceAmount() <= 0)
                 throw new RuntimeException("This booking is already paid!.");
@@ -147,7 +149,7 @@ public class CustomerPayableService {
                 detail.setCreatedBy(loggedInUser);
                 detail.setUpdatedBy(loggedInUser);
 
-                OrganizationAccountDetail organizationAccountDetail = getOrganizationAccountDetail(d, customerPayable);
+                organizationAccountDetail = getOrganizationAccountDetail(d, customerPayable);
 
                 organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
 
@@ -168,6 +170,13 @@ public class CustomerPayableService {
             }
 
             customerPayableRepository.save(customerPayable);
+
+            journalEntryService.createJournalEntryForRefundPayment(customerPayable.getCustomer().getOrganizationId(),
+                    organizationAccountDetail,
+                    totalPaid,
+                    customerPayable,
+                    loggedInUser
+                    );
 
             CustomerPayableFeeDetailListDto feeDto =
                     CustomerPayableFeeDetailListDto.fromEntityList(customerPayable.getFeeDetails());

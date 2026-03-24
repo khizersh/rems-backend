@@ -25,6 +25,7 @@ public class JournalUtilities {
     public static final String CONSTRUCTION_INVENTORY = "Construction Inventory";
     public static final String BOOKING_LIABILITY = "Booking Liability";
     public static final String VENDOR_PAYABLE = "Vendor Payable";
+    public static final String CANCELLATION_REVENUE_ACCOUNT = "Booking Cancellation Revenue";
 
 
 
