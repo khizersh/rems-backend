@@ -10,6 +10,7 @@ import com.rem.backend.entity.account.JournalEntry;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.JournalEntryStatus;
@@ -273,7 +274,7 @@ public class JournalEntryService {
     }
 
     @Transactional
-    public void createVendorPaymentJournalEntry(Expense expense,
+    public void createVendorPaymentJournalEntry(VendorAccount vendorAccount,
                                                 OrganizationAccount organizationAccount,
                                                 double paymentAmount,
                                                 String loggedInUser) {
@@ -284,26 +285,27 @@ public class JournalEntryService {
 
             // Create Journal Entry header
             JournalEntry journalEntry = new JournalEntry();
-            journalEntry.setOrganizationId(expense.getOrganizationId());
+            journalEntry.setOrganizationId(vendorAccount.getOrganizationId());
             journalEntry.setCreatedDate(java.time.LocalDateTime.now());
             journalEntry.setReferenceType("VENDOR_PAYMENT");
-            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setExpenseId(0L);
             journalEntry.setOrganizationAccountId(organizationAccount.getId());
-            journalEntry.setDescription("Vendor Payment: " + expense.getExpenseTitle() +
-                    " - Paying " + expense.getVendorName());
+            journalEntry.setDescription("Vendor Payment: " +
+                    " - Paying " + vendorAccount.getName());
             journalEntry.setStatus(JournalEntryStatus.POSTED);
             journalEntry.setCreatedBy(loggedInUser);
             journalEntry = journalEntryRepository.save(journalEntry);
 
-            log.info("Created Journal Entry ID: {} for Vendor Payment, Expense ID: {}",
-                    journalEntry.getId(), expense.getId());
+            log.info("Created Journal Entry ID: {} for Vendor Payment, Vendor ID: {}",
+                    journalEntry.getId(), vendorAccount.getId());
 
             // Get Bank account
-            ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), expense.getOrganizationId());
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), vendorAccount.getOrganizationId());
             if (bankAccount == null) throw new RuntimeException("Bank account not found");
 
             // Get Vendor Payable (AP) account
-            ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+            ChartOfAccount accountsPayableAccount = journalUtilities
+                    .getChartOfAccount(vendorAccount.getOrganizationId(), VENDOR_PAYABLE);
 
             // Debit AP (reduce liability)
             JournalDetailEntry debitAP = new JournalDetailEntry();
@@ -311,7 +313,7 @@ public class JournalEntryService {
             debitAP.setChartOfAccountId(accountsPayableAccount.getId());
             debitAP.setDebitAmount(paymentAmount);
             debitAP.setCreditAmount(0.0);
-            debitAP.setDescription("Payment to vendor: " + expense.getVendorName());
+            debitAP.setDescription("Payment to vendor: " + vendorAccount.getName());
             detailEntries.add(debitAP);
             totalDebit += paymentAmount;
 
@@ -341,7 +343,7 @@ public class JournalEntryService {
                     journalEntry.getId(), totalDebit, totalCredit);
 
         } catch (Exception e) {
-            log.error("Failed to create vendor payment journal entry for expense {}: {}", expense.getId(), e.getMessage(), e);
+            log.error("Failed to create vendor payment journal entry for vendor {}: {}", vendorAccount.getId(), e.getMessage(), e);
             throw new RuntimeException("Failed to create vendor payment journal entry: " + e.getMessage(), e);
         }
     }
