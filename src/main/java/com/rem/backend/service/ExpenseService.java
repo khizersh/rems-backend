@@ -13,8 +13,10 @@ import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
+import com.rem.backend.enums.PaymentMode;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
+import com.rem.backend.enums.PdcStatus;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.enums.VendorPaymentType;
 import com.rem.backend.repository.*;
@@ -413,12 +415,28 @@ public class ExpenseService {
             if (!organizationAccountOptional.isPresent())
                 throw new IllegalArgumentException("Invalid Account");
 
+            // ── PDC MODE: determine if this is a Post-Dated Cheque ──────────
+            boolean isPdc = expense.getPaymentMode() != null && expense.getPaymentMode().equals(PaymentMode.PDC);
 
+            if (isPdc) {
+                // PDC validations
+                if (expense.getChequeNumber() == null || expense.getChequeNumber().isBlank())
+                    throw new IllegalArgumentException("Cheque number is required for PDC payments");
+                if (expense.getChequeDate() == null)
+                    throw new IllegalArgumentException("Cheque date is required for PDC payments");
+                if (expense.getChequeDate().isBefore(java.time.LocalDate.now()))
+                    throw new IllegalArgumentException("Cheque date must be today or a future date");
+                if (expense.getAmountPaid() <= 0 && expense.getTotalAmount() <= 0)
+                    throw new IllegalArgumentException("Amount must be greater than 0 for PDC payments");
+            }
+
+            // ── Balance validation: skip for PDC ──────────────────────────
             OrganizationAccount organizationAccountValidate = organizationAccountOptional.get();
-            double remainingAmount = organizationAccountValidate.getTotalAmount() - expense.getAmountPaid();
-
-            if (remainingAmount < 0)
-                throw new IllegalArgumentException("Not Enough Funds for this account");
+            if (!isPdc) {
+                double remainingAmount = organizationAccountValidate.getTotalAmount() - expense.getAmountPaid();
+                if (remainingAmount < 0)
+                    throw new IllegalArgumentException("Not Enough Funds for this account");
+            }
 
             double updatedCreditBalance = 0;
             if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
@@ -434,9 +452,15 @@ public class ExpenseService {
 
                 VendorAccount vendorAccount = accountOptional.get();
                 vendorAccount.setTotalAmount(vendorAccount.getTotalAmount() + expense.getTotalAmount());
-                vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expense.getAmountPaid());
-                updatedCreditBalance = vendorAccount.getTotalCreditAmount() + expense.getCreditAmount();
-                vendorAccount.setTotalCreditAmount(updatedCreditBalance);
+                if (isPdc) {
+                    // PDC: Do NOT mark as paid yet — track full amount as credit/payable
+                    updatedCreditBalance = vendorAccount.getTotalCreditAmount() + expense.getTotalAmount();
+                    vendorAccount.setTotalCreditAmount(updatedCreditBalance);
+                } else {
+                    vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() + expense.getAmountPaid());
+                    updatedCreditBalance = vendorAccount.getTotalCreditAmount() + expense.getCreditAmount();
+                    vendorAccount.setTotalCreditAmount(updatedCreditBalance);
+                }
                 vendorAccountRepo.save(vendorAccount);
 
 
@@ -487,6 +511,25 @@ public class ExpenseService {
 
             expense.setUpdatedBy(loggedInUser);
             expense.setCreatedBy(loggedInUser);
+
+            // ── PDC: set status and save without deduction ──────────────
+            if (isPdc) {
+                expense.setPdcStatus(PdcStatus.PENDING);
+                expense.setPaymentStatus(PaymentStatus.PENDING);
+                if (expense.getPaymentMode() == null)
+                    expense.setPaymentMode(PaymentMode.PDC);
+                expense = expenseRepo.save(expense);
+                expense.setOrgAccountTitle(organizationAccountValidate.getName());
+
+                // No balance deduction, no expense detail, no vendor payment, no journal entry
+                // All of these will happen when the PDC is cleared via /payments/process-pdc/{id}
+                return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
+            }
+
+            // ── CASH / CREDIT: existing flow ────────────────────────────
+            if (expense.getPaymentMode() == null) {
+                expense.setPaymentMode(expense.getCreditAmount() > 0 ? PaymentMode.CREDIT : PaymentMode.CASH);
+            }
             expense.setPaymentStatus(getPaymentStatus(expense));
             expense = expenseRepo.save(expense);
 

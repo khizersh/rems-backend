@@ -2,11 +2,14 @@ package com.rem.backend.entity.expense;
 
 
 import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.PaymentMode;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
+import com.rem.backend.enums.PdcStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -42,6 +45,25 @@ public class Expense {
 
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
+
+    // ── PDC (Post-Dated Cheque) Fields ──────────────────────────────
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private PaymentMode paymentMode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = true)
+    private PdcStatus pdcStatus;
+
+    @Column(nullable = true)
+    private String chequeNumber;
+
+    @Column(nullable = true)
+    private LocalDate chequeDate;
+
+    @Column(nullable = true)
+    private String bankName;
+    // ────────────────────────────────────────────────────────────────
 
     @Column(nullable = false)
     private String createdBy;

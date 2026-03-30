@@ -2,7 +2,9 @@ package com.rem.backend.repository;
 
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.enums.ExpenseType;
+import com.rem.backend.enums.PaymentMode;
 import com.rem.backend.enums.PaymentStatus;
+import com.rem.backend.enums.PdcStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -243,5 +246,64 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             Pageable pageable
     );
 
+
+    // ── PDC (Post-Dated Cheque) Queries ────────────────────────────────────
+
+    /** All PDC expenses for an organization */
+    Page<Expense> findAllByOrganizationIdAndPaymentMode(
+            long organizationId, PaymentMode paymentMode, Pageable pageable);
+
+    /** PDC expenses due today */
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.organizationId = :orgId
+          AND e.paymentMode = 'PDC'
+          AND e.pdcStatus = 'PENDING'
+          AND e.chequeDate = :today
+    """)
+    Page<Expense> findPdcDueToday(
+            @Param("orgId") long orgId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    /** Overdue PDC expenses (cheque date < today and still PENDING) */
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.organizationId = :orgId
+          AND e.paymentMode = 'PDC'
+          AND e.pdcStatus = 'PENDING'
+          AND e.chequeDate < :today
+    """)
+    Page<Expense> findPdcOverdue(
+            @Param("orgId") long orgId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    /** Upcoming PDC expenses (cheque date > today and PENDING) */
+    @Query("""
+        SELECT e FROM Expense e
+        WHERE e.organizationId = :orgId
+          AND e.paymentMode = 'PDC'
+          AND e.pdcStatus = 'PENDING'
+          AND e.chequeDate > :today
+    """)
+    Page<Expense> findPdcUpcoming(
+            @Param("orgId") long orgId,
+            @Param("today") LocalDate today,
+            Pageable pageable);
+
+    /** All PENDING PDC expenses for an organization */
+    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatus(
+            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus, Pageable pageable);
+
+    /** PDC by vendor */
+    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatusAndVendorAccountId(
+            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus,
+            long vendorAccountId, Pageable pageable);
+
+    /** PDC by project */
+    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatusAndProjectId(
+            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus,
+            long projectId, Pageable pageable);
 
 }
