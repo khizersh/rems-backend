@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/hr/attendance")
+@RequestMapping("/api/hr/attendance/mark")
 @RequiredArgsConstructor
 public class AttendanceController {
 
