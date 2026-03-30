@@ -11,6 +11,7 @@ import com.rem.backend.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountDetailRepo;
+import com.rem.backend.service.AccountService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
@@ -35,6 +36,7 @@ public class OrganizationAccountService {
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
     private final ProjectRepo projectRepo;
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
+    private final AccountService accountService;
 
     public Map<String, Object> getOrgAccountsByOrgId(long orgId) {
         try {
@@ -216,6 +218,7 @@ public class OrganizationAccountService {
         }
     }
 
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Map<String, Object> addAccountByOrg(OrganizationAccount organizationAccount, String loggedInUser) {
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
@@ -224,7 +227,11 @@ public class OrganizationAccountService {
             ValidationService.validate(organizationAccount.getBankName(), "orgId");
             organizationAccount.setCreatedBy(loggedInUser);
             organizationAccount.setUpdatedBy(loggedInUser);
-            return ResponseMapper.buildResponse(Responses.SUCCESS, organizationAccountRepo.save(organizationAccount));
+            OrganizationAccount saved = organizationAccountRepo.save(organizationAccount);
+
+            accountService.createOrganizationAccount(saved,loggedInUser);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
 
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());

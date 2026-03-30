@@ -171,5 +171,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     );
 
 
-
+    java.util.Optional<Booking> findByCustomerIdAndUnitIdAndIsActiveTrue(Long customerId, Long unitId);
 }

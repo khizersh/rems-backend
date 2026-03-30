@@ -523,5 +523,29 @@ public class BookingService {
         }
     }
 
+    @Transactional
+    public Map<String, Object> markBookingComplete(long bookingId, boolean bookingComplete, String loggedInUser) {
+        try {
+            ValidationService.validate(bookingId, "bookingId");
+            Optional<Booking> bookingOptional = bookingRepository.findById(bookingId);
+            if (bookingOptional.isEmpty()) {
+                return ResponseMapper.buildResponse(Responses.NO_DATA_FOUND, "Booking not found");
+            }
 
+            Booking booking = bookingOptional.get();
+            booking.setBookingComplete(bookingComplete);
+            booking.setUpdatedBy(loggedInUser);
+            booking.setUpdatedDate(java.time.LocalDateTime.now());
+
+            Booking saved = bookingRepository.save(booking);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
+        } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            e.printStackTrace();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
 }

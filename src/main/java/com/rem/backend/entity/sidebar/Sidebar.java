@@ -28,6 +28,9 @@ public class Sidebar {
     @Column(nullable = false)
     private String roles;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean isPage = false;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "parent_id")
     private List<ChildSidebar> childList = new ArrayList<>();

@@ -59,6 +59,9 @@ public class Booking {
     @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
     private boolean isActive = true;
 
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean bookingComplete = false;
+
     @Transient
     private String projectName;
 

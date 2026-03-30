@@ -33,6 +33,7 @@ public class CustomerPaymentService {
     private final CustomerRepo customerRepo;
     private final UnitRepo unitRepo;
     private final OrganizationAccountService organizationAccountService;
+    private final BookingRepository bookingRepository;
 
     public Map<String, Object> getPaymentsByCustomerAccountId(long customerAccountId, Pageable pageable) {
         try {
@@ -159,13 +160,20 @@ public class CustomerPaymentService {
             ValidationService.validate(customerPayment.getOrganizationAccountDetails(), "receiving account");
             Optional<CustomerAccount> customerAccountOp = customerAccountRepo.findById(customerPayment.getCustomerAccountId());
 
+            if (customerAccountOp.isEmpty())
+                throw new IllegalArgumentException("Invalid Account!");
+
+            CustomerAccount customerAccount = customerAccountOp.get();
+            Optional<com.rem.backend.entity.booking.Booking> bookingOptional = bookingRepository
+                    .findByCustomerIdAndUnitIdAndIsActiveTrue(customerAccount.getCustomer().getCustomerId(), customerAccount.getUnit().getId());
+            if (bookingOptional.isPresent() && bookingOptional.get().isBookingComplete()) {
+                throw new IllegalArgumentException("Booking is marked complete; no further payments are allowed.");
+            }
+
             if (customerPayment.getCustomerPaymentDetails() == null ||
                     customerPayment.getCustomerPaymentDetails().size() == 0)
                 throw new IllegalArgumentException("Invalid Payment");
 
-            CustomerAccount customerAccount = customerAccountOp.get();
-            if (customerAccountOp.isEmpty())
-                throw new IllegalArgumentException("Invalid Account!");
 
             Double totalReceivedAmount = customerAccount.getTotalBalanceAmount();
 

@@ -1,1370 +1,1487 @@
-# Customer Dashboard API - Frontend Integration Guide
+# Frontend Integration Guide - GRN Multi-Invoice Support
 
-## 📋 Overview
+## Overview
+This document provides complete integration details for the **GRN Invoice Status Enhancement** feature that enables multiple invoices per GRN with accurate partial invoicing tracking.
 
-This guide provides everything needed to integrate the Customer Dashboard APIs into a React frontend application. All APIs are JWT-authenticated and automatically resolve customer data from the logged-in user's token.
+**Target Audience**: Frontend Developers, React Developers  
+**Date**: March 1, 2026  
+**Version**: 1.0
 
 ---
 
-## 🔐 Authentication Setup
+## 🎯 What Changed
 
-### 1. API Configuration
+### Old System (Boolean Flag)
+- ❌ Only knew if GRN had "any invoice" (true/false)
+- ❌ Could not track partial invoicing
+- ❌ Could not support multiple invoices properly
 
+### New System (Enum Status)
+- ✅ Three accurate states: NOT_INVOICED, PARTIALLY_INVOICED, FULLY_INVOICED
+- ✅ Tracks exact invoicing progress per item
+- ✅ Supports unlimited invoices per GRN
+- ✅ Prevents over-invoicing automatically
+
+---
+
+## 🔄 Breaking Changes
+
+### API Request Parameter Change
+
+#### ❌ OLD (No longer works)
 ```javascript
-// src/api/config.js
+// Filter GRNs - OLD API
+const request = {
+  orgId: 1,
+  invoiceCreated: true,  // ❌ REMOVED - Boolean
+  page: 0,
+  size: 10
+};
+```
+
+#### ✅ NEW (Required)
+```javascript
+// Filter GRNs - NEW API
+const request = {
+  orgId: 1,
+  invoiceStatus: "PARTIALLY_INVOICED",  // ✅ NEW - Enum
+  page: 0,
+  size: 10,
+  sortBy: "createdDate",
+  sortDir: "desc"
+};
+```
+
+### API Response Field Change
+
+#### ❌ OLD Response
+```javascript
+{
+  "data": {
+    "id": 1,
+    "grnNumber": "GRN-20260301-001",
+    "invoiceCreated": true,  // ❌ REMOVED
+    "grnItemsList": [...]
+  }
+}
+```
+
+#### ✅ NEW Response
+```javascript
+{
+  "data": {
+    "id": 1,
+    "grnNumber": "GRN-20260301-001",
+    "invoiceStatus": "PARTIALLY_INVOICED",  // ✅ NEW
+    "grnItemsList": [
+      {
+        "id": 1,
+        "itemName": "Cement",
+        "quantityReceived": 100.0,
+        "quantityInvoiced": 50.0  // Track invoiced vs received
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 📋 New Invoice Status Enum
+
+### TypeScript/JavaScript Type Definition
+```typescript
+// Add this to your types file
+export type GrnInvoiceStatus = 
+  | "NOT_INVOICED"        // No invoices created yet
+  | "PARTIALLY_INVOICED"  // Some items invoiced, some pending
+  | "FULLY_INVOICED";     // All items fully invoiced
+
+// GRN Interface
+export interface Grn {
+  id: number;
+  grnNumber: string;
+  status: "RECEIVED" | "CANCELLED";  // Physical receipt status
+  invoiceStatus: GrnInvoiceStatus;    // NEW: Invoice billing status
+  orgId: number;
+  projectId: number;
+  vendorId: number;
+  poId: number;
+  receivedDate: string;
+  createdDate: string;
+  updatedDate: string;
+  // Transient fields
+  projectName?: string;
+  vendorName?: string;
+  poNumber?: string;
+  grnItemsList?: GrnItem[];
+}
+
+// GRN Item Interface
+export interface GrnItem {
+  id: number;
+  grnId: number;
+  itemId: number;
+  itemName?: string;
+  quantityReceived: number;
+  quantityInvoiced: number;  // NEW: Track invoiced quantity
+  createdDate: string;
+  updatedDate: string;
+}
+
+// Filter Request
+export interface GrnFilterRequest {
+  orgId: number;                           // Required
+  poId?: number | null;
+  vendorId?: number | null;
+  status?: "RECEIVED" | "CANCELLED" | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  invoiceStatus?: GrnInvoiceStatus | null; // NEW: Replaced invoiceCreated
+  page: number;
+  size: number;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+}
+```
+
+---
+
+## 🔌 API Endpoints
+
+### Base URL
+```
+http://localhost:8081/api
+```
+
+### Authentication
+All endpoints require JWT token:
+```javascript
+headers: {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${token}`
+}
+```
+
+---
+
+## 📡 API 1: Get GRNs with Filters
+
+### Endpoint
+```
+POST /api/grn/getByStatusAndDateRange
+```
+
+### Request Body
+```typescript
+interface GetGrnsRequest {
+  orgId: number;                           // REQUIRED
+  poId?: number | null;                    // Optional
+  vendorId?: number | null;                // Optional
+  status?: "RECEIVED" | "CANCELLED" | null;
+  startDate?: string | null;               // Format: "YYYY-MM-DD"
+  endDate?: string | null;                 // Format: "YYYY-MM-DD"
+  invoiceStatus?: GrnInvoiceStatus | null; // NEW: Filter by invoice status
+  page: number;
+  size: number;
+  sortBy: string;
+  sortDir: "asc" | "desc";
+}
+```
+
+### Response
+```typescript
+interface GetGrnsResponse {
+  data: {
+    content: Grn[];
+    totalElements: number;
+    totalPages: number;
+    currentPage: number;
+    pageSize: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  };
+  responseMessage: string;
+  responseCode: string;
+}
+```
+
+### React/Axios Example - Get NOT_INVOICED GRNs
+```javascript
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080';
-
-// Create axios instance with base configuration
-export const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token to all requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('authToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Handle auth errors
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
-export default api;
-```
-
-### 2. Authentication Service
-
-```javascript
-// src/services/authService.js
-import api from '../api/config';
-
-export const authService = {
-  /**
-   * Login user and store JWT token
-   * @param {string} username - Username
-   * @param {string} password - Password
-   * @returns {Promise<{token: string, user: object}>}
-   */
-  login: async (username, password) => {
-    const response = await api.post('/user/login', { username, password });
-    
-    if (response.data.responseCode === '0000') {
-      const { token, user } = response.data.data;
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      return { token, user };
-    }
-    
-    throw new Error(response.data.responseMessage || 'Login failed');
-  },
-
-  /**
-   * Logout user
-   */
-  logout: () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  },
-
-  /**
-   * Check if user is authenticated
-   * @returns {boolean}
-   */
-  isAuthenticated: () => {
-    return !!localStorage.getItem('authToken');
-  },
-
-  /**
-   * Get current user
-   * @returns {object|null}
-   */
-  getCurrentUser: () => {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
-  },
-};
-```
-
----
-
-## 📊 Customer Dashboard Service
-
-### Complete Service Implementation
-
-```javascript
-// src/services/customerDashboardService.js
-import api from '../api/config';
-
-/**
- * Customer Dashboard API Service
- * All methods automatically use JWT token from localStorage
- * No customer ID needed - derived from authenticated user
- */
-export const customerDashboardService = {
-  
-  /**
-   * Get customer summary with KPIs
-   * @returns {Promise<CustomerSummary>}
-   * 
-   * Response Structure:
-   * {
-   *   customerName: string,
-   *   nationalId: string,
-   *   contactNo: string,
-   *   email: string,
-   *   totalBookings: number,
-   *   totalUnitsBooked: number,
-   *   totalAmountPayable: number,
-   *   totalAmountPaid: number,
-   *   totalRemainingAmount: number,
-   *   overdueAmount: number
-   * }
-   */
-  getSummary: async () => {
-    const response = await api.get('/customer/dashboard/summary');
-    
-    if (response.data.responseCode === '0000') {
-      return response.data.data;
-    }
-    
-    throw new Error(response.data.responseMessage || 'Failed to fetch summary');
-  },
-
-  /**
-   * Get monthly payment chart data
-   * @returns {Promise<Array<PaymentChartData>>}
-   * 
-   * Response Structure (Array):
-   * [{
-   *   month: number,           // 1-12
-   *   year: number,            // e.g., 2024
-   *   monthName: string,       // e.g., "Jan"
-   *   totalPaidAmount: number,
-   *   totalDueAmount: number,
-   *   cumulativeRemaining: number
-   * }]
-   */
-  getPaymentChart: async () => {
-    const response = await api.get('/customer/dashboard/payment-chart');
-    
-    if (response.data.responseCode === '0000') {
-      return response.data.data;
-    }
-    
-    throw new Error(response.data.responseMessage || 'Failed to fetch payment chart');
-  },
-
-  /**
-   * Get payment mode distribution
-   * @returns {Promise<Array<PaymentModeDistribution>>}
-   * 
-   * Response Structure (Array):
-   * [{
-   *   paymentMode: string,      // e.g., "CASH", "BANK_TRANSFER", "CHEQUE"
-   *   totalAmount: number,
-   *   transactionCount: number
-   * }]
-   */
-  getPaymentModes: async () => {
-    const response = await api.get('/customer/dashboard/payment-modes');
-    
-    if (response.data.responseCode === '0000') {
-      return response.data.data;
-    }
-    
-    throw new Error(response.data.responseMessage || 'Failed to fetch payment modes');
-  },
-
-  /**
-   * Get recent payment transactions
-   * @param {number} limit - Number of recent payments (default: 10)
-   * @returns {Promise<Array<RecentPayment>>}
-   * 
-   * Response Structure (Array):
-   * [{
-   *   paymentId: number,
-   *   accountId: number,
-   *   projectName: string,
-   *   unitSerial: string,
-   *   totalPaymentAmount: number,
-   *   receivedAmount: number,
-   *   paidDate: string,         // ISO date string
-   *   paymentStatus: string,    // e.g., "PAID", "UNPAID"
-   *   paymentDetails: [{
-   *     paymentType: string,
-   *     amount: number,
-   *     chequeNo: string | null,
-   *     chequeDate: string | null
-   *   }]
-   * }]
-   */
-  getRecentPayments: async (limit = 10) => {
-    const response = await api.get(`/customer/dashboard/recent-payments?limit=${limit}`);
-    
-    if (response.data.responseCode === '0000') {
-      return response.data.data;
-    }
-    
-    throw new Error(response.data.responseMessage || 'Failed to fetch recent payments');
-  },
-
-  /**
-   * Get all customer accounts with status
-   * @returns {Promise<Array<AccountStatus>>}
-   * 
-   * Response Structure (Array):
-   * [{
-   *   accountId: number,
-   *   projectName: string,
-   *   unitSerial: string,
-   *   unitType: string,         // e.g., "APARTMENT", "SHOP"
-   *   totalAmount: number,
-   *   totalPaidAmount: number,
-   *   totalBalanceAmount: number,
-   *   status: string,           // e.g., "ACTIVE", "CLOSED"
-   *   durationInMonths: number
-   * }]
-   */
-  getAccounts: async () => {
-    const response = await api.get('/customer/dashboard/accounts');
-    
-    if (response.data.responseCode === '0000') {
-      return response.data.data;
-    }
-    
-    throw new Error(response.data.responseMessage || 'Failed to fetch accounts');
-  },
-};
-
-export default customerDashboardService;
-```
-
----
-
-## 🎨 React Components
-
-### 1. Customer Dashboard Main Component
-
-```jsx
-// src/pages/CustomerDashboard.jsx
-import React, { useState, useEffect } from 'react';
-import { customerDashboardService } from '../services/customerDashboardService';
-import SummaryCards from '../components/dashboard/SummaryCards';
-import PaymentChart from '../components/dashboard/PaymentChart';
-import PaymentModeChart from '../components/dashboard/PaymentModeChart';
-import RecentPayments from '../components/dashboard/RecentPayments';
-import AccountsList from '../components/dashboard/AccountsList';
-import './CustomerDashboard.css';
-
-const CustomerDashboard = () => {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [summary, setSummary] = useState(null);
-  const [paymentChart, setPaymentChart] = useState([]);
-  const [paymentModes, setPaymentModes] = useState([]);
-  const [recentPayments, setRecentPayments] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load all dashboard data in parallel
-      const [
-        summaryData,
-        chartData,
-        modesData,
-        paymentsData,
-        accountsData
-      ] = await Promise.all([
-        customerDashboardService.getSummary(),
-        customerDashboardService.getPaymentChart(),
-        customerDashboardService.getPaymentModes(),
-        customerDashboardService.getRecentPayments(5),
-        customerDashboardService.getAccounts(),
-      ]);
-
-      setSummary(summaryData);
-      setPaymentChart(chartData);
-      setPaymentModes(modesData);
-      setRecentPayments(paymentsData);
-      setAccounts(accountsData);
-    } catch (err) {
-      setError(err.message);
-      console.error('Dashboard load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="spinner"></div>
-        <p>Loading dashboard...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="dashboard-error">
-        <p>Error: {error}</p>
-        <button onClick={loadDashboardData}>Retry</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="customer-dashboard">
-      <div className="dashboard-header">
-        <h1>Welcome, {summary?.customerName}</h1>
-        <p className="customer-info">
-          {summary?.contactNo} | {summary?.email}
-        </p>
-      </div>
-
-      {/* KPI Summary Cards */}
-      <SummaryCards summary={summary} />
-
-      {/* Charts Section */}
-      <div className="charts-section">
-        <div className="chart-container">
-          <h2>Payment Trends</h2>
-          <PaymentChart data={paymentChart} />
-        </div>
-        
-        <div className="chart-container">
-          <h2>Payment Methods</h2>
-          <PaymentModeChart data={paymentModes} />
-        </div>
-      </div>
-
-      {/* Recent Payments Table */}
-      <div className="section">
-        <h2>Recent Payments</h2>
-        <RecentPayments payments={recentPayments} />
-      </div>
-
-      {/* Accounts/Properties List */}
-      <div className="section">
-        <h2>My Properties</h2>
-        <AccountsList accounts={accounts} />
-      </div>
-    </div>
-  );
-};
-
-export default CustomerDashboard;
-```
-
-### 2. Summary Cards Component
-
-```jsx
-// src/components/dashboard/SummaryCards.jsx
-import React from 'react';
-import { FaHome, FaDollarSign, FaMoneyBillWave, FaExclamationTriangle } from 'react-icons/fa';
-import './SummaryCards.css';
-
-const SummaryCards = ({ summary }) => {
-  if (!summary) return null;
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  const cards = [
-    {
-      title: 'Total Bookings',
-      value: summary.totalBookings,
-      icon: <FaHome />,
-      color: 'blue',
-    },
-    {
-      title: 'Total Amount',
-      value: formatCurrency(summary.totalAmountPayable),
-      icon: <FaDollarSign />,
-      color: 'purple',
-    },
-    {
-      title: 'Amount Paid',
-      value: formatCurrency(summary.totalAmountPaid),
-      icon: <FaMoneyBillWave />,
-      color: 'green',
-    },
-    {
-      title: 'Remaining',
-      value: formatCurrency(summary.totalRemainingAmount),
-      icon: <FaExclamationTriangle />,
-      color: summary.totalRemainingAmount > 0 ? 'orange' : 'green',
-    },
-  ];
-
-  return (
-    <div className="summary-cards">
-      {cards.map((card, index) => (
-        <div key={index} className={`summary-card ${card.color}`}>
-          <div className="card-icon">{card.icon}</div>
-          <div className="card-content">
-            <h3>{card.title}</h3>
-            <p className="card-value">{card.value}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export default SummaryCards;
-```
-
-### 3. Payment Chart Component (using Chart.js)
-
-```jsx
-// src/components/dashboard/PaymentChart.jsx
-import React from 'react';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-const PaymentChart = ({ data }) => {
-  if (!data || data.length === 0) {
-    return <p>No payment data available</p>;
-  }
-
-  const chartData = {
-    labels: data.map(item => `${item.monthName} ${item.year}`),
-    datasets: [
+const getNotInvoicedGRNs = async (orgId, page = 0, size = 10) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8081/api/grn/getByStatusAndDateRange',
       {
-        label: 'Amount Paid',
-        data: data.map(item => item.totalPaidAmount),
-        backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        borderColor: 'rgba(75, 192, 192, 1)',
-        borderWidth: 1,
+        orgId: orgId,
+        poId: null,
+        vendorId: null,
+        status: null,
+        startDate: null,
+        endDate: null,
+        invoiceStatus: "NOT_INVOICED",  // ✅ NEW: Get uninvoiced GRNs
+        page: page,
+        size: size,
+        sortBy: "createdDate",
+        sortDir: "desc"
       },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: {
-          callback: function(value) {
-            return '$' + value.toLocaleString();
-          },
-        },
-      },
-    },
-  };
-
-  return (
-    <div style={{ height: '300px' }}>
-      <Bar data={chartData} options={options} />
-    </div>
-  );
-};
-
-export default PaymentChart;
-```
-
-### 4. Payment Mode Chart Component (Pie Chart)
-
-```jsx
-// src/components/dashboard/PaymentModeChart.jsx
-import React from 'react';
-import { Pie } from 'react-chartjs-2';
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
-
-const PaymentModeChart = ({ data }) => {
-  if (!data || data.length === 0) {
-    return <p>No payment mode data available</p>;
-  }
-
-  const chartData = {
-    labels: data.map(item => item.paymentMode),
-    datasets: [
       {
-        label: 'Amount by Payment Mode',
-        data: data.map(item => item.totalAmount),
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.6)',
-          'rgba(54, 162, 235, 0.6)',
-          'rgba(255, 206, 86, 0.6)',
-          'rgba(75, 192, 192, 0.6)',
-          'rgba(153, 102, 255, 0.6)',
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'right',
-      },
-      tooltip: {
-        callbacks: {
-          label: function(context) {
-            const label = context.label || '';
-            const value = context.parsed || 0;
-            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-            const percentage = ((value / total) * 100).toFixed(1);
-            return `${label}: $${value.toLocaleString()} (${percentage}%)`;
-          },
-        },
-      },
-    },
-  };
-
-  return (
-    <div style={{ height: '300px' }}>
-      <Pie data={chartData} options={options} />
-    </div>
-  );
-};
-
-export default PaymentModeChart;
-```
-
-### 5. Recent Payments Component
-
-```jsx
-// src/components/dashboard/RecentPayments.jsx
-import React from 'react';
-import { format } from 'date-fns';
-import './RecentPayments.css';
-
-const RecentPayments = ({ payments }) => {
-  if (!payments || payments.length === 0) {
-    return <p>No recent payments</p>;
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching GRNs:', error);
+    throw error;
   }
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  const formatDate = (dateString) => {
-    return format(new Date(dateString), 'MMM dd, yyyy');
-  };
-
-  return (
-    <div className="recent-payments">
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Project</th>
-            <th>Unit</th>
-            <th>Amount</th>
-            <th>Status</th>
-            <th>Payment Methods</th>
-          </tr>
-        </thead>
-        <tbody>
-          {payments.map((payment) => (
-            <tr key={payment.paymentId}>
-              <td>{formatDate(payment.paidDate)}</td>
-              <td>{payment.projectName}</td>
-              <td>{payment.unitSerial}</td>
-              <td>{formatCurrency(payment.receivedAmount)}</td>
-              <td>
-                <span className={`status-badge ${payment.paymentStatus.toLowerCase()}`}>
-                  {payment.paymentStatus}
-                </span>
-              </td>
-              <td>
-                {payment.paymentDetails.map((detail, idx) => (
-                  <span key={idx} className="payment-method">
-                    {detail.paymentType}
-                    {idx < payment.paymentDetails.length - 1 && ', '}
-                  </span>
-                ))}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 };
-
-export default RecentPayments;
 ```
 
-### 6. Accounts List Component
-
-```jsx
-// src/components/dashboard/AccountsList.jsx
-import React from 'react';
-import './AccountsList.css';
-
-const AccountsList = ({ accounts }) => {
-  if (!accounts || accounts.length === 0) {
-    return <p>No accounts found</p>;
-  }
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case 'active':
-        return 'blue';
-      case 'closed':
-        return 'green';
-      case 'overdue':
-        return 'red';
-      default:
-        return 'gray';
-    }
-  };
-
-  return (
-    <div className="accounts-grid">
-      {accounts.map((account) => (
-        <div key={account.accountId} className="account-card">
-          <div className="account-header">
-            <h3>{account.projectName}</h3>
-            <span className={`status-badge ${getStatusColor(account.status)}`}>
-              {account.status}
-            </span>
-          </div>
-          
-          <div className="account-details">
-            <div className="detail-row">
-              <span className="label">Unit:</span>
-              <span className="value">{account.unitSerial}</span>
-            </div>
-            <div className="detail-row">
-              <span className="label">Type:</span>
-              <span className="value">{account.unitType}</span>
-            </div>
-            <div className="detail-row">
-              <span className="label">Duration:</span>
-              <span className="value">{account.durationInMonths} months</span>
-            </div>
-          </div>
-
-          <div className="account-financials">
-            <div className="financial-row">
-              <span>Total Amount:</span>
-              <strong>{formatCurrency(account.totalAmount)}</strong>
-            </div>
-            <div className="financial-row paid">
-              <span>Paid:</span>
-              <strong>{formatCurrency(account.totalPaidAmount)}</strong>
-            </div>
-            <div className="financial-row remaining">
-              <span>Remaining:</span>
-              <strong>{formatCurrency(account.totalBalanceAmount)}</strong>
-            </div>
-          </div>
-
-          {account.totalBalanceAmount > 0 && (
-            <div className="progress-bar">
-              <div 
-                className="progress-fill"
-                style={{ 
-                  width: `${(account.totalPaidAmount / account.totalAmount) * 100}%` 
-                }}
-              ></div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-};
-
-export default AccountsList;
-```
-
----
-
-## 🎨 Sample CSS Styles
-
-### Dashboard Main Styles
-
-```css
-/* src/pages/CustomerDashboard.css */
-.customer-dashboard {
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.dashboard-header {
-  margin-bottom: 32px;
-}
-
-.dashboard-header h1 {
-  font-size: 32px;
-  font-weight: bold;
-  color: #1a202c;
-  margin-bottom: 8px;
-}
-
-.customer-info {
-  color: #718096;
-  font-size: 14px;
-}
-
-.charts-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
-}
-
-.chart-container {
-  background: white;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.chart-container h2 {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: #2d3748;
-}
-
-.section {
-  background: white;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 24px;
-}
-
-.section h2 {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 16px;
-  color: #2d3748;
-}
-
-.dashboard-loading,
-.dashboard-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 400px;
-}
-
-.spinner {
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-```
-
-### Summary Cards Styles
-
-```css
-/* src/components/dashboard/SummaryCards.css */
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
-}
-
-.summary-card {
-  background: white;
-  padding: 24px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: transform 0.2s;
-}
-
-.summary-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.card-icon {
-  font-size: 40px;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-}
-
-.summary-card.blue .card-icon {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.summary-card.purple .card-icon {
-  background: rgba(139, 92, 246, 0.1);
-  color: #8b5cf6;
-}
-
-.summary-card.green .card-icon {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.summary-card.orange .card-icon {
-  background: rgba(251, 146, 60, 0.1);
-  color: #fb923c;
-}
-
-.card-content h3 {
-  font-size: 14px;
-  color: #6b7280;
-  margin: 0 0 8px 0;
-  font-weight: 500;
-}
-
-.card-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #1f2937;
-  margin: 0;
-}
-```
-
-### Accounts List Styles
-
-```css
-/* src/components/dashboard/AccountsList.css */
-.accounts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.account-card {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
-  transition: all 0.2s;
-}
-
-.account-card:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  border-color: #3b82f6;
-}
-
-.account-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.account-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status-badge.blue {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-}
-
-.status-badge.green {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-.status-badge.red {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.account-details {
-  margin-bottom: 16px;
-}
-
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.detail-row .label {
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.detail-row .value {
-  color: #1f2937;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.account-financials {
-  background: white;
-  padding: 16px;
-  border-radius: 6px;
-  margin-bottom: 12px;
-}
-
-.financial-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-.financial-row:last-child {
-  margin-bottom: 0;
-}
-
-.financial-row.paid {
-  color: #10b981;
-}
-
-.financial-row.remaining {
-  color: #f59e0b;
-  font-size: 16px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.progress-bar {
-  height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #3b82f6);
-  transition: width 0.3s ease;
-}
-```
-
----
-
-## 🔌 React Hooks (Custom Hooks)
-
-### useDashboard Hook
-
+### React/Axios Example - Get PARTIALLY_INVOICED GRNs
 ```javascript
-// src/hooks/useDashboard.js
-import { useState, useEffect, useCallback } from 'react';
-import { customerDashboardService } from '../services/customerDashboardService';
-
-export const useDashboard = () => {
-  const [data, setData] = useState({
-    summary: null,
-    paymentChart: [],
-    paymentModes: [],
-    recentPayments: [],
-    accounts: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const loadDashboard = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [summary, paymentChart, paymentModes, recentPayments, accounts] = 
-        await Promise.all([
-          customerDashboardService.getSummary(),
-          customerDashboardService.getPaymentChart(),
-          customerDashboardService.getPaymentModes(),
-          customerDashboardService.getRecentPayments(10),
-          customerDashboardService.getAccounts(),
-        ]);
-
-      setData({
-        summary,
-        paymentChart,
-        paymentModes,
-        recentPayments,
-        accounts,
-      });
-    } catch (err) {
-      setError(err.message);
-      console.error('Dashboard load error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
-
-  return { data, loading, error, refresh: loadDashboard };
+const getPartiallyInvoicedGRNs = async (orgId, page = 0, size = 10) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8081/api/grn/getByStatusAndDateRange',
+      {
+        orgId: orgId,
+        invoiceStatus: "PARTIALLY_INVOICED",  // ✅ Get partial GRNs
+        page: page,
+        size: size,
+        sortBy: "createdDate",
+        sortDir: "desc"
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching partially invoiced GRNs:', error);
+    throw error;
+  }
 };
 ```
 
-**Usage:**
+### React/Axios Example - Get FULLY_INVOICED GRNs
+```javascript
+const getFullyInvoicedGRNs = async (orgId, page = 0, size = 10) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8081/api/grn/getByStatusAndDateRange',
+      {
+        orgId: orgId,
+        invoiceStatus: "FULLY_INVOICED",  // ✅ Get fully invoiced GRNs
+        page: page,
+        size: size,
+        sortBy: "createdDate",
+        sortDir: "desc"
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching fully invoiced GRNs:', error);
+    throw error;
+  }
+};
+```
 
-```jsx
-import { useDashboard } from '../hooks/useDashboard';
-
-const MyDashboard = () => {
-  const { data, loading, error, refresh } = useDashboard();
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-
-  return (
-    <div>
-      <h1>Welcome, {data.summary.customerName}</h1>
-      {/* Use data.summary, data.paymentChart, etc. */}
-    </div>
-  );
+### React/Axios Example - Get ALL GRNs (No Filter)
+```javascript
+const getAllGRNs = async (orgId, page = 0, size = 10) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8081/api/grn/getByStatusAndDateRange',
+      {
+        orgId: orgId,
+        invoiceStatus: null,  // ✅ null = no filter, get all
+        page: page,
+        size: size,
+        sortBy: "createdDate",
+        sortDir: "desc"
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching GRNs:', error);
+    throw error;
+  }
 };
 ```
 
 ---
 
-## 📦 Required Dependencies
+## 📡 API 2: Get GRN by ID
 
-### Install Required Packages
-
-```bash
-npm install axios react-chartjs-2 chart.js date-fns react-icons
+### Endpoint
+```
+GET /api/grn/getById/{grnId}
 ```
 
-or
-
-```bash
-yarn add axios react-chartjs-2 chart.js date-fns react-icons
+### Request
+```javascript
+const getGRNById = async (grnId) => {
+  try {
+    const response = await axios.get(
+      `http://localhost:8081/api/grn/getById/${grnId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching GRN:', error);
+    throw error;
+  }
+};
 ```
 
-### package.json Dependencies
-
-```json
+### Response
+```javascript
 {
-  "dependencies": {
-    "axios": "^1.6.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-chartjs-2": "^5.2.0",
-    "chart.js": "^4.4.0",
-    "date-fns": "^2.30.0",
-    "react-icons": "^4.12.0"
-  }
+  "data": {
+    "id": 1,
+    "grnNumber": "GRN-20260301-001",
+    "status": "RECEIVED",
+    "invoiceStatus": "PARTIALLY_INVOICED",  // ✅ NEW
+    "orgId": 1,
+    "projectId": 20000,
+    "vendorId": 3,
+    "poId": 7,
+    "receivedDate": "2026-03-01T10:30:00",
+    "projectName": "Tower A Construction",
+    "vendorName": "ABC Suppliers",
+    "poNumber": "PO-20260201-001",
+    "grnItemsList": [
+      {
+        "id": 1,
+        "grnId": 1,
+        "itemId": 15,
+        "itemName": "Cement Bags 50kg",
+        "quantityReceived": 100.0,
+        "quantityInvoiced": 50.0  // ✅ NEW: Track invoiced
+      },
+      {
+        "id": 2,
+        "grnId": 1,
+        "itemId": 16,
+        "itemName": "Steel Rods 12mm",
+        "quantityReceived": 50.0,
+        "quantityInvoiced": 0.0   // ✅ Not yet invoiced
+      }
+    ]
+  },
+  "responseMessage": "Request Success!",
+  "responseCode": "0000"
 }
 ```
 
 ---
 
-## 🚀 Quick Integration Steps
+## 📡 API 3: Create Vendor Invoice
 
-### Step 1: Setup API Configuration
-```bash
-# Create API config
-src/api/config.js
+### Endpoint
+```
+POST /api/vendorInvoice/create
 ```
 
-### Step 2: Create Services
-```bash
-# Create auth service
-src/services/authService.js
-
-# Create dashboard service
-src/services/customerDashboardService.js
-```
-
-### Step 3: Create Components
-```bash
-# Main dashboard page
-src/pages/CustomerDashboard.jsx
-
-# Dashboard components
-src/components/dashboard/SummaryCards.jsx
-src/components/dashboard/PaymentChart.jsx
-src/components/dashboard/PaymentModeChart.jsx
-src/components/dashboard/RecentPayments.jsx
-src/components/dashboard/AccountsList.jsx
-```
-
-### Step 4: Add Routes
-```jsx
-// src/App.jsx
-import CustomerDashboard from './pages/CustomerDashboard';
-
-function App() {
-  return (
-    <Routes>
-      <Route path="/dashboard" element={<CustomerDashboard />} />
-    </Routes>
-  );
-}
-```
-
----
-
-## 🧪 Testing
-
-### Test API Calls
-
-```javascript
-// src/tests/dashboardService.test.js
-import { customerDashboardService } from '../services/customerDashboardService';
-
-describe('Customer Dashboard Service', () => {
-  beforeAll(() => {
-    // Mock token
-    localStorage.setItem('authToken', 'test-token');
-  });
-
-  test('should fetch summary', async () => {
-    const summary = await customerDashboardService.getSummary();
-    expect(summary).toHaveProperty('customerName');
-    expect(summary).toHaveProperty('totalBookings');
-  });
-
-  test('should fetch payment chart', async () => {
-    const chart = await customerDashboardService.getPaymentChart();
-    expect(Array.isArray(chart)).toBe(true);
-  });
-
-  test('should fetch recent payments with limit', async () => {
-    const payments = await customerDashboardService.getRecentPayments(5);
-    expect(payments.length).toBeLessThanOrEqual(5);
-  });
-});
-```
-
----
-
-## 📱 Responsive Design
-
-All components are responsive. For mobile optimization:
-
-```css
-/* Mobile breakpoints */
-@media (max-width: 768px) {
-  .summary-cards {
-    grid-template-columns: 1fr;
-  }
-
-  .charts-section {
-    grid-template-columns: 1fr;
-  }
-
-  .accounts-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .recent-payments table {
-    font-size: 12px;
-  }
-}
-```
-
----
-
-## 🔒 Security Best Practices
-
-1. **Token Storage**: Use httpOnly cookies in production instead of localStorage
-2. **Token Refresh**: Implement token refresh mechanism
-3. **Error Handling**: Don't expose sensitive errors to users
-4. **CORS**: Configure CORS properly on backend
-5. **HTTPS**: Always use HTTPS in production
-
----
-
-## 📊 TypeScript Support (Optional)
-
-### Type Definitions
-
+### Request Body
 ```typescript
-// src/types/dashboard.types.ts
-
-export interface CustomerSummary {
-  customerName: string;
-  nationalId: string;
-  contactNo: string;
-  email: string;
-  totalBookings: number;
-  totalUnitsBooked: number;
-  totalAmountPayable: number;
-  totalAmountPaid: number;
-  totalRemainingAmount: number;
-  overdueAmount: number;
-}
-
-export interface PaymentChartData {
-  month: number;
-  year: number;
-  monthName: string;
-  totalPaidAmount: number;
-  totalDueAmount: number;
-  cumulativeRemaining: number;
-}
-
-export interface PaymentModeDistribution {
-  paymentMode: string;
+interface CreateInvoiceRequest {
+  grnId: number;
+  invoiceNumber?: string;     // Optional, auto-generated if not provided
   totalAmount: number;
-  transactionCount: number;
+  invoiceDate?: string;       // Optional, defaults to today
+  dueDate?: string;
+  invoiceItemList: InvoiceItem[];
 }
 
-export interface PaymentDetail {
-  paymentType: string;
-  amount: number;
-  chequeNo: string | null;
-  chequeDate: string | null;
+interface InvoiceItem {
+  grnItemId: number;          // ID from grn_items table
+  quantity: number;           // Must not exceed available quantity
+  rate: number;
 }
+```
 
-export interface RecentPayment {
-  paymentId: number;
-  accountId: number;
-  projectName: string;
-  unitSerial: string;
-  totalPaymentAmount: number;
-  receivedAmount: number;
-  paidDate: string;
-  paymentStatus: string;
-  paymentDetails: PaymentDetail[];
+### React/Axios Example
+```javascript
+const createInvoice = async (invoiceData) => {
+  try {
+    const response = await axios.post(
+      'http://localhost:8081/api/vendorInvoice/create',
+      {
+        grnId: invoiceData.grnId,
+        invoiceNumber: invoiceData.invoiceNumber, // Optional
+        totalAmount: invoiceData.totalAmount,
+        invoiceDate: invoiceData.invoiceDate || "2026-03-01",
+        dueDate: invoiceData.dueDate,
+        invoiceItemList: invoiceData.items.map(item => ({
+          grnItemId: item.grnItemId,
+          quantity: item.quantity,
+          rate: item.rate
+        }))
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    // ✅ Backend automatically updates GRN.invoiceStatus
+    return response.data;
+  } catch (error) {
+    console.error('Error creating invoice:', error);
+    throw error;
+  }
+};
+
+// Usage Example - Create partial invoice
+const invoiceData = {
+  grnId: 1,
+  totalAmount: 25000.00,
+  invoiceDate: "2026-03-01",
+  dueDate: "2026-03-31",
+  items: [
+    {
+      grnItemId: 1,    // First item
+      quantity: 50.0,   // Invoice 50 out of 100
+      rate: 500.0
+    }
+    // Note: Not invoicing second item yet
+  ]
+};
+
+await createInvoice(invoiceData);
+// After this, GRN status will automatically become PARTIALLY_INVOICED
+```
+
+### Success Response
+```javascript
+{
+  "data": null,
+  "responseMessage": "Invoice created successfully",
+  "responseCode": "0000"
 }
+```
 
-export interface AccountStatus {
-  accountId: number;
-  projectName: string;
-  unitSerial: string;
-  unitType: string;
-  totalAmount: number;
-  totalPaidAmount: number;
-  totalBalanceAmount: number;
-  status: string;
-  durationInMonths: number;
-}
-
-export interface ApiResponse<T> {
-  responseCode: string;
-  responseMessage: string;
-  data: T;
+### Error Response (Over-Invoicing)
+```javascript
+{
+  "data": null,
+  "responseMessage": "Invoice quantity (150.0) exceeds pending quantity (100.0) for GRN Item: 1",
+  "responseCode": "9998"
 }
 ```
 
 ---
 
-## 🎯 Summary
+## 📡 API 4: Update Vendor Invoice (UNPAID Only)
 
-### What You Get:
-✅ Complete React components ready to use  
-✅ API service with all 5 endpoints integrated  
-✅ Custom hooks for state management  
-✅ Chart components with Chart.js  
-✅ Responsive CSS styles  
-✅ Error handling and loading states  
-✅ TypeScript support (optional)  
-✅ Authentication flow  
-✅ Testing examples  
+### Endpoint
+```
+PUT /api/vendorInvoice/update/{invoiceId}
+```
 
-### Integration Time:
-- Basic Setup: ~30 minutes
-- Full Dashboard: ~2-3 hours
-- With customization: ~1 day
+### Request Body
+```typescript
+interface UpdateInvoiceRequest {
+  invoiceNumber?: string;
+  totalAmount: number;
+  invoiceDate?: string;
+  dueDate?: string;
+  invoiceItemList: InvoiceItem[];
+}
+```
 
-This guide provides everything needed to integrate the Customer Dashboard APIs into any React application!
+### React/Axios Example
+```javascript
+const updateInvoice = async (invoiceId, invoiceData) => {
+  try {
+    const response = await axios.put(
+      `http://localhost:8081/api/vendorInvoice/update/${invoiceId}`,
+      {
+        totalAmount: invoiceData.totalAmount,
+        invoiceDate: invoiceData.invoiceDate,
+        dueDate: invoiceData.dueDate,
+        invoiceItemList: invoiceData.items.map(item => ({
+          grnItemId: item.grnItemId,
+          quantity: item.quantity,
+          rate: item.rate
+        }))
+      },
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    // ✅ Backend automatically recalculates GRN.invoiceStatus
+    return response.data;
+  } catch (error) {
+    console.error('Error updating invoice:', error);
+    throw error;
+  }
+};
+```
+
+**Important**: Only invoices with status `UNPAID` can be updated. Once payment is recorded, invoice becomes read-only.
+
+---
+
+## 📡 API 5: Get Invoice by ID
+
+### Endpoint
+```
+GET /api/vendorInvoice/getById/{invoiceId}
+```
+
+### React/Axios Example
+```javascript
+const getInvoiceById = async (invoiceId) => {
+  try {
+    const response = await axios.get(
+      `http://localhost:8081/api/vendorInvoice/getById/${invoiceId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching invoice:', error);
+    throw error;
+  }
+};
+```
+
+### Response
+```javascript
+{
+  "data": {
+    "id": 1,
+    "invoiceNumber": "INV-20260301-001",
+    "status": "UNPAID",
+    "totalAmount": 25000.00,
+    "paidAmount": 0.00,
+    "pendingAmount": 25000.00,
+    "grnId": 1,
+    "invoiceDate": "2026-03-01",
+    "dueDate": "2026-03-31",
+    "grnNumber": "GRN-20260301-001",
+    "projectName": "Tower A",
+    "vendorName": "ABC Suppliers",
+    "poNumber": "PO-20260201-001",
+    "invoiceItemList": [
+      {
+        "id": 1,
+        "grnItemId": 1,
+        "itemName": "Cement Bags 50kg",
+        "quantity": 50.0,
+        "rate": 500.0,
+        "amount": 25000.0
+      }
+    ]
+  },
+  "responseMessage": "Request Success!",
+  "responseCode": "0000"
+}
+```
+
+---
+
+## 🎨 UI/UX Recommendations
+
+### 1. GRN List Page - Status Badge
+
+Show visual indicators for invoice status:
+
+```jsx
+import React from 'react';
+
+const GrnInvoiceStatusBadge = ({ status }) => {
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case 'NOT_INVOICED':
+        return {
+          label: 'Not Invoiced',
+          color: 'bg-gray-200 text-gray-800',
+          icon: '⏳'
+        };
+      case 'PARTIALLY_INVOICED':
+        return {
+          label: 'Partially Invoiced',
+          color: 'bg-yellow-200 text-yellow-800',
+          icon: '⚠️'
+        };
+      case 'FULLY_INVOICED':
+        return {
+          label: 'Fully Invoiced',
+          color: 'bg-green-200 text-green-800',
+          icon: '✅'
+        };
+      default:
+        return {
+          label: 'Unknown',
+          color: 'bg-gray-200 text-gray-800',
+          icon: '❓'
+        };
+    }
+  };
+
+  const config = getStatusConfig(status);
+
+  return (
+    <span className={`px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
+      {config.icon} {config.label}
+    </span>
+  );
+};
+
+export default GrnInvoiceStatusBadge;
+```
+
+### 2. GRN Details Page - Invoice Progress
+
+Show invoicing progress per item:
+
+```jsx
+import React from 'react';
+
+const GrnItemInvoiceProgress = ({ grnItems }) => {
+  const calculateProgress = (quantityInvoiced, quantityReceived) => {
+    if (quantityReceived === 0) return 0;
+    return (quantityInvoiced / quantityReceived) * 100;
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Invoice Progress</h3>
+      {grnItems.map((item) => {
+        const progress = calculateProgress(item.quantityInvoiced, item.quantityReceived);
+        
+        return (
+          <div key={item.id} className="border rounded-lg p-4">
+            <div className="flex justify-between mb-2">
+              <span className="font-medium">{item.itemName}</span>
+              <span className="text-sm text-gray-600">
+                {item.quantityInvoiced} / {item.quantityReceived} invoiced
+              </span>
+            </div>
+            
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div
+                className={`h-2.5 rounded-full ${
+                  progress === 100 ? 'bg-green-500' :
+                  progress > 0 ? 'bg-yellow-500' :
+                  'bg-gray-400'
+                }`}
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            
+            <div className="flex justify-between mt-1 text-xs text-gray-500">
+              <span>{progress.toFixed(1)}% invoiced</span>
+              <span>
+                {item.quantityReceived - item.quantityInvoiced} remaining
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default GrnItemInvoiceProgress;
+```
+
+### 3. Create Invoice Form - Available Quantity Validation
+
+```jsx
+import React, { useState, useEffect } from 'react';
+
+const CreateInvoiceForm = ({ grn }) => {
+  const [invoiceItems, setInvoiceItems] = useState([]);
+
+  // Calculate available quantity for each item
+  const getAvailableQuantity = (grnItem) => {
+    return grnItem.quantityReceived - (grnItem.quantityInvoiced || 0);
+  };
+
+  const handleQuantityChange = (index, newQuantity, grnItem) => {
+    const available = getAvailableQuantity(grnItem);
+    
+    if (newQuantity > available) {
+      alert(`Cannot invoice more than available quantity (${available})`);
+      return;
+    }
+
+    const updatedItems = [...invoiceItems];
+    updatedItems[index].quantity = newQuantity;
+    setInvoiceItems(updatedItems);
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Create Invoice</h3>
+      
+      {grn.grnItemsList.map((grnItem, index) => {
+        const available = getAvailableQuantity(grnItem);
+        
+        return (
+          <div key={grnItem.id} className="border rounded p-4">
+            <div className="flex justify-between mb-2">
+              <span className="font-medium">{grnItem.itemName}</span>
+              <span className="text-sm text-gray-600">
+                Available: {available} / {grnItem.quantityReceived}
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Quantity</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={available}
+                  step="0.01"
+                  placeholder={`Max: ${available}`}
+                  className="w-full border rounded px-3 py-2"
+                  onChange={(e) => handleQuantityChange(index, parseFloat(e.target.value), grnItem)}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Rate</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Rate"
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Amount</label>
+                <input
+                  type="number"
+                  disabled
+                  className="w-full border rounded px-3 py-2 bg-gray-100"
+                />
+              </div>
+            </div>
+            
+            {available === 0 && (
+              <p className="text-sm text-green-600 mt-2">
+                ✅ Fully invoiced
+              </p>
+            )}
+            
+            {available > 0 && grnItem.quantityInvoiced > 0 && (
+              <p className="text-sm text-yellow-600 mt-2">
+                ⚠️ Partially invoiced ({grnItem.quantityInvoiced} already invoiced)
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export default CreateInvoiceForm;
+```
+
+### 4. GRN List Filters
+
+```jsx
+import React, { useState } from 'react';
+
+const GrnFilters = ({ onFilterChange }) => {
+  const [filters, setFilters] = useState({
+    invoiceStatus: null,
+    startDate: '',
+    endDate: '',
+    vendorId: null,
+    poId: null
+  });
+
+  const handleStatusChange = (status) => {
+    const newFilters = { ...filters, invoiceStatus: status };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow mb-4">
+      <h3 className="font-semibold mb-3">Filter GRNs</h3>
+      
+      {/* Invoice Status Filter */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-2">Invoice Status</label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleStatusChange(null)}
+            className={`px-4 py-2 rounded ${
+              filters.invoiceStatus === null
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => handleStatusChange('NOT_INVOICED')}
+            className={`px-4 py-2 rounded ${
+              filters.invoiceStatus === 'NOT_INVOICED'
+                ? 'bg-gray-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ⏳ Not Invoiced
+          </button>
+          <button
+            onClick={() => handleStatusChange('PARTIALLY_INVOICED')}
+            className={`px-4 py-2 rounded ${
+              filters.invoiceStatus === 'PARTIALLY_INVOICED'
+                ? 'bg-yellow-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ⚠️ Partial
+          </button>
+          <button
+            onClick={() => handleStatusChange('FULLY_INVOICED')}
+            className={`px-4 py-2 rounded ${
+              filters.invoiceStatus === 'FULLY_INVOICED'
+                ? 'bg-green-500 text-white'
+                : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            ✅ Fully Invoiced
+          </button>
+        </div>
+      </div>
+      
+      {/* Additional filters... */}
+    </div>
+  );
+};
+
+export default GrnFilters;
+```
+
+---
+
+## 🔄 Complete React Component Examples
+
+### Example 1: GRN List with Filters
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const GrnListPage = () => {
+  const [grns, setGrns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    size: 10
+  });
+  const [filters, setFilters] = useState({
+    invoiceStatus: null,
+    startDate: null,
+    endDate: null
+  });
+
+  const fetchGRNs = async (page = 0) => {
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        'http://localhost:8081/api/grn/getByStatusAndDateRange',
+        {
+          orgId: 1, // Get from context/auth
+          invoiceStatus: filters.invoiceStatus,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          page: page,
+          size: pagination.size,
+          sortBy: 'createdDate',
+          sortDir: 'desc'
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+
+      setGrns(response.data.data.content);
+      setPagination({
+        currentPage: response.data.data.currentPage,
+        totalPages: response.data.data.totalPages,
+        totalElements: response.data.data.totalElements,
+        size: response.data.data.pageSize
+      });
+    } catch (error) {
+      console.error('Error fetching GRNs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGRNs(0);
+  }, [filters]);
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">GRN List</h1>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilters({ ...filters, invoiceStatus: null })}
+            className="px-4 py-2 rounded bg-gray-200"
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilters({ ...filters, invoiceStatus: 'NOT_INVOICED' })}
+            className="px-4 py-2 rounded bg-gray-200"
+          >
+            Not Invoiced
+          </button>
+          <button
+            onClick={() => setFilters({ ...filters, invoiceStatus: 'PARTIALLY_INVOICED' })}
+            className="px-4 py-2 rounded bg-yellow-200"
+          >
+            Partial
+          </button>
+          <button
+            onClick={() => setFilters({ ...filters, invoiceStatus: 'FULLY_INVOICED' })}
+            className="px-4 py-2 rounded bg-green-200"
+          >
+            Fully Invoiced
+          </button>
+        </div>
+      </div>
+
+      {/* GRN Table */}
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left">GRN Number</th>
+                <th className="px-6 py-3 text-left">PO Number</th>
+                <th className="px-6 py-3 text-left">Vendor</th>
+                <th className="px-6 py-3 text-left">Invoice Status</th>
+                <th className="px-6 py-3 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {grns.map((grn) => (
+                <tr key={grn.id}>
+                  <td className="px-6 py-4">{grn.grnNumber}</td>
+                  <td className="px-6 py-4">{grn.poNumber}</td>
+                  <td className="px-6 py-4">{grn.vendorName}</td>
+                  <td className="px-6 py-4">
+                    <GrnInvoiceStatusBadge status={grn.invoiceStatus} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <button className="text-blue-600 hover:underline">
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Pagination */}
+          <div className="px-6 py-4 flex justify-between items-center border-t">
+            <div>
+              Showing {pagination.currentPage * pagination.size + 1} to{' '}
+              {Math.min((pagination.currentPage + 1) * pagination.size, pagination.totalElements)}{' '}
+              of {pagination.totalElements} entries
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fetchGRNs(pagination.currentPage - 1)}
+                disabled={pagination.currentPage === 0}
+                className="px-4 py-2 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => fetchGRNs(pagination.currentPage + 1)}
+                disabled={pagination.currentPage >= pagination.totalPages - 1}
+                className="px-4 py-2 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+### Example 2: Create Invoice Form with Validation
+
+```jsx
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const CreateInvoicePage = ({ grnId }) => {
+  const [grn, setGrn] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [invoiceData, setInvoiceData] = useState({
+    invoiceNumber: '',
+    invoiceDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
+    items: []
+  });
+
+  useEffect(() => {
+    fetchGRNDetails();
+  }, [grnId]);
+
+  const fetchGRNDetails = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        `http://localhost:8081/api/grn/getById/${grnId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      setGrn(response.data.data);
+      
+      // Initialize invoice items with available quantities
+      const initialItems = response.data.data.grnItemsList.map(item => ({
+        grnItemId: item.id,
+        itemName: item.itemName,
+        quantityReceived: item.quantityReceived,
+        quantityInvoiced: item.quantityInvoiced || 0,
+        availableQuantity: item.quantityReceived - (item.quantityInvoiced || 0),
+        quantity: 0,
+        rate: 0,
+        amount: 0
+      }));
+      
+      setInvoiceData({ ...invoiceData, items: initialItems });
+    } catch (error) {
+      console.error('Error fetching GRN:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleItemChange = (index, field, value) => {
+    const updatedItems = [...invoiceData.items];
+    updatedItems[index][field] = parseFloat(value) || 0;
+    
+    // Validate quantity
+    if (field === 'quantity' && value > updatedItems[index].availableQuantity) {
+      alert(`Cannot invoice more than ${updatedItems[index].availableQuantity}`);
+      return;
+    }
+    
+    // Calculate amount
+    if (field === 'quantity' || field === 'rate') {
+      updatedItems[index].amount = updatedItems[index].quantity * updatedItems[index].rate;
+    }
+    
+    setInvoiceData({ ...invoiceData, items: updatedItems });
+  };
+
+  const calculateTotalAmount = () => {
+    return invoiceData.items.reduce((sum, item) => sum + item.amount, 0);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Filter items with quantity > 0
+    const itemsToInvoice = invoiceData.items.filter(item => item.quantity > 0);
+    
+    if (itemsToInvoice.length === 0) {
+      alert('Please add at least one item with quantity');
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        'http://localhost:8081/api/vendorInvoice/create',
+        {
+          grnId: grnId,
+          invoiceNumber: invoiceData.invoiceNumber || undefined,
+          totalAmount: calculateTotalAmount(),
+          invoiceDate: invoiceData.invoiceDate,
+          dueDate: invoiceData.dueDate,
+          invoiceItemList: itemsToInvoice.map(item => ({
+            grnItemId: item.grnItemId,
+            quantity: item.quantity,
+            rate: item.rate
+          }))
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      if (response.data.responseCode === '0000') {
+        alert('Invoice created successfully! GRN status updated automatically.');
+        // Redirect or refresh
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      alert(error.response?.data?.responseMessage || 'Error creating invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!grn) return <div>Loading...</div>;
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Create Invoice</h1>
+      
+      {/* GRN Info */}
+      <div className="bg-blue-50 p-4 rounded-lg mb-4">
+        <h2 className="font-semibold mb-2">GRN Details</h2>
+        <div className="grid grid-cols-3 gap-4 text-sm">
+          <div>
+            <span className="text-gray-600">GRN Number:</span> {grn.grnNumber}
+          </div>
+          <div>
+            <span className="text-gray-600">PO Number:</span> {grn.poNumber}
+          </div>
+          <div>
+            <span className="text-gray-600">Vendor:</span> {grn.vendorName}
+          </div>
+          <div>
+            <span className="text-gray-600">Invoice Status:</span>{' '}
+            <GrnInvoiceStatusBadge status={grn.invoiceStatus} />
+          </div>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        {/* Invoice Header */}
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Invoice Number</label>
+              <input
+                type="text"
+                placeholder="Auto-generated if empty"
+                value={invoiceData.invoiceNumber}
+                onChange={(e) => setInvoiceData({ ...invoiceData, invoiceNumber: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Invoice Date</label>
+              <input
+                type="date"
+                value={invoiceData.invoiceDate}
+                onChange={(e) => setInvoiceData({ ...invoiceData, invoiceDate: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Due Date</label>
+              <input
+                type="date"
+                value={invoiceData.dueDate}
+                onChange={(e) => setInvoiceData({ ...invoiceData, dueDate: e.target.value })}
+                className="w-full border rounded px-3 py-2"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice Items */}
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
+          <h3 className="font-semibold mb-4">Invoice Items</h3>
+          {invoiceData.items.map((item, index) => (
+            <div key={item.grnItemId} className="border rounded p-4 mb-4">
+              <div className="flex justify-between mb-2">
+                <span className="font-medium">{item.itemName}</span>
+                <span className="text-sm text-gray-600">
+                  Available: {item.availableQuantity} / {item.quantityReceived}
+                  {item.quantityInvoiced > 0 && (
+                    <span className="text-yellow-600 ml-2">
+                      ({item.quantityInvoiced} already invoiced)
+                    </span>
+                  )}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={item.availableQuantity}
+                    step="0.01"
+                    value={item.quantity}
+                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                    disabled={item.availableQuantity === 0}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Rate</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={item.rate}
+                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                    className="w-full border rounded px-3 py-2"
+                    disabled={item.availableQuantity === 0}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Amount</label>
+                  <input
+                    type="number"
+                    value={item.amount}
+                    disabled
+                    className="w-full border rounded px-3 py-2 bg-gray-100"
+                  />
+                </div>
+                <div className="flex items-end">
+                  {item.availableQuantity === 0 ? (
+                    <span className="text-green-600 text-sm">✅ Fully Invoiced</span>
+                  ) : (
+                    <span className="text-yellow-600 text-sm">⏳ Available</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Total */}
+        <div className="bg-white p-4 rounded-lg shadow mb-4">
+          <div className="flex justify-end">
+            <div className="text-right">
+              <div className="text-gray-600">Total Amount:</div>
+              <div className="text-2xl font-bold">
+                ₹ {calculateTotalAmount().toFixed(2)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end gap-4">
+          <button
+            type="button"
+            className="px-6 py-2 border rounded"
+            onClick={() => window.history.back()}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || calculateTotalAmount() === 0}
+            className="px-6 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+          >
+            {loading ? 'Creating...' : 'Create Invoice'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+```
+
+---
+
+## 🚨 Error Handling
+
+### Common Error Scenarios
+
+#### Error 1: Over-Invoicing Attempt
+```javascript
+{
+  "responseMessage": "Invoice quantity (150.0) exceeds pending quantity (100.0) for GRN Item: 1",
+  "responseCode": "9998"
+}
+```
+
+**Handle in UI**:
+```javascript
+try {
+  await createInvoice(data);
+} catch (error) {
+  if (error.response?.data?.responseCode === '9998') {
+    alert('Cannot invoice more than available quantity. Please check the quantities.');
+  }
+}
+```
+
+#### Error 2: Update PAID/PARTIAL Invoice
+```javascript
+{
+  "responseMessage": "Only UNPAID invoices can be updated. Current status: PAID",
+  "responseCode": "9998"
+}
+```
+
+**Handle in UI**:
+```javascript
+// Disable edit button if invoice is not UNPAID
+<button
+  disabled={invoice.status !== 'UNPAID'}
+  className={invoice.status !== 'UNPAID' ? 'opacity-50 cursor-not-allowed' : ''}
+>
+  {invoice.status !== 'UNPAID' ? 'Cannot Edit (Already Paid)' : 'Edit Invoice'}
+</button>
+```
+
+---
+
+## ✅ Migration Checklist for Frontend
+
+- [ ] Update GRN filter components to use `invoiceStatus` instead of `invoiceCreated`
+- [ ] Update TypeScript/JavaScript types to include `GrnInvoiceStatus` enum
+- [ ] Add three new filter buttons: NOT_INVOICED, PARTIALLY_INVOICED, FULLY_INVOICED
+- [ ] Update GRN list to show new status badge
+- [ ] Add invoice progress indicators on GRN details page
+- [ ] Update invoice creation form to show available quantities
+- [ ] Add validation for over-invoicing in UI
+- [ ] Update invoice edit form to disable for PAID/PARTIAL invoices
+- [ ] Test all GRN and invoice workflows
+- [ ] Update user documentation/help text
+
+---
+
+## 📊 Dashboard/Analytics Ideas
+
+### 1. Invoice Status Summary Cards
+```jsx
+const InvoiceSummaryCards = ({ stats }) => (
+  <div className="grid grid-cols-4 gap-4">
+    <div className="bg-white p-4 rounded shadow">
+      <div className="text-gray-600 text-sm">Total GRNs</div>
+      <div className="text-2xl font-bold">{stats.total}</div>
+    </div>
+    <div className="bg-gray-100 p-4 rounded shadow">
+      <div className="text-gray-600 text-sm">Not Invoiced</div>
+      <div className="text-2xl font-bold text-gray-700">{stats.notInvoiced}</div>
+    </div>
+    <div className="bg-yellow-100 p-4 rounded shadow">
+      <div className="text-yellow-700 text-sm">Partially Invoiced</div>
+      <div className="text-2xl font-bold text-yellow-700">{stats.partial}</div>
+    </div>
+    <div className="bg-green-100 p-4 rounded shadow">
+      <div className="text-green-700 text-sm">Fully Invoiced</div>
+      <div className="text-2xl font-bold text-green-700">{stats.fullyInvoiced}</div>
+    </div>
+  </div>
+);
+```
+
+### 2. Pending Invoice Chart
+Track pending invoice value by vendor/project using Chart.js or similar library.
+
+---
+
+## 🔗 Related APIs (Unchanged)
+
+These existing APIs work as before:
+- `POST /api/grn/create` - Create GRN
+- `GET /api/po/getById/{id}` - Get PO details
+- `GET /api/vendorInvoice/getByVendor/{vendorId}` - Get invoices by vendor
+
+---
+
+## 📞 Support & Questions
+
+For backend-related questions or issues:
+- Check API response codes
+- Review error messages in `responseMessage` field
+- Consult backend team if needed
+
+---
+
+## 📝 Summary
+
+### Key Changes for Frontend
+1. **Replace** `invoiceCreated` (Boolean) with `invoiceStatus` (Enum)
+2. **Add** three filter options instead of two
+3. **Show** invoice progress per GRN item
+4. **Validate** quantities against available amounts
+5. **Handle** new error scenarios
+
+### Benefits
+- ✅ Better user experience with clear status indicators
+- ✅ Accurate invoicing progress tracking
+- ✅ Prevention of over-invoicing at UI level
+- ✅ Support for multiple invoices per GRN
+
+---
+
+## End of Frontend Integration Guide
+
+**Document Version**: 1.0  
+**Last Updated**: March 1, 2026  
+**Backend Version**: Compatible with GRN Invoice Status Enhancement v1.0

@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.dto.accounting.AccountGroupDTO;
 import com.rem.backend.dto.accounting.AccountTypeDTO;
 import com.rem.backend.dto.accounting.ChartOfAccountDTO;
@@ -20,6 +21,7 @@ import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
@@ -226,6 +228,47 @@ public class AccountService {
             );
         }
     }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Map<String, Object> createOrganizationAccount(
+            OrganizationAccount organizationAccount,
+            String loggedInUser
+    ) {
+
+        try {
+            AccountGroup group = groupRepo
+                    .findByNameAndOrganization_OrganizationId("bank/cash", organizationAccount.getOrganizationId())
+                    .orElseThrow(() ->
+                            new RuntimeException("Account group not found"));
+
+            ChartOfAccount coa = new ChartOfAccount();
+            coa.setOrganization(group.getOrganization());
+            coa.setAccountGroup(group);
+            coa.setCode(utility.generateAccountCode(group.getOrganization().getOrganizationId(),
+                    group.getAccountType().getName().substring(0,3)));
+            coa.setName(organizationAccount.getName());
+            coa.setStatus(AccountStatus.ACTIVE);
+            coa.setSystemGenerated(false);
+            coa.setOrganizationAccountId(organizationAccount.getOrganizationId());
+
+            ChartOfAccount saved = coaRepo.save(coa);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", saved.getId());
+            response.put("code", saved.getCode());
+            response.put("name", saved.getName());
+            response.put("group", group.getName());
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(
+                    Responses.SYSTEM_FAILURE,
+                    e.getMessage()
+            );
+        }
+    }
+
 
     public Map<String, Object> createAccountGroup(Long organizationId, CreateAccountGroupRequest request,
                                                   String loggedInUser) {
