@@ -2,7 +2,6 @@ package com.rem.backend.purchasemanagement.repository;
 
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.enums.ExpenseType;
-import com.rem.backend.enums.PaymentMode;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PdcStatus;
 import org.springframework.data.domain.Page;
@@ -248,18 +247,15 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
 
 
     // ── PDC (Post-Dated Cheque) Queries ────────────────────────────────────
+    // Note: PDC flow is triggered when paymentType == CHEQUE
 
-    /** All PDC expenses for an organization */
-    Page<Expense> findAllByOrganizationIdAndPaymentMode(
-            long organizationId, PaymentMode paymentMode, Pageable pageable);
-
-    /** PDC expenses due today */
+    /** PDC expenses due today (paymentType = CHEQUE and chequeDate = today) */
     @Query("""
         SELECT e FROM Expense e
         WHERE e.organizationId = :orgId
-          AND e.paymentMode = 'PDC'
           AND e.pdcStatus = 'PENDING'
           AND e.chequeDate = :today
+          AND e.chequeNumber IS NOT NULL
     """)
     Page<Expense> findPdcDueToday(
             @Param("orgId") long orgId,
@@ -270,9 +266,9 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
     @Query("""
         SELECT e FROM Expense e
         WHERE e.organizationId = :orgId
-          AND e.paymentMode = 'PDC'
           AND e.pdcStatus = 'PENDING'
           AND e.chequeDate < :today
+          AND e.chequeNumber IS NOT NULL
     """)
     Page<Expense> findPdcOverdue(
             @Param("orgId") long orgId,
@@ -283,9 +279,9 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
     @Query("""
         SELECT e FROM Expense e
         WHERE e.organizationId = :orgId
-          AND e.paymentMode = 'PDC'
           AND e.pdcStatus = 'PENDING'
           AND e.chequeDate > :today
+          AND e.chequeNumber IS NOT NULL
     """)
     Page<Expense> findPdcUpcoming(
             @Param("orgId") long orgId,
@@ -293,17 +289,17 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
             Pageable pageable);
 
     /** All PENDING PDC expenses for an organization */
-    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatus(
-            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus, Pageable pageable);
+    Page<Expense> findAllByOrganizationIdAndPdcStatus(
+            long organizationId, PdcStatus pdcStatus, Pageable pageable);
 
     /** PDC by vendor */
-    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatusAndVendorAccountId(
-            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus,
+    Page<Expense> findAllByOrganizationIdAndPdcStatusAndVendorAccountId(
+            long organizationId, PdcStatus pdcStatus,
             long vendorAccountId, Pageable pageable);
 
     /** PDC by project */
-    Page<Expense> findAllByOrganizationIdAndPaymentModeAndPdcStatusAndProjectId(
-            long organizationId, PaymentMode paymentMode, PdcStatus pdcStatus,
+    Page<Expense> findAllByOrganizationIdAndPdcStatusAndProjectId(
+            long organizationId, PdcStatus pdcStatus,
             long projectId, Pageable pageable);
 
 }

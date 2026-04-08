@@ -2,7 +2,6 @@ package com.rem.backend.entity.expense;
 
 
 import com.rem.backend.enums.ExpenseType;
-import com.rem.backend.enums.PaymentMode;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.enums.PdcStatus;
@@ -28,9 +27,16 @@ public class Expense {
     private double totalAmount;
     private Long vendorAccountId;
     private Long organizationAccountId;
+
+    @Column(nullable = true)
     private Long expenseTypeId;
+
     private Long organizationId;
+
+    @Column(nullable = true)
     private Long projectId;
+
+
     private Long unitId; //optional
     private String projectName;
     private String orgAccountTitle;
@@ -46,11 +52,7 @@ public class Expense {
     @Column(nullable = false)
     private PaymentStatus paymentStatus;
 
-    // ── PDC (Post-Dated Cheque) Fields ──────────────────────────────
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    private PaymentMode paymentMode;
-
+    // -- PDC (Post-Dated Cheque) Fields --
     @Enumerated(EnumType.STRING)
     @Column(nullable = true)
     private PdcStatus pdcStatus;
