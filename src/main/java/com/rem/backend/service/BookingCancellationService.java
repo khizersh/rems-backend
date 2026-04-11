@@ -37,6 +37,7 @@ public class BookingCancellationService {
     private final PaymentScheduleRepository paymentScheduleRepository;
     private final ProjectRepo projectRepo;
     private final FloorRepo floorRepo;
+    private final JournalEntryService journalEntryService;
 
 
 
@@ -165,6 +166,14 @@ public class BookingCancellationService {
 
             customerAccount.setActive(false);
             customerAccountRepo.save(customerAccount);
+
+            journalEntryService.createJournalEntryForBookingCancellation(
+                    booking.getOrganizationId(),
+                    booking,
+                    deposited,
+                    totalFees,
+                    loggedInUser
+            );
 
             customerPayableDto.setId(customerPayable.getId());
 

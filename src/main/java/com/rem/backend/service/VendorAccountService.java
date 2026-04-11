@@ -43,6 +43,7 @@ public class VendorAccountService {
     private final ExpenseRepo expenseRepo;
     private final ExpenseDetailRepo expenseDetailRepo;
     private final PdcRecordRepo pdcRecordRepo;
+    private final JournalEntryService journalEntryService;
 
 
     public Map<String, Object> getAllVendorAccounts(long orgId, Pageable pageable) {
@@ -60,6 +61,7 @@ public class VendorAccountService {
     public Map<String, Object> paybackCredit(VendorPayment request, String loggedInUser) {
         try {
 
+            OrganizationAccount orgAcct = null;
             ValidationService.validate(request.getVendorAccountId(), "vendor");
             ValidationService.validate(request.getAmountPaid(), "amount");
             ValidationService.validate(request.getOrganizationAccountId(), "organization account");
@@ -148,7 +150,7 @@ public class VendorAccountService {
             // If an organization account is supplied, deduct the amount from it and create an account detail
             Long orgAcctId = request.getOrganizationAccountId();
             if (orgAcctId != null && orgAcctId != 0) {
-                OrganizationAccount orgAcct = organizationAccoutRepo.findById(orgAcctId)
+                 orgAcct = organizationAccoutRepo.findById(orgAcctId)
                         .orElseThrow(() -> new IllegalArgumentException("Organization account not found"));
 
                 double available = orgAcct.getTotalAmount();
@@ -193,8 +195,7 @@ public class VendorAccountService {
             vendorPayment.setIdempotencyKey(request.getIdempotencyKey());
 
             vendorAccountDetailRepo.save(vendorPayment);
-
-
+            journalEntryService.createVendorPaymentJournalEntry(account, orgAcct, request.getAmountPaid(), loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, account);
         } catch (IllegalArgumentException e) {

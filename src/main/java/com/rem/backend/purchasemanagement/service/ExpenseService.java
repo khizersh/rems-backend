@@ -22,6 +22,7 @@ import com.rem.backend.purchasemanagement.repository.ExpenseDetailRepo;
 import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.purchasemanagement.repository.ExpenseTypeRepo;
 import com.rem.backend.repository.*;
+import com.rem.backend.utility.*;
 import com.rem.backend.service.JournalEntryService;
 import com.rem.backend.service.PdcPaymentService;
 import com.rem.backend.service.VendorAccountService;
@@ -60,6 +61,7 @@ public class ExpenseService {
     private final VendorAccountDetailRepo vendorAccountDetailRepo;
     private final OrganizationAccoutRepo organizationAccountRepo;
     private final JournalEntryService journalEntryService;
+    private final JournalUtilities journalUtilities;
     private final AccountGroupRepository accountGroupRepository;
     private final ChartOfAccountRepository coaRepo;
     private final WarehouseIntegrationService warehouseIntegrationService;
@@ -505,7 +507,9 @@ public class ExpenseService {
                 expense.setVendorName(accountOptional.get().getName());
                 expense.setExpenseTitle(expenseTypeOptional.get().getName());
                 organizationAccountDetail.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
-                expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(expense.getOrganizationId()).getId());
+
+                expense.setExpenseCOAId(journalUtilities.getChartOfAccount(expense.getOrganizationId(),
+                        JournalUtilities.CONSTRUCTION_INVENTORY).getId());
 
             } else {
                 expense.setExpenseTitle("Miscellaneous Expense");
