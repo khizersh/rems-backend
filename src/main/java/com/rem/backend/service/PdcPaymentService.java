@@ -225,7 +225,7 @@ public class PdcPaymentService {
                 }
             }
 
-            expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(pdcRecord.getOrganizationId()).getId());
+//            expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(pdcRecord.getOrganizationId()).getId());
 
 
             expense = expenseRepo.save(expense);
@@ -541,7 +541,7 @@ public class PdcPaymentService {
             }
 
             // Set expense COA ID
-            expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(pdcRecord.getOrganizationId()).getId());
+//            expense.setExpenseCOAId(journalEntryService.getConstructionInventoryControlAccount(pdcRecord.getOrganizationId()).getId());
 
             expense = expenseRepo.save(expense);
             expense.setOrgAccountTitle(organizationAccount.getName());
