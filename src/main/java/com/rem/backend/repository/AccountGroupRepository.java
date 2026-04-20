@@ -1,7 +1,7 @@
 package com.rem.backend.repository;
 
+import com.rem.backend.entity.account.AccountCategory;
 import com.rem.backend.entity.account.AccountGroup;
-import com.rem.backend.entity.account.AccountType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,19 +13,18 @@ public interface AccountGroupRepository extends JpaRepository<AccountGroup, Long
 
     List<AccountGroup> findAllByOrganization_OrganizationId(long organizationId);
 
-    List<AccountGroup> findAllByAccountType_IdAndOrganization_OrganizationId(long accountType,long organizationId);
+    List<AccountGroup> findAllByAccountCategory_IdAndOrganization_OrganizationId(long accountCategoryId, long organizationId);
 
-    List<AccountGroup> findAllByAccountType_Id(long accountTypeId);
+    List<AccountGroup> findAllByAccountCategory_Id(long accountCategoryId);
 
     Optional<AccountGroup> findByNameAndOrganization_OrganizationId(
             String name, long organizationId);
 
-    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountType(
-            long organizationId, AccountType accountType);
+    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountCategory(
+            long organizationId, AccountCategory accountCategory);
 
-    // OR (recommended)
-    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountType_Id(
-            long organizationId, long accountTypeId);
+    List<AccountGroup> findAllByOrganization_OrganizationIdAndAccountCategory_Id(
+            long organizationId, long accountCategoryId);
 
     boolean existsByNameAndOrganization_OrganizationId(String name, Long organizationId);
 

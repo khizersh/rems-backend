@@ -1,6 +1,7 @@
 package com.rem.backend.controller;
 
 
+import com.rem.backend.dto.accounting.CreateAccountCategoryRequest;
 import com.rem.backend.dto.accounting.CreateAccountGroupRequest;
 import com.rem.backend.dto.accounting.CreateChartOfAccountRequest;
 import com.rem.backend.dto.accounting.UpdateChartOfAccountNameRequest;
@@ -28,42 +29,23 @@ public class AccountingController {
 
     private final AccountService accountsService;
 
+    // ═══════════════════════════════════════════════════
+    //  CHART OF ACCOUNTS
+    // ═══════════════════════════════════════════════════
+
     @GetMapping("/{organizationId}/allChartOfAccounts")
     public ResponseEntity<?> getAllChartOfAccounts(@PathVariable Long organizationId,
                                                    @RequestParam(required = false) Long accountGroup,
+                                                   @RequestParam(required = false) Long accountCategory,
                                                    @RequestParam(required = false) Long accountType,
                                                    HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
 
         Map<String, Object> response =
-                accountsService.getAllChartOfAccounts(organizationId, accountType, accountGroup);
+                accountsService.getAllChartOfAccounts(organizationId, accountType, accountCategory, accountGroup);
 
         return ResponseEntity.ok(response);
     }
-
-    @GetMapping("/{organizationId}/getAccountGroups")
-    public ResponseEntity<?> getAccountGroup(@PathVariable long organizationId,
-                                             @RequestParam long accountType,
-                                                   HttpServletRequest request) {
-        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
-
-        Map<String, Object> response =
-                accountsService.getAccountGroups(accountType, organizationId, loggedInUser);
-
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/getAllAccountTypes")
-    public ResponseEntity<?> getAllAccountTypes(
-                                                   HttpServletRequest request) {
-        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
-
-        Map<String, Object> response =
-                accountsService.getAllAccountType();
-
-        return ResponseEntity.ok(response);
-    }
-
 
     @PostMapping("/{organizationId}/expenseChartOfAccount")
     public ResponseEntity<?> createExpenseChartOfAccount(
@@ -79,32 +61,6 @@ public class AccountingController {
                 )
         );
     }
-
-
-    @PostMapping("/{organizationId}/accountGroup")
-    public ResponseEntity<?> createAccountGroup(
-            @PathVariable long organizationId,
-            @RequestBody CreateAccountGroupRequest createAccountGroupRequest,
-            HttpServletRequest request
-    ) {
-        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
-        return ResponseEntity.ok(accountsService.createAccountGroup(organizationId, createAccountGroupRequest, loggedInUser));
-    }
-
-
-    @PutMapping("/{organizationId}/accountGroup")
-    public ResponseEntity<?> updateAccountGroup(
-            @PathVariable long organizationId,
-            @RequestParam long groupId,
-            @RequestBody CreateAccountGroupRequest request,
-            HttpServletRequest httpRequest
-    ) {
-        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
-        return ResponseEntity.ok(
-                accountsService.updateAccountGroup(organizationId, groupId, request, loggedInUser)
-        );
-    }
-
 
     @PutMapping("/{organizationId}/expenseChartOfAccount")
     public ResponseEntity<?> updateExpenseChartOfAccountName(
@@ -122,7 +78,6 @@ public class AccountingController {
         );
     }
 
-
     @GetMapping("/chartOfAccount/getById/{chartOfAccountId}")
     public ResponseEntity<?> getChartOfAccountById(@PathVariable long chartOfAccountId) {
 
@@ -133,14 +88,103 @@ public class AccountingController {
         );
     }
 
-    @GetMapping("/getAccountGroupById/{accountGroupId}")
-    public ResponseEntity<?> getAccountGroupById(@PathVariable long accountGroupId) {
+    // ═══════════════════════════════════════════════════
+    //  ACCOUNT TYPE
+    // ═══════════════════════════════════════════════════
+
+    @GetMapping("/getAllAccountTypes")
+    public ResponseEntity<?> getAllAccountTypes(HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> response = accountsService.getAllAccountType();
+        return ResponseEntity.ok(response);
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  ACCOUNT CATEGORY  (new level)
+    // ═══════════════════════════════════════════════════
+
+    @GetMapping("/{organizationId}/getAccountCategories")
+    public ResponseEntity<?> getAccountCategories(@PathVariable long organizationId,
+                                                  @RequestParam long accountType,
+                                                  HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> response =
+                accountsService.getAccountCategories(accountType, organizationId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/getAccountCategoryById/{accountCategoryId}")
+    public ResponseEntity<?> getAccountCategoryById(@PathVariable long accountCategoryId) {
+        return ResponseEntity.ok(accountsService.getAccountCategoryById(accountCategoryId));
+    }
+
+    @PostMapping("/{organizationId}/accountCategory")
+    public ResponseEntity<?> createAccountCategory(
+            @PathVariable long organizationId,
+            @RequestBody CreateAccountCategoryRequest createAccountCategoryRequest,
+            HttpServletRequest request
+    ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(accountsService.createAccountCategory(organizationId, createAccountCategoryRequest, loggedInUser));
+    }
+
+    @PutMapping("/{organizationId}/accountCategory")
+    public ResponseEntity<?> updateAccountCategory(
+            @PathVariable long organizationId,
+            @RequestParam long categoryId,
+            @RequestBody CreateAccountCategoryRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(
+                accountsService.updateAccountCategory(organizationId, categoryId, request, loggedInUser)
+        );
+    }
+
+    // ═══════════════════════════════════════════════════
+    //  ACCOUNT GROUP
+    // ═══════════════════════════════════════════════════
+
+    @GetMapping("/{organizationId}/getAccountGroups")
+    public ResponseEntity<?> getAccountGroup(@PathVariable long organizationId,
+                                             @RequestParam long accountCategory,
+                                             HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
 
         Map<String, Object> response =
-                accountsService.getAccountGroupById(accountGroupId);
+                accountsService.getAccountGroups(accountCategory, organizationId, loggedInUser);
 
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/getAccountGroupById/{accountGroupId}")
+    public ResponseEntity<?> getAccountGroupById(@PathVariable long accountGroupId) {
+        Map<String, Object> response =
+                accountsService.getAccountGroupById(accountGroupId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{organizationId}/accountGroup")
+    public ResponseEntity<?> createAccountGroup(
+            @PathVariable long organizationId,
+            @RequestBody CreateAccountGroupRequest createAccountGroupRequest,
+            HttpServletRequest request
+    ) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(accountsService.createAccountGroup(organizationId, createAccountGroupRequest, loggedInUser));
+    }
+
+    @PutMapping("/{organizationId}/accountGroup")
+    public ResponseEntity<?> updateAccountGroup(
+            @PathVariable long organizationId,
+            @RequestParam long groupId,
+            @RequestBody CreateAccountGroupRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String loggedInUser = (String) httpRequest.getAttribute(LOGGED_IN_USER);
+        return ResponseEntity.ok(
+                accountsService.updateAccountGroup(organizationId, groupId, request, loggedInUser)
+        );
+    }
 
 }

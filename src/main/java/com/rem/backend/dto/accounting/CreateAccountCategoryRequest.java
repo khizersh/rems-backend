@@ -3,8 +3,8 @@ package com.rem.backend.dto.accounting;
 import lombok.Data;
 
 @Data
-public class CreateAccountGroupRequest {
+public class CreateAccountCategoryRequest {
     private String name;
-    private Long accountCategoryId;
+    private Long accountTypeId;
 }
 

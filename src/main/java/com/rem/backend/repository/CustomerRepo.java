@@ -78,10 +78,10 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
                         p.project_id      AS projectId,
                         f.floor           AS floorNo,
                         u.serial_no       AS unitSerial,
-                        u.unit_type       AS unitType
+                        u.unit_type       AS unitType,
                         b.id              AS bookingId
                     FROM customer c
-                    JOIN booking b ON  b.customer_id = customerId
+                    JOIN booking b ON  b.customer_id = c.customer_id
                     JOIN unit u    ON  u.id = :unitId
                     JOIN floor f   ON  u.floor_id = f.id
                     JOIN project p ON  f.project_id = p.project_id

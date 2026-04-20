@@ -1,9 +1,9 @@
 package com.rem.backend.dto.accounting;
 
-public record AccountGroupDTO(
+public record AccountCategoryDTO(
         Long id,
         String name,
-        AccountCategoryDTO accountCategory,
+        AccountTypeDTO accountType,
         String createdDate
 ) {}
 

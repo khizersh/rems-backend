@@ -7,9 +7,9 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "account_group")
+@Table(name = "account_category")
 @Data
-public class AccountGroup {
+public class AccountCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,13 +19,12 @@ public class AccountGroup {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "account_category_id", nullable = false)
-    private AccountCategory accountCategory;
+    @JoinColumn(name = "account_type_id", nullable = false)
+    private AccountType accountType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
-
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdDate;

@@ -269,21 +269,23 @@ public class CustomerPaymentService {
                     organizationAccountDetail.setProjectId(projectId);
                     organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
                     organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
-                    journalEntryService.createJournalEntryForCustomerPayment(
-                            customerAccount.getCustomer().getOrganizationId(),
-                            customerPayment,
-                            organizationAccountDetail,
-                            customerAccountOptional.get().getUnit().getId(),
-                            bookingId,
-                            loggedInUser
 
-                    );
                 }
             }
 
 
             customerAccount.setTotalPaidAmount(customerAccount.getTotalPaidAmount() + currentPaidAmount);
             customerAccount.setTotalBalanceAmount(customerAccount.getTotalBalanceAmount() - currentPaidAmount);
+
+            journalEntryService.createJournalEntryForCustomerPayment(
+                    customerAccount,
+                    customerPayment,
+                    customerPayment.getOrganizationAccountDetails(),
+                    customerAccountOptional.get().getUnit().getId(),
+                    bookingId,
+                    loggedInUser
+
+            );
             customerAccountRepo.save(customerAccount);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOp);
@@ -363,19 +365,19 @@ public class CustomerPaymentService {
                     organizationAccountDetail.setCustomerPaymentId(customerPaymentRequest.getId());
                     organizationAccountDetail.setComments("Paid By " + customerName + " for Unit # " + unitSerial + " of " + projectName);
                     organizationAccountService.addOrgAcctDetail(organizationAccountDetail, loggedInUser);
-                    journalEntryService.createJournalEntryForCustomerPayment(
-                            customerAccountOp.get().getCustomer().getOrganizationId(),
-                            customerPayment,
-                            organizationAccountDetail,
-                            customerAccountOptional.get().getUnit().getId(),
-                            bookingId,
-                            loggedInUser
 
-                    );
                 }
             }
 
+            journalEntryService.createJournalEntryForPaymentPosting(
+                    customerAccountOp.get(),
+                    customerPayment,
+                    customerPaymentRequest.getOrganizationAccountDetails(),
+                    customerAccountOptional.get().getUnit().getId(),
+                    bookingId,
+                    loggedInUser
 
+            );
             customerPaymentRepo.save(customerPayment);
             return ResponseMapper.buildResponse(Responses.SUCCESS, customerAccountOp);
         } catch (IllegalArgumentException e) {

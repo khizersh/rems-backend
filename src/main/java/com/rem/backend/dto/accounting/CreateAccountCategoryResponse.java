@@ -2,10 +2,10 @@ package com.rem.backend.dto.accounting;
 
 import java.time.LocalDateTime;
 
-public record CreateAccountGroupResponse(
+public record CreateAccountCategoryResponse(
         long id,
         String name,
-        long accountCategoryId,
+        long accountTypeId,
         long organizationId,
         LocalDateTime createdDate
 ) {}

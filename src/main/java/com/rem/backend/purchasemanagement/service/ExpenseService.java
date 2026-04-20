@@ -448,6 +448,14 @@ public class ExpenseService {
                 pdcRecord.setTitle(expense.getExpenseTitle() != null ? expense.getExpenseTitle() : "PDC Payment");
                 pdcRecord.setComments(expense.getComments());
 
+
+                Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(expense.getOrganizationAccountId());
+                if (!organizationAccountOptional.isPresent())
+                    throw new IllegalArgumentException("Invalid Account");
+//
+                // Create journal entry for expense (double-entry bookkeeping)
+                journalEntryService.createJournalEntryForExpense(expense, organizationAccountOptional.get(), loggedInUser);
+
                 // Delegate to PdcPaymentService
                 return pdcPaymentService.createPdcRecord(pdcRecord, loggedInUser);
             }

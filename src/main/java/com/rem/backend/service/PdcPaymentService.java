@@ -201,6 +201,7 @@ public class PdcPaymentService {
             expense.setCreditAmount(0);
             expense.setTotalAmount(pdcRecord.getAmount());
             expense.setPaymentStatus(PaymentStatus.PAID);
+            expense.setPaymentType(PaymentType.CHEQUE);
             expense.setPdcStatus(PdcStatus.CLEARED);
             expense.setChequeNumber(pdcRecord.getChequeNumber());
             expense.setChequeDate(pdcRecord.getChequeDate());
@@ -290,7 +291,7 @@ public class PdcPaymentService {
             pdcRecordRepo.save(pdcRecord);
 
             // 9. Create journal entry for PDC clearance (Dr Expense/Payable, Cr Bank)
-//            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
+            journalEntryService.createJournalEntryForExpense(expense, organizationAccount, loggedInUser);
 
             log.info("PDC {} cleared successfully, expense {} created by {}", pdcId, expense.getId(), loggedInUser);
             return ResponseMapper.buildResponse(Responses.SUCCESS, Map.of(

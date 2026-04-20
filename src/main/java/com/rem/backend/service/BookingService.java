@@ -43,6 +43,7 @@ public class BookingService {
     private final PaymentScheduleRepository paymentScheduleRepo;
     private final CustomerPaymentRepo customerPaymentRepo;
     private final UserRepo userRepo;
+    private final JournalEntryService journalEntryService;
 
 
     @Transactional
@@ -110,8 +111,10 @@ public class BookingService {
             booking.setCreatedBy(loggedInUser);
             booking.setUpdatedBy(loggedInUser);
             booking.setFloorId(unit.getFloorId());
+            booking.setTotalAmount(paymentSchedule.getTotalAmount());
             Booking bookingSaved = bookingRepository.save(booking);
             createCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
+            journalEntryService.createJournalEntryForBooking(booking, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
@@ -139,6 +142,8 @@ public class BookingService {
 
 
 
+
+
             if (booking.getCustomerId() == null)
                 return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Invalid Customer!");
 
@@ -159,17 +164,20 @@ public class BookingService {
 
 
 
-            PaymentSchedule paymentSchedule = booking.getPaymentSchedule();
-            paymentSchedule.setCreatedBy(loggedInUser);
-            paymentSchedule.setUpdatedBy(loggedInUser);
-            paymentSchedule.setUnit(booking.getUnit());
-            paymentSchedule.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
+            PaymentSchedule paymentScheduleCurrent = booking.getPaymentSchedule();
+            paymentScheduleCurrent.setCreatedBy(loggedInUser);
+            paymentScheduleCurrent.setUpdatedBy(loggedInUser);
+            paymentScheduleCurrent.setUnit(booking.getUnit());
+            paymentScheduleCurrent.setPaymentScheduleType(PaymentScheduleType.CUSTOMER);
 
 
-            unit.setPaymentPlanType(paymentSchedule.getPaymentPlanType());
+            unit.setPaymentPlanType(paymentScheduleCurrent.getPaymentPlanType());
             unitRepo.save(unit);
 
-            Map<String, Object> createPaymentScheduler = paymentSchedulerService.updateSchedule(paymentSchedule, paymentSchedule.getPaymentPlanType());
+            double oldTotalAmount = paymentScheduleRepo.findByUnitIdAndPaymentScheduleTypeAndIsActiveTrue(
+                    booking.getUnitId(), PaymentScheduleType.CUSTOMER).get().getTotalAmount();
+
+            Map<String, Object> createPaymentScheduler = paymentSchedulerService.updateSchedule(paymentScheduleCurrent, paymentScheduleCurrent.getPaymentPlanType());
             if (createPaymentScheduler != null) {
                 if (!createPaymentScheduler.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     return createPaymentScheduler;
@@ -190,7 +198,10 @@ public class BookingService {
             bookingSaved.setFloorId(unit.getFloorId());
             bookingSaved = bookingRepository.save(bookingSaved);
             bookingSaved.setPaymentSchedule(booking.getPaymentSchedule());
-            updateCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
+            updateCustomerAccount(bookingSaved, loggedInUser, paymentScheduleCurrent.getPaymentPlanType());
+
+            double newTotalAmount = paymentScheduleCurrent.getTotalAmount();
+            journalEntryService.createJournalEntryForBookingUpdate(bookingSaved, oldTotalAmount, newTotalAmount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
