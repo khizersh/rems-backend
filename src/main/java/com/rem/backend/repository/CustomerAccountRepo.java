@@ -59,6 +59,8 @@ public interface CustomerAccountRepo extends JpaRepository<CustomerAccount , Lon
 
     Optional<CustomerAccount> findByCustomer_CustomerIdAndUnit_IdAndIsActiveTrue(Long customerId, Long unitId);
 
+    Optional<CustomerAccount> findByCustomer_CustomerIdAndUnit_Id(Long customerId, Long unitId);
+
 
 
 

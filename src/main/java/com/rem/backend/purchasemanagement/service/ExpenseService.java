@@ -419,6 +419,20 @@ public class ExpenseService {
 
             // ── PDC MODE: determine if this is a Post-Dated Cheque ──────────
             // PDC flow is triggered when paymentType == CHEQUE
+
+            if (expense.getProjectId() > 0l) {
+                Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
+                if (!projectOptional.isPresent())
+                    throw new IllegalArgumentException("Invalid Project!");
+
+
+                Project project = projectOptional.get();
+                expense.setProjectName(project.getName());
+                project.setConstructionAmount(project.getConstructionAmount() + expense.getTotalAmount());
+                project.setTotalAmount(project.getTotalAmount() + expense.getTotalAmount());
+                project.setUpdatedBy(loggedInUser);
+                projectRepo.save(project);
+            }
             boolean isPdc = expense.getPaymentType() != null && expense.getPaymentType().equals(PaymentType.CHEQUE);
 
             if (isPdc) {
@@ -494,33 +508,12 @@ public class ExpenseService {
                 vendorAccountRepo.save(vendorAccount);
 
 
-                Optional<ExpenseType> expenseTypeOptional = expenseTypeRepo.findById(expense.getExpenseTypeId());
-                if (!expenseTypeOptional.isPresent())
-                    throw new IllegalArgumentException("Invalid Expense Type");
-
-
-                if (expense.getProjectId() > 0l) {
-                    Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
-                    if (!projectOptional.isPresent())
-                        throw new IllegalArgumentException("Invalid Project!");
-
-
-                    Project project = projectOptional.get();
-                    expense.setProjectName(project.getName());
-                    project.setConstructionAmount(project.getConstructionAmount() + expense.getTotalAmount());
-                    project.setTotalAmount(project.getTotalAmount() + expense.getTotalAmount());
-                    project.setUpdatedBy(loggedInUser);
-                    projectRepo.save(project);
-                }
                 expense.setVendorName(accountOptional.get().getName());
-                expense.setExpenseTitle(expenseTypeOptional.get().getName());
                 organizationAccountDetail.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
 
                 expense.setExpenseCOAId(journalUtilities.getChartOfAccount(expense.getOrganizationId(),
                         JournalUtilities.CONSTRUCTION_INVENTORY).getId());
 
-            } else {
-                expense.setExpenseTitle("Miscellaneous Expense");
             }
 
             expense.setUpdatedBy(loggedInUser);

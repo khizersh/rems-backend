@@ -85,7 +85,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long> {
                     JOIN unit u    ON  u.id = :unitId
                     JOIN floor f   ON  u.floor_id = f.id
                     JOIN project p ON  f.project_id = p.project_id
-                    WHERE c.customer_id = :customerId
+                    WHERE c.customer_id = :customerId AND b.is_active = 1
                     """,
             nativeQuery = true
     )

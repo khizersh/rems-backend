@@ -71,8 +71,16 @@ public class JournalEntryService {
             journalEntry.setVendorId(expense.getVendorAccountId());
             journalEntry.setProjectId(expense.getProjectId());
             journalEntry.setUnitId(expense.getUnitId());
-            journalEntry.setDescription("Expense: " + expense.getExpenseTitle() +
-                    (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
+
+            if (expense.getPaymentType().equals(PaymentType.CHEQUE) &&
+                    expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)) {
+                journalEntry.setReferenceType("EXPENSE_CHEQUE_PAYMENT");
+                journalEntry.setDescription("PDC Clearing: Vendor# = " + expense.getVendorName() +
+                        (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
+            } else {
+                journalEntry.setDescription("Expense: " + expense.getExpenseTitle() +
+                        (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
+            }
             journalEntry.setStatus(JournalEntryStatus.POSTED);
             journalEntry.setCreatedBy(loggedInUser);
             journalEntry = journalEntryRepository.save(journalEntry);
@@ -84,10 +92,10 @@ public class JournalEntryService {
             log.info("Bank Account COA ID: {} - {}", bankAccount.getId(), bankAccount.getName());
 
 
-            if (expense.getPaymentType().equals(PaymentType.CHEQUE)){
+            if (expense.getPaymentType().equals(PaymentType.CHEQUE)) {
 
                 // when cheque is cleared, we can record the payment directly to bank account. But if it's not cleared yet, we need to record the payment in a separate "Cheque Account" to reflect the pending nature of the transaction.
-                if (expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)){
+                if (expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)) {
 
 
                     ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
@@ -119,7 +127,7 @@ public class JournalEntryService {
                     detailEntries.add(creditBankEntry);
                     totalCredit += expense.getAmountPaid();
 
-                }else{ // when cheque is created but not yet cleared, we record the payment in a separate "Cheque Account" until it's cleared. This is to reflect the pending nature of the transaction.
+                } else { // when cheque is created but not yet cleared, we record the payment in a separate "Cheque Account" until it's cleared. This is to reflect the pending nature of the transaction.
                     ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), CONSTRUCTION_INVENTORY);
                     JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
                     debitChequeEntry.setJournalEntryId(journalEntry.getId());
@@ -149,7 +157,7 @@ public class JournalEntryService {
                     totalCredit += expense.getAmountPaid();
                 }
 
-            }else{
+            } else {
                 // If amountPaid > 0: Debit Expense, Credit Bank
                 if (expense.getAmountPaid() > 0 && expense.getCreditAmount() == 0) {
                     // Debit: Expense Account
@@ -157,9 +165,9 @@ public class JournalEntryService {
                     ChartOfAccount debitAccount =
                             expense.getExpenseType() != ExpenseType.CONSTRUCTION
                                     ? journalUtilities.findChartOfAccount(expense, loggedInUser)
-                                    : journalUtilities.getChartOfAccount(expense.getOrganizationId(),CONSTRUCTION_INVENTORY);
+                                    : journalUtilities.getChartOfAccount(expense.getOrganizationId(), CONSTRUCTION_INVENTORY);
 
-                    if(debitAccount == null){
+                    if (debitAccount == null) {
                         throw new RuntimeException("No Valid Debit Account was found");
                     }
 
@@ -190,7 +198,7 @@ public class JournalEntryService {
                 else if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
 
                     ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount
-                            (organizationAccount.getOrganizationId(),CONSTRUCTION_INVENTORY);
+                            (organizationAccount.getOrganizationId(), CONSTRUCTION_INVENTORY);
 
                     // Find or create Accounts Payable account for vendor
                     ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
@@ -357,6 +365,7 @@ public class JournalEntryService {
             journalEntry.setCreatedDate(java.time.LocalDateTime.now());
             journalEntry.setReferenceType("VENDOR_PAYMENT");
             journalEntry.setExpenseId(0L);
+            journalEntry.setVendorId(vendorAccount.getId());
             journalEntry.setOrganizationAccountId(organizationAccount.getId());
             journalEntry.setDescription("Vendor Payment: " +
                     " - Paying " + vendorAccount.getName());
@@ -415,7 +424,6 @@ public class JournalEntryService {
             throw new RuntimeException("Failed to create vendor payment journal entry: " + e.getMessage(), e);
         }
     }
-
 
 
     @Transactional
@@ -553,7 +561,6 @@ public class JournalEntryService {
     }
 
 
-
     /**
      * Find or create Chart of Account for Bank/Cash Account
      * This links OrganizationAccount to ChartOfAccount for proper ledger entries
@@ -578,10 +585,9 @@ public class JournalEntryService {
 
     /**
      * Journal Entry for Customer Payment Installment
-     *
+     * <p>
      * DR Bank / Cash
      * CR Booking Liability
-     *
      */
     @Transactional
     public void createJournalEntryForCustomerPayment(
@@ -727,7 +733,7 @@ public class JournalEntryService {
      DEBIT = money coming IN company account
      */
 
-        if(entry.getTransactionCategory().equals(TransactionCategory.CUSTOMER_PAYMENT)){
+        if (entry.getTransactionCategory().equals(TransactionCategory.CUSTOMER_PAYMENT)) {
             return;
         }
 
@@ -766,10 +772,7 @@ public class JournalEntryService {
                     loggedInUser
             );
 
-        }
-
-
-        else if (entry.getTransactionType() == TransactionType.DEBIT) {
+        } else if (entry.getTransactionType() == TransactionType.DEBIT) {
 
             switch (entry.getTransactionCategory()) {
 
@@ -810,7 +813,7 @@ public class JournalEntryService {
             String loggedInUser) {
 
 
-        ChartOfAccount companyAccount = findBankAccount(organizationAccountDetail.getOrganizationAcctId(),organizationId);
+        ChartOfAccount companyAccount = findBankAccount(organizationAccountDetail.getOrganizationAcctId(), organizationId);
 
 
         ChartOfAccount controlAccount = journalUtilities.getChartOfAccount(organizationId,
@@ -896,14 +899,14 @@ public class JournalEntryService {
 
     /**
      * Journal Entry for Booking Price Update.
-     *
+     * <p>
      * If new price > old price (price increase):
-     *   DR Customer Receivable   (difference)
-     *   CR Booking Revenue       (difference)
-     *
+     * DR Customer Receivable   (difference)
+     * CR Booking Revenue       (difference)
+     * <p>
      * If new price < old price (price decrease):
-     *   DR Booking Revenue       (difference)
-     *   CR Customer Receivable   (difference)
+     * DR Booking Revenue       (difference)
+     * CR Customer Receivable   (difference)
      */
     @Transactional
     public void createJournalEntryForBookingUpdate(
@@ -939,9 +942,9 @@ public class JournalEntryService {
             journalEntry.setUnitId(booking.getUnitId());
             journalEntry.setDescription(
                     "Booking price " + (isPriceIncrease ? "increased" : "decreased") +
-                    " by " + absDiff +
-                    " | Old: " + oldTotalAmount + " | New: " + newTotalAmount +
-                    " | Booking ID: " + booking.getId()
+                            " by " + absDiff +
+                            " | Old: " + oldTotalAmount + " | New: " + newTotalAmount +
+                            " | Booking ID: " + booking.getId()
             );
             journalEntry.setStatus(JournalEntryStatus.POSTED);
             journalEntry.setCreatedBy(loggedInUser);
@@ -1174,7 +1177,6 @@ public class JournalEntryService {
     }
 
 
-
     @Transactional
     public void createJournalEntryForRefundPayment(
             Long organizationId,
@@ -1221,8 +1223,8 @@ public class JournalEntryService {
             String loggedInUser) {
 
 
-        ChartOfAccount fromAccount = findBankAccount(request.getFromAccountId(),organizationId);
-        ChartOfAccount toAccount = findBankAccount(request.getToAccountId(),organizationId);
+        ChartOfAccount fromAccount = findBankAccount(request.getFromAccountId(), organizationId);
+        ChartOfAccount toAccount = findBankAccount(request.getToAccountId(), organizationId);
 
 
         JournalEntry journalEntry = new JournalEntry();
@@ -1283,8 +1285,8 @@ public class JournalEntryService {
     /**
      * Journal Entry for posting already-received customer payment to organization bank account.
      * For each bank account selected:
-     *   DR Bank/Cash
-     *   CR Undeposited Funds (Customer Receivable)
+     * DR Bank/Cash
+     * CR Undeposited Funds (Customer Receivable)
      */
     @Transactional
     public void createJournalEntryForPaymentPosting(
@@ -1397,5 +1399,109 @@ public class JournalEntryService {
         }
     }
 
-}
+    @Transactional
+    public void updateVendorPaymentJournalEntry(VendorAccount vendorAccount,
+                                                OrganizationAccount organizationAccount,
+                                                double oldPaymentAmount,
+                                                double newPaymentAmount,
+                                                String loggedInUser) {
+        try {
+            double difference = newPaymentAmount - oldPaymentAmount;
+            if (Math.abs(difference) < 0.01) {
+                log.info("Vendor payment amount unchanged for Vendor ID: {}, skipping journal entry.", vendorAccount.getId());
+                return;
+            }
 
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // Create Journal Entry header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(vendorAccount.getOrganizationId());
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("VENDOR_PAYMENT_UPDATE");
+            journalEntry.setExpenseId(0L);
+            journalEntry.setVendorId(vendorAccount.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setDescription("Vendor Payment Update: " +
+                    " - Adjusting payment for " + vendorAccount.getName() +
+                    " | Old: " + oldPaymentAmount + " | New: " + newPaymentAmount);
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Journal Entry ID: {} for Vendor Payment Update, Vendor ID: {}",
+                    journalEntry.getId(), vendorAccount.getId());
+
+            // Get Bank account
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), vendorAccount.getOrganizationId());
+            if (bankAccount == null) throw new RuntimeException("Bank account not found");
+
+            // Get Vendor Payable (AP) account
+            ChartOfAccount accountsPayableAccount = journalUtilities
+                    .getChartOfAccount(vendorAccount.getOrganizationId(), VENDOR_PAYABLE);
+
+            double absDifference = Math.abs(difference);
+
+            if (difference > 0) {
+                // Increasing payment: Debit AP more, Credit Bank more
+                JournalDetailEntry debitAP = new JournalDetailEntry();
+                debitAP.setJournalEntryId(journalEntry.getId());
+                debitAP.setChartOfAccountId(accountsPayableAccount.getId());
+                debitAP.setDebitAmount(absDifference);
+                debitAP.setCreditAmount(0.0);
+                debitAP.setDescription("Additional payment to vendor: " + vendorAccount.getName());
+                detailEntries.add(debitAP);
+                totalDebit += absDifference;
+
+                JournalDetailEntry creditBank = new JournalDetailEntry();
+                creditBank.setJournalEntryId(journalEntry.getId());
+                creditBank.setChartOfAccountId(bankAccount.getId());
+                creditBank.setDebitAmount(0.0);
+                creditBank.setCreditAmount(absDifference);
+                creditBank.setDescription("Additional payment from: " + organizationAccount.getName());
+                detailEntries.add(creditBank);
+                totalCredit += absDifference;
+            } else {
+                // Decreasing payment: Credit AP more, Debit Bank more (reverse)
+                JournalDetailEntry creditAP = new JournalDetailEntry();
+                creditAP.setJournalEntryId(journalEntry.getId());
+                creditAP.setChartOfAccountId(accountsPayableAccount.getId());
+                creditAP.setDebitAmount(0.0);
+                creditAP.setCreditAmount(absDifference);
+                creditAP.setDescription("Reduced payment to vendor: " + vendorAccount.getName());
+                detailEntries.add(creditAP);
+                totalCredit += absDifference;
+
+                JournalDetailEntry debitBank = new JournalDetailEntry();
+                debitBank.setJournalEntryId(journalEntry.getId());
+                debitBank.setChartOfAccountId(bankAccount.getId());
+                debitBank.setDebitAmount(absDifference);
+                debitBank.setCreditAmount(0.0);
+                debitBank.setDescription("Reduced payment from: " + organizationAccount.getName());
+                detailEntries.add(debitBank);
+                totalDebit += absDifference;
+            }
+
+            // Validate double-entry
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Journal Entry imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // Save entries
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
+                        entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
+            }
+
+            log.info("Vendor Payment Update Journal Entry {} completed. Difference: {}, Direction: {}",
+                    journalEntry.getId(), absDifference, difference > 0 ? "INCREASE" : "DECREASE");
+
+        } catch (Exception e) {
+            log.error("Failed to update vendor payment journal entry for vendor {}: {}", vendorAccount.getId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to update vendor payment journal entry: " + e.getMessage(), e);
+        }
+    }
+}

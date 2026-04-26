@@ -222,9 +222,16 @@ public class BookingService {
 
         PaymentSchedule schedule = booking.getPaymentSchedule();
 
-        CustomerAccount account = new CustomerAccount();
+        // Reuse existing (cancelled/inactive) account to avoid unique constraint violation
+        CustomerAccount account = customerAccountRepo
+                .findByCustomer_CustomerIdAndUnit_Id(booking.getCustomerId(), booking.getUnitId())
+                .orElse(new CustomerAccount());
+
         account.setCustomer(booking.getCustomer());
         account.setUnit(booking.getUnit());
+        account.setActive(true);
+        account.setTotalPaidAmount(0.0);
+        account.setTotalBalanceAmount(0.0);
 
         if (booking.getUnit() != null) {
             Optional<Project> projectOptional = projectRepo.findByProjectIdAndIsActiveTrue(booking.getProjectId());

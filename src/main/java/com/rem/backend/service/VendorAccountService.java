@@ -352,6 +352,18 @@ public class VendorAccountService {
             existing.setUpdatedBy(loggedInUser);
             vendorAccountDetailRepo.save(existing);
 
+            // Create journal entry for the payment update
+            OrganizationAccount orgAccountForJournal = newOrgAcct != null ? newOrgAcct : oldOrgAcct;
+            if (orgAccountForJournal != null) {
+                journalEntryService.updateVendorPaymentJournalEntry(
+                        vendorAccount,
+                        orgAccountForJournal,
+                        oldAmount,
+                        newAmount,
+                        loggedInUser
+                );
+            }
+
             return ResponseMapper.buildResponse(Responses.SUCCESS, existing);
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();

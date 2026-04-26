@@ -162,6 +162,7 @@ public class BookingCancellationService {
 
             booking.setActive(false);
             booking.getUnit().setBooked(false);
+            booking.setTotalAmount(paymentSchedule.getTotalAmount());
             bookingRepository.save(booking);
 
             customerAccount.setActive(false);
