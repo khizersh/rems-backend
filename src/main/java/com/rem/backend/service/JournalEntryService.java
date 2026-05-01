@@ -13,6 +13,7 @@ import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.enums.*;
 import com.rem.backend.repository.*;
@@ -813,34 +814,34 @@ public class JournalEntryService {
             String loggedInUser) {
 
 
-        ChartOfAccount companyAccount = findBankAccount(organizationAccountDetail.getOrganizationAcctId(), organizationId);
+        try{
+            ChartOfAccount companyAccount = findBankAccount(organizationAccountDetail.getOrganizationAcctId(), organizationId);
 
 
-        ChartOfAccount controlAccount = journalUtilities.getChartOfAccount(organizationId,
-                controlAccountName);
+            ChartOfAccount controlAccount = journalUtilities.getChartOfAccount(organizationId,
+                    controlAccountName);
 
     /*
      Step 2: Create Journal Entry (HEADER)
      */
 
-        JournalEntry journalEntry = new JournalEntry();
-
-        journalEntry.setReferenceType(organizationAccountDetail.getTransactionCategory().name());
-
-        journalEntry.setDescription(organizationAccountDetail.getComments());
-
-        journalEntry.setCreatedBy(loggedInUser);
-
-        journalEntry.setProjectId(organizationAccountDetail.getProjectId());
-
-        journalEntry.setUnitId(Long.valueOf(organizationAccountDetail.getUnitSerialNo()));
-
-        journalEntry.setCustomerId(organizationAccountDetail.getCustomerId());
-
-
-        journalEntry.setStatus(JournalEntryStatus.POSTED);
-
-        journalEntryRepository.save(journalEntry);
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setReferenceType(organizationAccountDetail.getTransactionCategory().name());
+            journalEntry.setOrganizationAccountId(organizationAccountDetail.getOrganizationAcctId());
+            journalEntry.setDescription(
+                    "Adjustment in Account#: "
+                            + organizationAccountDetail.getOrganizationAcctId()
+                            + (controlAccountType.equals(TransactionType.DEBIT)
+                            ? " Increased by "
+                            : " Decreased by ")
+                            + organizationAccountDetail.getAmount()
+            );
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry.setProjectId(organizationAccountDetail.getProjectId());
+            journalEntry.setUnitId(0L);
+            journalEntry.setCustomerId(organizationAccountDetail.getCustomerId());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntryRepository.save(journalEntry);
 
 
 
@@ -848,52 +849,45 @@ public class JournalEntryService {
      Step 3: Control Account Detail
      */
 
-        JournalDetailEntry controlDetail = new JournalDetailEntry();
-
-        controlDetail.setJournalEntryId(journalEntry.getId());
-
-        controlDetail.setChartOfAccountId(controlAccount.getId());
-
-        controlDetail.setDebitAmount(
-                controlAccountType == TransactionType.DEBIT
-                        ? organizationAccountDetail.getAmount()
-                        : 0
-        );
-
-        controlDetail.setCreditAmount(
-                controlAccountType == TransactionType.CREDIT
-                        ? organizationAccountDetail.getAmount()
-                        : 0
-        );
-
-
-        journalDetailEntryRepository.save(controlDetail);
-
-
+            JournalDetailEntry controlDetail = new JournalDetailEntry();
+            controlDetail.setJournalEntryId(journalEntry.getId());
+            controlDetail.setChartOfAccountId(controlAccount.getId());
+            controlDetail.setDebitAmount(
+                    controlAccountType == TransactionType.DEBIT
+                            ? organizationAccountDetail.getAmount()
+                            : 0
+            );
+            controlDetail.setCreditAmount(
+                    controlAccountType == TransactionType.CREDIT
+                            ? organizationAccountDetail.getAmount()
+                            : 0
+            );
+            journalDetailEntryRepository.save(controlDetail);
 
     /*
      Step 4: Company Account Detail (OPPOSITE ENTRY)
      */
+            JournalDetailEntry companyDetail = new JournalDetailEntry();
+            companyDetail.setJournalEntryId(journalEntry.getId());
+            companyDetail.setChartOfAccountId(companyAccount.getId());
+            companyDetail.setDebitAmount(
+                    controlAccountType == TransactionType.CREDIT
+                            ? organizationAccountDetail.getAmount()
+                            : 0
+            );
+            companyDetail.setCreditAmount(
+                    controlAccountType == TransactionType.DEBIT
+                            ? organizationAccountDetail.getAmount()
+                            : 0
+            );
+            journalDetailEntryRepository.save(companyDetail);
 
-        JournalDetailEntry companyDetail = new JournalDetailEntry();
+        }  catch (Exception e) {
+        log.error("Failed Account Adjustment Entry for Booking {}: {}", organizationAccountDetail.getId(), e.getMessage(), e);
+        throw new RuntimeException("Failed to create booking update journal entry: " + e.getMessage(), e);
+    }
 
-        companyDetail.setJournalEntryId(journalEntry.getId());
 
-        companyDetail.setChartOfAccountId(companyAccount.getId());
-
-        companyDetail.setDebitAmount(
-                controlAccountType == TransactionType.CREDIT
-                        ? organizationAccountDetail.getAmount()
-                        : 0
-        );
-
-        companyDetail.setCreditAmount(
-                controlAccountType == TransactionType.DEBIT
-                        ? organizationAccountDetail.getAmount()
-                        : 0
-        );
-
-        journalDetailEntryRepository.save(companyDetail);
 
     }
 
@@ -1502,6 +1496,75 @@ public class JournalEntryService {
         } catch (Exception e) {
             log.error("Failed to update vendor payment journal entry for vendor {}: {}", vendorAccount.getId(), e.getMessage(), e);
             throw new RuntimeException("Failed to update vendor payment journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void createJournalEntryForProjectAcquisition(Project project, OrganizationAccount organizationAccount, String loggedInUser) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // Create Journal Entry header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(project.getOrganizationId());
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("PROJECT_ACQUISITION");
+            journalEntry.setProjectId(project.getProjectId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setDescription("Project acquisition: " + project.getName() + " - Purchase cost: " + project.getTotalAmount());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Journal Entry ID: {} for Project Acquisition, Project ID: {}", journalEntry.getId(), project.getProjectId());
+
+            // Find or create Chart of Account for Bank/Cash Account
+            ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), project.getOrganizationId());
+            if (bankAccount == null) {
+                throw new RuntimeException("Bank account not found for organization account ID: " + organizationAccount.getId());
+            }
+
+            // Debit: Construction Inventory (asset increase)
+            ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount(project.getOrganizationId(), CONSTRUCTION_INVENTORY);
+            JournalDetailEntry debitEntry = new JournalDetailEntry();
+            debitEntry.setJournalEntryId(journalEntry.getId());
+            debitEntry.setChartOfAccountId(constructionInventoryAccount.getId());
+            debitEntry.setDebitAmount(project.getTotalAmount());
+            debitEntry.setCreditAmount(0.0);
+            debitEntry.setDescription("Project acquisition cost for: " + project.getName());
+            detailEntries.add(debitEntry);
+            totalDebit += project.getTotalAmount();
+
+            // Credit: Bank Account (asset decrease)
+            JournalDetailEntry creditEntry = new JournalDetailEntry();
+            creditEntry.setJournalEntryId(journalEntry.getId());
+            creditEntry.setChartOfAccountId(bankAccount.getId());
+            creditEntry.setDebitAmount(0.0);
+            creditEntry.setCreditAmount(project.getTotalAmount());
+            creditEntry.setDescription("Payment from bank for project: " + project.getName());
+            detailEntries.add(creditEntry);
+            totalCredit += project.getTotalAmount();
+
+            // Validate double-entry: Debit MUST equal Credit
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Journal Entry imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // Save all detail entries
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
+                        entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
+            }
+
+            log.info("Journal Entry {} for Project Acquisition completed. Total Debit: {}, Total Credit: {}",
+                    journalEntry.getId(), totalDebit, totalCredit);
+
+        } catch (Exception e) {
+            log.error("Failed to create journal entry for project acquisition {}: {}", project.getProjectId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to create journal entry: " + e.getMessage(), e);
         }
     }
 }

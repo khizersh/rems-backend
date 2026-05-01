@@ -1,5 +1,6 @@
 package com.rem.backend.entity.project;
 
+import com.rem.backend.enums.ProjectAcquisitionType;
 import com.rem.backend.enums.ProjectType;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -51,6 +52,13 @@ public class Project {
 
     @Column(nullable = false)
     private long organizationId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ProjectAcquisitionType acquisitionType;
+
+    @Column(nullable = true)
+    private Long organizationAccountId;
 
     @Column(nullable = false)
     private int monthDuration;
