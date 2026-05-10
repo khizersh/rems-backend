@@ -22,13 +22,17 @@ public class JournalUtilities {
     public static final String ADJUSTMENT_ACCOUNT = "Account Adjustment";
     public static final String CONSTRUCTION_ACCOUNT = "Construction Expense";
     public static final String MISC_ACCOUNT = "Miscellaneous Expense";
-    public static final String CONSTRUCTION_INVENTORY = "Construction Inventory";
+    public static final String PROJECT_CONSTRUCTION_VALUE = "Construction Inventory";
+    public static final String STOCK_INVENTORY = "Stock-Inventory";
+    public static final String GRN_CLEARING = "GRN Clearing Account";
     public static final String BOOKING_LIABILITY = "Booking Liability";
     public static final String VENDOR_PAYABLE = "Vendor Payable";
+    public static final String PROPERTY_SELLER_PAYABLE = "Property-Seller-Payable";
     public static final String CUSTOMER_RECEIVABLE = "Customer Receivable";
     public static final String UNDEPOSITED_FUND_ACCOUNT = "Undeposited Funds";
     public static final String BOOKING_REVENUE = "Booking Revenue";
     public static final String CANCELLATION_REVENUE_ACCOUNT = "Booking Cancellation Revenue";
+    public static final String STANDALONE_PROPERTY_INVENTORY = "Standalone-Property-Inventory";
 
 
 

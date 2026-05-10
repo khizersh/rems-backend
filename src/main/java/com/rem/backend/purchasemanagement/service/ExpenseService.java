@@ -512,7 +512,7 @@ public class ExpenseService {
                 organizationAccountDetail.setProjectId(expense.getProjectId() != null ? expense.getProjectId() : 0L);
 
                 expense.setExpenseCOAId(journalUtilities.getChartOfAccount(expense.getOrganizationId(),
-                        JournalUtilities.CONSTRUCTION_INVENTORY).getId());
+                        JournalUtilities.PROJECT_CONSTRUCTION_VALUE).getId());
 
             }
 

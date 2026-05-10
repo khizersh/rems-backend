@@ -10,6 +10,7 @@ import com.rem.backend.enums.ProjectAcquisitionType;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.TransactionType;
+import com.rem.backend.propertymanagement.service.PropertyPurchaseService;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -38,6 +39,7 @@ public class ProjectService {
     private final OrganizationAccoutRepo organizationAccoutRepo;
     private final JournalEntryService journalEntryService;
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
+    private final PropertyPurchaseService propertyPurchaseService;
 
 
     public Map<String, Object> getProjectById(long id) {
@@ -108,52 +110,43 @@ public class ProjectService {
 
             // Handle acquisition type logic
             if (project.getAcquisitionType() == ProjectAcquisitionType.NEW_PROJECT) {
-                // Validate organization account for payment
-                if (project.getOrganizationAccountId() == null || project.getOrganizationAccountId() == 0) {
-                    throw new IllegalArgumentException("Organization account must be selected for new project acquisition");
+                // For NEW_PROJECT, propertyPurchaseId is mandatory
+                if (project.getPropertyPurchaseId() == null || project.getPropertyPurchaseId() == 0) {
+                    throw new IllegalArgumentException("Property Purchase ID is required for new project acquisition. Please create a property purchase first.");
                 }
 
-                // Check if purchase costs are provided
-                if (totalAmount <= 0) {
-                    throw new IllegalArgumentException("Purchase costs must be greater than zero for new project");
+                // Validate that property purchase exists
+                Map<String, Object> propertyPurchaseResponse = propertyPurchaseService.getPurchaseById(project.getPropertyPurchaseId());
+                if (!propertyPurchaseResponse.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
+                    throw new IllegalArgumentException("Invalid Property Purchase ID. Property purchase does not exist.");
                 }
 
-                // Get and validate organization account
-                Optional<OrganizationAccount> orgAccountOpt = organizationAccoutRepo.findById(project.getOrganizationAccountId());
-                if (orgAccountOpt.isEmpty()) {
-                    throw new IllegalArgumentException("Invalid organization account");
-                }
-                OrganizationAccount orgAccount = orgAccountOpt.get();
-
-                // Check sufficient funds
-                if (orgAccount.getTotalAmount() < totalAmount) {
-                    throw new IllegalArgumentException("Insufficient funds in organization account for project purchase");
-                }
-
-                // Deduct from organization account
-                orgAccount.setTotalAmount(orgAccount.getTotalAmount() - totalAmount);
-                orgAccount.setUpdatedBy(loggedInUser);
-                organizationAccoutRepo.save(orgAccount);
-
-                // Create organization account detail for the deduction
-                OrganizationAccountDetail accountDetail = new OrganizationAccountDetail();
-                accountDetail.setOrganizationAcctId(orgAccount.getId());
-                accountDetail.setAmount(totalAmount);
-                accountDetail.setTransactionType(TransactionType.CREDIT); // Deducted from account
-                accountDetail.setComments("Project purchase: " + project.getName());
-                accountDetail.setCreatedBy(loggedInUser);
-                accountDetail.setUpdatedBy(loggedInUser);
-                organizationAccountDetailRepo.save(accountDetail);
-
-                // Create journal entry for project acquisition
-                journalEntryService.createJournalEntryForProjectAcquisition(project, orgAccount, loggedInUser);
+                project.setMigrated(false);
 
             } else if (project.getAcquisitionType() == ProjectAcquisitionType.EXISTING_PROJECT) {
-                // For existing projects, costs are for historical record only, no financial impact
-                // organizationAccountId can be null
+                // For EXISTING_PROJECT, propertyPurchaseId is optional (can be null)
+                // No financial validation or deduction required
+                // Mark as migrated if it's a legacy/onboarded property
+                // Note: isMigrated can be set by the client if needed
+                if (project.getPropertyPurchaseId() == null) {
+                    project.setPropertyPurchaseId(null);
+                }
             }
 
             Project projectSaved = projectRepo.save(project);
+
+            // For NEW_PROJECT, create journal entry for property assignment
+            if (project.getAcquisitionType() == ProjectAcquisitionType.NEW_PROJECT) {
+                Map<String, Object> journalResponse = journalEntryService.createPropertyAssignmentJournalEntry(
+                    projectSaved.getProjectId(), 
+                    project.getPropertyPurchaseId(), 
+                    project.getTotalAmount(), 
+                    loggedInUser
+                );
+                if (!journalResponse.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
+                    throw new RuntimeException("Failed to create journal entry for property assignment.");
+                }
+            }
 
             if (project.getProjectType().equals(ProjectType.APARTMENT) ||  project.getProjectType().equals(ProjectType.SHOP)) {
                 for (Floor floor : project.getFloorList()) {

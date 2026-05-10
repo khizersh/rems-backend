@@ -16,15 +16,25 @@ import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.enums.*;
+import com.rem.backend.propertymanagement.entity.PropertyPayment;
+import com.rem.backend.propertymanagement.entity.PropertyPurchase;
+import com.rem.backend.propertymanagement.repository.PropertyPurchaseRepo;
+import com.rem.backend.purchasemanagement.entity.grn.Grn;
+import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
+import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.JournalUtilities;
+import com.rem.backend.utility.ResponseMapper;
+import com.rem.backend.utility.Responses;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.rem.backend.utility.JournalUtilities.*;
@@ -39,6 +49,7 @@ public class JournalEntryService {
     private final ChartOfAccountRepository chartOfAccountRepository;
     private final AccountGroupRepository accountGroupRepository;
     private final OrganizationAccoutRepo organizationAccoutRepo;
+    private final PropertyPurchaseRepo propertyPurchaseRepo;
 
     private final JournalUtilities journalUtilities;
 
@@ -129,7 +140,7 @@ public class JournalEntryService {
                     totalCredit += expense.getAmountPaid();
 
                 } else { // when cheque is created but not yet cleared, we record the payment in a separate "Cheque Account" until it's cleared. This is to reflect the pending nature of the transaction.
-                    ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), CONSTRUCTION_INVENTORY);
+                    ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
                     JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
                     debitChequeEntry.setJournalEntryId(journalEntry.getId());
                     debitChequeEntry.setChartOfAccountId(chequeAccount.getId());
@@ -166,7 +177,7 @@ public class JournalEntryService {
                     ChartOfAccount debitAccount =
                             expense.getExpenseType() != ExpenseType.CONSTRUCTION
                                     ? journalUtilities.findChartOfAccount(expense, loggedInUser)
-                                    : journalUtilities.getChartOfAccount(expense.getOrganizationId(), CONSTRUCTION_INVENTORY);
+                                    : journalUtilities.getChartOfAccount(expense.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
 
                     if (debitAccount == null) {
                         throw new RuntimeException("No Valid Debit Account was found");
@@ -199,7 +210,7 @@ public class JournalEntryService {
                 else if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
 
                     ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount
-                            (organizationAccount.getOrganizationId(), CONSTRUCTION_INVENTORY);
+                            (organizationAccount.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
 
                     // Find or create Accounts Payable account for vendor
                     ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
@@ -1527,7 +1538,7 @@ public class JournalEntryService {
             }
 
             // Debit: Construction Inventory (asset increase)
-            ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount(project.getOrganizationId(), CONSTRUCTION_INVENTORY);
+            ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount(project.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
             JournalDetailEntry debitEntry = new JournalDetailEntry();
             debitEntry.setJournalEntryId(journalEntry.getId());
             debitEntry.setChartOfAccountId(constructionInventoryAccount.getId());
@@ -1565,6 +1576,290 @@ public class JournalEntryService {
         } catch (Exception e) {
             log.error("Failed to create journal entry for project acquisition {}: {}", project.getProjectId(), e.getMessage(), e);
             throw new RuntimeException("Failed to create journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Property purchase journal entry.
+     *
+     * DR Property / Land Inventory
+     * CR Property Seller Payable
+     */
+    @Transactional
+    public void createJournalEntryForPropertyPurchase(PropertyPurchase purchase, String loggedInUser) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            if (purchase.getTotalAmount() <= 0) {
+                throw new RuntimeException("Property purchase total amount is invalid");
+            }
+
+            ChartOfAccount inventoryAccount =
+                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), STANDALONE_PROPERTY_INVENTORY);
+            ChartOfAccount sellerPayable =
+                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), PROPERTY_SELLER_PAYABLE);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(purchase.getOrganizationId());
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("PROPERTY_PURCHASE");
+            journalEntry.setAdditionalReferenceId(purchase.getId());
+            journalEntry.setDescription("Property purchase created. Purchase ID: " + purchase.getId());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            // DR Inventory
+            entries.add(buildEntry(journalEntry.getId(), inventoryAccount.getId(), purchase.getTotalAmount(), 0));
+            totalDebit += purchase.getTotalAmount();
+
+            // CR Seller Payable
+            entries.add(buildEntry(journalEntry.getId(), sellerPayable.getId(), 0, purchase.getTotalAmount()));
+            totalCredit += purchase.getTotalAmount();
+
+            validateAndSave(entries, totalDebit, totalCredit);
+        } catch (Exception e) {
+            log.error("Failed property purchase journal for purchase {}: {}",
+                    purchase != null ? purchase.getId() : null, e.getMessage(), e);
+            throw new RuntimeException("Failed to create property purchase journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Property payment journal entry.
+     *
+     * DR Property Seller Payable
+     * CR Bank/Cash account
+     */
+    @Transactional
+    public void createJournalEntryForPropertyPayment(
+            PropertyPurchase purchase,
+            PropertyPayment payment,
+            OrganizationAccount organizationAccount,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            if (payment.getAmount() <= 0) {
+                throw new RuntimeException("Property payment amount is invalid");
+            }
+
+            ChartOfAccount sellerPayable =
+                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), PROPERTY_SELLER_PAYABLE);
+
+            ChartOfAccount bankAccount =
+                    findBankAccount(organizationAccount.getId(), purchase.getOrganizationId());
+            if (bankAccount == null) {
+                throw new RuntimeException("Bank account COA not found for organization account ID: " + organizationAccount.getId());
+            }
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(purchase.getOrganizationId());
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("PROPERTY_PAYMENT");
+            journalEntry.setAdditionalReferenceId(payment.getId());
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setDescription("Property payment against Purchase ID: " + purchase.getId() + " | Payment ID: " + payment.getId());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            // DR Seller Payable
+            entries.add(buildEntry(journalEntry.getId(), sellerPayable.getId(), payment.getAmount(), 0));
+            totalDebit += payment.getAmount();
+
+            // CR Bank/Cash
+            entries.add(buildEntry(journalEntry.getId(), bankAccount.getId(), 0, payment.getAmount()));
+            totalCredit += payment.getAmount();
+
+            validateAndSave(entries, totalDebit, totalCredit);
+        } catch (Exception e) {
+            log.error("Failed property payment journal for purchase {} payment {}: {}",
+                    purchase != null ? purchase.getId() : null,
+                    payment != null ? payment.getId() : null,
+                    e.getMessage(), e);
+            throw new RuntimeException("Failed to create property payment journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void createJournalEntryForGrn(Grn grn,
+                                         Map<Long, PurchaseOrderItem> poItemMap,
+                                         List<GrnItems> grnItemsList,
+                                         String loggedInUser) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            double totalAmount = 0.0;
+
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // ===========================
+            // 1️⃣ Calculate Total GRN Amount
+            // ===========================
+            for (GrnItems item : grnItemsList) {
+                PurchaseOrderItem poItem = poItemMap.get(item.getPoItemId());
+                double rate = poItem.getRate();
+                totalAmount += item.getQuantityReceived() * rate;
+            }
+
+            if (totalAmount <= 0) return;
+
+            // ===========================
+            // 2️⃣ Create Journal Entry Header
+            // ===========================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(grn.getOrgId());
+            journalEntry.setCreatedDate(grn.getCreatedDate() != null ? grn.getCreatedDate() : LocalDateTime.now());
+            journalEntry.setReferenceType("GRN");
+            journalEntry.setAdditionalReferenceId(grn.getId());
+            journalEntry.setVendorId(grn.getVendorId());
+            journalEntry.setProjectId(grn.getProjectId());
+            journalEntry.setDescription("GRN: " + grn.getGrnNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Journal Entry ID: {} for GRN ID: {}", journalEntry.getId(), grn.getId());
+
+            // ===========================
+            // 3️⃣ Get COA Accounts
+            // ===========================
+            ChartOfAccount grnClearingAccount =
+                    journalUtilities.getChartOfAccount(grn.getOrgId(), GRN_CLEARING);
+
+            ChartOfAccount debitAccount;
+
+            if (grn.getReceiptType() == ReceiptType.STOCK) {
+                debitAccount = journalUtilities.getChartOfAccount(grn.getOrgId(), STOCK_INVENTORY);
+            } else {
+                debitAccount = journalUtilities.getChartOfAccount(grn.getOrgId(), PROJECT_CONSTRUCTION_VALUE);
+            }
+
+            // ===========================
+            // 4️⃣ Debit Entry
+            // ===========================
+            JournalDetailEntry debitEntry = new JournalDetailEntry();
+            debitEntry.setJournalEntryId(journalEntry.getId());
+            debitEntry.setChartOfAccountId(debitAccount.getId());
+            debitEntry.setDebitAmount(totalAmount);
+            debitEntry.setCreditAmount(0.0);
+            debitEntry.setDescription(
+                    grn.getReceiptType() == ReceiptType.STOCK
+                            ? "Inventory received via GRN: " + grn.getGrnNumber()
+                            : "Direct consumption for project via GRN: " + grn.getGrnNumber()
+            );
+
+            detailEntries.add(debitEntry);
+            totalDebit += totalAmount;
+
+            // ===========================
+            // 5️⃣ Credit Entry (GRN Clearing)
+            // ===========================
+            JournalDetailEntry creditEntry = new JournalDetailEntry();
+            creditEntry.setJournalEntryId(journalEntry.getId());
+            creditEntry.setChartOfAccountId(grnClearingAccount.getId());
+            creditEntry.setDebitAmount(0.0);
+            creditEntry.setCreditAmount(totalAmount);
+            creditEntry.setDescription("GRN clearing liability for GRN: " + grn.getGrnNumber());
+
+            detailEntries.add(creditEntry);
+            totalCredit += totalAmount;
+
+            // ===========================
+            // 6️⃣ Validate Double Entry
+            // ===========================
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Journal Entry imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // ===========================
+            // 7️⃣ Save Entries
+            // ===========================
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+            }
+
+            log.info("GRN Journal Entry {} completed. Total: {}", journalEntry.getId(), totalAmount);
+
+        } catch (Exception e) {
+            log.error("Failed to create journal entry for GRN {}: {}", grn.getId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to create GRN journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Property assignment journal entry for NEW_PROJECT creation.
+     * This is an internal asset reclassification when a property is assigned to a project.
+     *
+     * DR Projects-Inventory (asset increase)
+     * CR Property Land Inventory (asset decrease)
+     */
+    @Transactional
+    public Map<String, Object> createPropertyAssignmentJournalEntry(
+            long projectId,
+            long propertyPurchaseId,
+            double amount,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            if (amount <= 0) {
+                throw new RuntimeException("Property assignment amount is invalid");
+            }
+
+            // Get organization ID from property purchase
+            Optional<PropertyPurchase> propertyPurchaseOpt = propertyPurchaseRepo.findById(propertyPurchaseId);
+            if (propertyPurchaseOpt.isEmpty()) {
+                throw new RuntimeException("Property purchase not found for ID: " + propertyPurchaseId);
+            }
+            PropertyPurchase propertyPurchase = propertyPurchaseOpt.get();
+            long organizationId = propertyPurchase.getOrganizationId();
+
+            ChartOfAccount projectsInventoryAccount =
+                    journalUtilities.getChartOfAccount(organizationId, PROJECT_CONSTRUCTION_VALUE);
+
+            ChartOfAccount propertyLandInventoryAccount =
+                    journalUtilities.getChartOfAccount(organizationId, STANDALONE_PROPERTY_INVENTORY);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(organizationId);
+            journalEntry.setCreatedDate(java.time.LocalDateTime.now());
+            journalEntry.setReferenceType("PROPERTY_ASSIGNMENT");
+            journalEntry.setProjectId(projectId);
+            journalEntry.setAdditionalReferenceId(propertyPurchaseId);
+            journalEntry.setDescription("Property assignment to project. Project ID: " + projectId + " | Property Purchase ID: " + propertyPurchaseId);
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            // DR Projects-Inventory (asset increase)
+            entries.add(buildEntry(journalEntry.getId(), projectsInventoryAccount.getId(), amount, 0));
+            totalDebit += amount;
+
+            // CR Property Land Inventory (asset decrease)
+            entries.add(buildEntry(journalEntry.getId(), propertyLandInventoryAccount.getId(), 0, amount));
+            totalCredit += amount;
+
+            validateAndSave(entries, totalDebit, totalCredit);
+
+            log.info("Property Assignment Journal Entry completed. Project ID: {}, Amount: {}", projectId, amount);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, "Property assignment journal entry created successfully");
+
+        } catch (Exception e) {
+            log.error("Failed property assignment journal for project {} property {}: {}",
+                    projectId, propertyPurchaseId, e.getMessage(), e);
+            throw new RuntimeException("Failed to create property assignment journal entry: " + e.getMessage(), e);
         }
     }
 }

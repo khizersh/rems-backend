@@ -58,7 +58,10 @@ public class Project {
     private ProjectAcquisitionType acquisitionType;
 
     @Column(nullable = true)
-    private Long organizationAccountId;
+    private Long propertyPurchaseId; // Link to PropertyPurchase (required for NEW_PROJECT)
+
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean isMigrated = false; // Flag to distinguish legacy/manual projects from new acquisition workflow
 
     @Column(nullable = false)
     private int monthDuration;
