@@ -17,9 +17,11 @@ import com.rem.backend.utility.Utility;
 import com.rem.backend.utility.ValidationService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -263,13 +265,26 @@ public class OrganizationAccountService {
     }
 
 
+    @Transactional
     public Map<String, Object> transferFund(TransferFundRequest transferFundRequest, String loggedInUser) {
+        String idempotencyKey = normalizeIdempotencyKey(transferFundRequest.getIdempotencyKey());
         try {
             ValidationService.validate(loggedInUser, "loggedInUser");
             ValidationService.validate(transferFundRequest.getFromAccountId(), "From Account");
             ValidationService.validate(transferFundRequest.getToAccountId(), "To Account");
             ValidationService.validate(transferFundRequest.getAmount(), "Amount");
 
+            if (idempotencyKey != null) {
+                Optional<OrganizationAccountDetail> existingOpt =
+                        organizationAccountDetailRepo.findByIdempotencyKey(idempotencyKey);
+                if (existingOpt.isPresent()) {
+                    if (matchesIdempotentTransfer(existingOpt.get(), transferFundRequest)) {
+                        return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully updated!");
+                    }
+                    throw new IllegalArgumentException(
+                            "Idempotency key is already associated with a different transfer");
+                }
+            }
 
             Optional<OrganizationAccount> fromAcccountOpt = organizationAccountRepo.findById(transferFundRequest.getFromAccountId());
             if (fromAcccountOpt.isEmpty())
@@ -295,6 +310,7 @@ public class OrganizationAccountService {
             fromAccountDetail.setTransactionType(TransactionType.CREDIT);
             fromAccountDetail.setCreatedBy(loggedInUser);
             fromAccountDetail.setUpdatedBy(loggedInUser);
+            fromAccountDetail.setIdempotencyKey(idempotencyKey);
             organizationAccountDetailRepo.save(fromAccountDetail);
 
 
@@ -312,11 +328,38 @@ public class OrganizationAccountService {
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully updated!");
 
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            if (idempotencyKey != null) {
+                Optional<OrganizationAccountDetail> replay =
+                        organizationAccountDetailRepo.findByIdempotencyKey(idempotencyKey);
+                if (replay.isPresent() && matchesIdempotentTransfer(replay.get(), transferFundRequest)) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully updated!");
+                }
+            }
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         } catch (Exception e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
+    }
+
+    private static String normalizeIdempotencyKey(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static boolean matchesIdempotentTransfer(
+            OrganizationAccountDetail existing, TransferFundRequest transferFundRequest) {
+        return existing.getOrganizationAcctId() == transferFundRequest.getFromAccountId()
+                && Double.compare(existing.getAmount(), transferFundRequest.getAmount()) == 0;
     }
 
 

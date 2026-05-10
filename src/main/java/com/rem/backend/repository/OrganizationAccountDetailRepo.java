@@ -22,6 +22,8 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
 
     Optional<OrganizationAccountDetail> findByExpenseId(long expenseId);
 
+    Optional<OrganizationAccountDetail> findByIdempotencyKey(String idempotencyKey);
+
     @Transactional
     void deleteByExpenseId(Long expenseId);
 

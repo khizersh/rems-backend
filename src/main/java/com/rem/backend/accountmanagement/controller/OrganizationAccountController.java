@@ -51,8 +51,15 @@ public class OrganizationAccountController {
 
 
     @PostMapping("/transferAmount")
-    public Map transferAmount(@RequestBody TransferFundRequest transferFundRequest , HttpServletRequest request){
+    public Map transferAmount(
+            @RequestBody TransferFundRequest transferFundRequest,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyHeader,
+            HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        if ((transferFundRequest.getIdempotencyKey() == null || transferFundRequest.getIdempotencyKey().isBlank())
+                && idempotencyHeader != null && !idempotencyHeader.isBlank()) {
+            transferFundRequest.setIdempotencyKey(idempotencyHeader.trim());
+        }
         return organizationAccountService.transferFund(transferFundRequest , loggedInUser);
     }
 

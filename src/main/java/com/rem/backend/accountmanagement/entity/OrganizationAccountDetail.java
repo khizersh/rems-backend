@@ -53,6 +53,10 @@ public class OrganizationAccountDetail {
 
     private long expenseId;
 
+    /** When set (e.g. internal fund transfer), uniquely identifies the logical operation for idempotent retries. */
+    @Column(unique = true)
+    private String idempotencyKey;
+
     @Transient
     private String accountName;
 
