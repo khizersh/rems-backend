@@ -5,11 +5,10 @@ import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.organization.Organization;
+import com.rem.backend.entity.pdc.PdcRecord;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
-import com.rem.backend.enums.ExpenseType;
-import com.rem.backend.enums.TransactionType;
-import com.rem.backend.enums.VendorPaymentType;
+import com.rem.backend.enums.*;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
@@ -21,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
+import java.time.LocalDate;
 import java.util.*;
 
 import static com.rem.backend.utility.Utility.getPaymentStatus;
@@ -36,6 +36,7 @@ public class VendorAccountService {
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
     private final ExpenseRepo expenseRepo;
     private final ExpenseDetailRepo expenseDetailRepo;
+    private final PdcRecordRepo pdcRecordRepo;
 
 
     public Map<String, Object> getAllVendorAccounts(long orgId, Pageable pageable) {
@@ -80,6 +81,63 @@ public class VendorAccountService {
                 // IMPORTANT: return same response, no side effects
                 return ResponseMapper.buildResponse(Responses.SUCCESS, existingTxn.get());
             }
+
+            // ============================================================================
+            // 🔹 PDC Flow: If payment type is CHEQUE, create PDC record ONLY
+            // ============================================================================
+            if (request.getPaymentMethodType() == PaymentType.CHEQUE) {
+                // Validate cheque-specific fields
+                ValidationService.validate(request.getPaymentDocNo(), "cheque number");
+
+                LocalDate chequeDate = (request.getPaymentDocDate() != null)
+                        ? request.getPaymentDocDate().toLocalDate()
+                        : LocalDate.now();
+
+                // Additional PDC validations
+                if (chequeDate.isBefore(LocalDate.now())) {
+                    throw new IllegalArgumentException("Cheque date must be today or a future date");
+                }
+
+                // Check for duplicate cheque number
+                Optional<PdcRecord> existingPdc = pdcRecordRepo.findByChequeNumberAndOrganizationId(
+                        request.getPaymentDocNo(), request.getOrganizationId());
+
+                if (existingPdc.isPresent() && existingPdc.get().getStatus() == PdcStatus.PENDING) {
+                    throw new IllegalArgumentException("A PDC with cheque number '" + request.getPaymentDocNo() + "' already exists");
+                }
+
+                // Create PDC Record ONLY
+                PdcRecord pdcRecord = new PdcRecord();
+                pdcRecord.setOrganizationId(request.getOrganizationId());
+                pdcRecord.setVendorAccountId(account.getId());
+                pdcRecord.setOrganizationAccountId(request.getOrganizationAccountId());
+                pdcRecord.setAmount(request.getAmountPaid());
+                pdcRecord.setPaidAmount(0.0); // Not paid yet
+                pdcRecord.setChequeNumber(request.getPaymentDocNo());
+                pdcRecord.setChequeDate(chequeDate);
+                pdcRecord.setBankName(request.getComments() != null ? request.getComments() : "");
+                pdcRecord.setStatus(PdcStatus.PENDING);
+                pdcRecord.setTitle("Vendor Payback - " + account.getName() + " - Cheque #" + request.getPaymentDocNo());
+                pdcRecord.setComments("PDC created for vendor credit payback to " + account.getName());
+                pdcRecord.setCreatedBy(loggedInUser);
+                pdcRecord.setUpdatedBy(loggedInUser);
+
+                pdcRecord = pdcRecordRepo.save(pdcRecord);
+
+                // ✅ Do NOT deduct from organization account for PDC
+                // ✅ Do NOT reduce vendor credit immediately
+                // ✅ Do NOT create VendorPayment entry - let PDC payment screen handle this
+
+                Map<String, Object> responseData = new HashMap<>();
+                responseData.put("pdcRecord", pdcRecord);
+                responseData.put("message", "PDC created successfully. Payment will be processed when cheque is cleared.");
+
+                return ResponseMapper.buildResponse(Responses.SUCCESS, responseData);
+            }
+
+            // ============================================================================
+            // 🔹 Normal Flow: CASH/ONLINE/PAY_ORDER - Immediate payment
+            // ============================================================================
 
             // If an organization account is supplied, deduct the amount from it and create an account detail
             Long orgAcctId = request.getOrganizationAccountId();
@@ -689,8 +747,10 @@ public class VendorAccountService {
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccountDetailRepo.save(vendorPayment));
         } catch (IllegalArgumentException e) {
+            e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }

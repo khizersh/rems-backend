@@ -10,6 +10,7 @@ import com.rem.backend.entity.expense.ExpenseType;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.entity.pdc.PdcRecord;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;
@@ -54,6 +55,7 @@ public class ExpenseService {
     private final JournalEntryService journalEntryService;
     private final AccountGroupRepository accountGroupRepository;
     private final ChartOfAccountRepository coaRepo;
+    private final PdcPaymentService pdcPaymentService;
 
     public Map<String, Object> getExpenseList(ExpenseFetchRequestDTO requestDTO, Pageable pageable) {
 
@@ -405,6 +407,53 @@ public class ExpenseService {
             ValidationService.validate(expense.getPaymentType(), "payment type");
             ValidationService.validate(expense.getOrganizationAccountId(), "organization account id");
 
+
+            // ── PDC MODE: determine if this is a Post-Dated Cheque ──────────
+            // PDC flow is triggered when paymentType == CHEQUE
+
+
+            boolean isPdc = expense.getPaymentType() != null && expense.getPaymentType().equals(PaymentType.CHEQUE);
+
+            if (isPdc) {
+                // DELEGATE TO PDC SERVICE - DO NOT CREATE EXPENSE
+                // PDC validations
+                if (expense.getChequeNumber() == null || expense.getChequeNumber().isBlank())
+                    throw new IllegalArgumentException("Cheque number is required for PDC payments");
+                if (expense.getChequeDate() == null)
+                    throw new IllegalArgumentException("Cheque date is required for PDC payments");
+                if (expense.getChequeDate().isBefore(java.time.LocalDate.now()))
+                    throw new IllegalArgumentException("Cheque date must be today or a future date");
+                if (expense.getAmountPaid() <= 0 && expense.getTotalAmount() <= 0)
+                    throw new IllegalArgumentException("Amount must be greater than 0 for PDC payments");
+
+                // Convert Expense to PdcRecord
+                PdcRecord pdcRecord = new PdcRecord();
+                pdcRecord.setOrganizationId(expense.getOrganizationId());
+                pdcRecord.setVendorAccountId(expense.getVendorAccountId());
+                pdcRecord.setProjectId(expense.getProjectId());
+                pdcRecord.setUnitId(expense.getUnitId());
+                pdcRecord.setExpenseTypeId(expense.getExpenseTypeId());
+                pdcRecord.setOrganizationAccountId(expense.getOrganizationAccountId());
+                pdcRecord.setAmount(expense.getTotalAmount()); // Use total amount for PDC
+                pdcRecord.setChequeNumber(expense.getChequeNumber());
+                pdcRecord.setChequeDate(expense.getChequeDate());
+                pdcRecord.setBankName(expense.getBankName());
+                pdcRecord.setTitle(expense.getExpenseTitle() != null ? expense.getExpenseTitle() : "PDC Payment");
+                pdcRecord.setComments(expense.getComments());
+
+
+                Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(expense.getOrganizationAccountId());
+                if (!organizationAccountOptional.isPresent())
+                    throw new IllegalArgumentException("Invalid Account");
+//
+                // Create journal entry for expense (double-entry bookkeeping)
+//                journalEntryService.createJournalEntryForExpense(expense, organizationAccountOptional.get(), loggedInUser);
+
+                // Delegate to PdcPaymentService
+                return pdcPaymentService.createPdcRecord(pdcRecord, loggedInUser);
+            }
+
+            // ── CASH / CREDIT: existing flow ────────────────────────────
 
             OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
 
