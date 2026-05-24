@@ -16,12 +16,16 @@ import com.rem.backend.accountmanagement.entity.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.enums.*;
+import com.rem.backend.payrollmanagement.entity.SalarySlip;
 import com.rem.backend.propertymanagement.entity.PropertyPayment;
 import com.rem.backend.propertymanagement.entity.PropertyPurchase;
 import com.rem.backend.propertymanagement.repository.PropertyPurchaseRepo;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
 import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem;
+import com.rem.backend.purchasemanagement.entity.vendorinvoice.VendorInvoice;
+import com.rem.backend.purchasemanagement.entity.vendorinvoice.VendorInvoiceItem;
+import com.rem.backend.purchasemanagement.entity.vendorpayment.VendorPaymentPO;
 import com.rem.backend.repository.*;
 import com.rem.backend.utility.JournalUtilities;
 import com.rem.backend.utility.ResponseMapper;
@@ -110,7 +114,7 @@ public class JournalEntryService {
                 if (expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)) {
 
 
-                    ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+                    ChartOfAccount chequeAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
                     JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
                     debitChequeEntry.setJournalEntryId(journalEntry.getId());
                     debitChequeEntry.setChartOfAccountId(chequeAccount.getId());
@@ -124,7 +128,7 @@ public class JournalEntryService {
 
 
                     // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
                     log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
 
                     JournalDetailEntry creditBankEntry = new JournalDetailEntry();
@@ -140,7 +144,7 @@ public class JournalEntryService {
                     totalCredit += expense.getAmountPaid();
 
                 } else { // when cheque is created but not yet cleared, we record the payment in a separate "Cheque Account" until it's cleared. This is to reflect the pending nature of the transaction.
-                    ChartOfAccount chequeAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
+                    ChartOfAccount chequeAccount = journalUtilities.constructionInventory(expense.getOrganizationId());
                     JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
                     debitChequeEntry.setJournalEntryId(journalEntry.getId());
                     debitChequeEntry.setChartOfAccountId(chequeAccount.getId());
@@ -154,7 +158,7 @@ public class JournalEntryService {
 
 
                     // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
                     log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
 
                     JournalDetailEntry creditBankEntry = new JournalDetailEntry();
@@ -177,7 +181,7 @@ public class JournalEntryService {
                     ChartOfAccount debitAccount =
                             expense.getExpenseType() != ExpenseType.CONSTRUCTION
                                     ? journalUtilities.findChartOfAccount(expense, loggedInUser)
-                                    : journalUtilities.getChartOfAccount(expense.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
+                                    : journalUtilities.constructionInventory(expense.getOrganizationId());
 
                     if (debitAccount == null) {
                         throw new RuntimeException("No Valid Debit Account was found");
@@ -209,11 +213,11 @@ public class JournalEntryService {
                 // If creditAmount > 0: Debit Expense, Credit Accounts Payable (Vendor)
                 else if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
 
-                    ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount
-                            (organizationAccount.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
+                    ChartOfAccount constructionInventoryAccount = journalUtilities.
+                            constructionInventory(organizationAccount.getOrganizationId());
 
                     // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
                     log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
 
 
@@ -318,7 +322,7 @@ public class JournalEntryService {
             ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), expense.getOrganizationId());
 
             // Find or create Accounts Payable account for vendor
-            ChartOfAccount accountsPayableAccount = journalUtilities.getChartOfAccount(expense.getOrganizationId(), VENDOR_PAYABLE);
+            ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
 
             // Debit: Accounts Payable (Vendor) - reducing the liability
             JournalDetailEntry debitEntry = new JournalDetailEntry();
@@ -394,7 +398,7 @@ public class JournalEntryService {
 
             // Get Vendor Payable (AP) account
             ChartOfAccount accountsPayableAccount = journalUtilities
-                    .getChartOfAccount(vendorAccount.getOrganizationId(), VENDOR_PAYABLE);
+                    .vendorPayable(vendorAccount.getOrganizationId());
 
             // Debit AP (reduce liability)
             JournalDetailEntry debitAP = new JournalDetailEntry();
@@ -478,17 +482,9 @@ public class JournalEntryService {
             // 2. COA FETCH
             // =========================
 
-            ChartOfAccount customerReceivableAccount =
-                    journalUtilities.getChartOfAccount(
-                            booking.getOrganizationId(),
-                            CUSTOMER_RECEIVABLE
-                    );
+            ChartOfAccount customerReceivableAccount = journalUtilities.customerReceivable(booking.getOrganizationId());
 
-            ChartOfAccount revenueAccount =
-                    journalUtilities.getChartOfAccount(
-                            booking.getOrganizationId(),
-                            BOOKING_REVENUE
-                    );
+            ChartOfAccount revenueAccount = journalUtilities.bookingRevenue(booking.getOrganizationId());
 
             log.info("COA - Receivable: {}, Revenue: {}",
                     customerReceivableAccount.getName(),
@@ -621,8 +617,7 @@ public class JournalEntryService {
             double amount = customerPayment.getAmount();
 
             // Customer Receivable account
-            ChartOfAccount customerReceivableAccount =
-                    journalUtilities.getChartOfAccount(organizationId, CUSTOMER_RECEIVABLE);
+            ChartOfAccount customerReceivableAccount = journalUtilities.customerReceivable(organizationId);
 
             // =========================
             // CASE 1: No bank account selected (null or empty)
@@ -643,7 +638,7 @@ public class JournalEntryService {
                 journalEntry = journalEntryRepository.save(journalEntry);
 
                 // Debit: Undeposited Funds / Suspense
-                ChartOfAccount undepositedAccount = journalUtilities.getChartOfAccount(organizationId, UNDEPOSITED_FUND_ACCOUNT);
+                ChartOfAccount undepositedAccount = journalUtilities.undepositedFunds(organizationId);
 
                 JournalDetailEntry debitEntry = new JournalDetailEntry();
                 debitEntry.setJournalEntryId(journalEntry.getId());
@@ -751,26 +746,27 @@ public class JournalEntryService {
 
         if (entry.getTransactionType() == TransactionType.CREDIT) {
 
+
             switch (entry.getTransactionCategory()) {
 
                 case REFUND:
-                    controlAccount = REFUND_ACCOUNT;
+                    controlAccount = journalUtilities.customerRefund(organizationId).getName();
                     break;
 
                 case WITHDRAWL:
-                    controlAccount = EXPENSE_ACCOUNT;
+                    controlAccount = journalUtilities.generalExpense(organizationId).getName();
                     break;
 
                 case CONSTRUCTION:
-                    controlAccount = CONSTRUCTION_ACCOUNT;
+                    controlAccount = journalUtilities.constructionExpense(organizationId).getName();
                     break;
 
                 case ADJUSTMENT:
-                    controlAccount = ADJUSTMENT_ACCOUNT;
+                    controlAccount = journalUtilities.adjustmentExpense(organizationId).getName();
                     break;
 
                 case MISCALLENOUS:
-                    controlAccount = MISC_ACCOUNT;
+                    controlAccount = journalUtilities.miscellaneousExpense(organizationId).getName();
                     break;
 
                 default:
@@ -789,15 +785,15 @@ public class JournalEntryService {
             switch (entry.getTransactionCategory()) {
 
                 case SCRAP_SALE:
-                    controlAccount = SCRAP_INCOME_ACCOUNT;
+                    controlAccount = journalUtilities.scrapIncomeAccount(organizationId).getName();
                     break;
 
                 case OTHER, MISCALLENOUS:
-                    controlAccount = MISC_ACCOUNT;
+                    controlAccount = journalUtilities.miscellaneousExpense(organizationId).getName();
                     break;
 
                 case ADJUSTMENT:
-                    controlAccount = ADJUSTMENT_ACCOUNT;
+                    controlAccount = journalUtilities.adjustmentExpense(organizationId).getName();
                     break;
 
                 default:
@@ -931,10 +927,10 @@ public class JournalEntryService {
             boolean isPriceIncrease = difference > 0;
 
             ChartOfAccount customerReceivableAccount =
-                    journalUtilities.getChartOfAccount(booking.getOrganizationId(), CUSTOMER_RECEIVABLE);
+                    journalUtilities.customerReceivable(booking.getOrganizationId());
 
             ChartOfAccount bookingRevenueAccount =
-                    journalUtilities.getChartOfAccount(booking.getOrganizationId(), BOOKING_REVENUE);
+                    journalUtilities.bookingRevenue(booking.getOrganizationId());
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(booking.getOrganizationId());
@@ -978,57 +974,7 @@ public class JournalEntryService {
         }
     }
 
-//    @Transactional
-//    public void createJournalEntryForBookingCancellation(
-//            Long organizationId,
-//            Booking booking,
-//            double deposited,
-//            double totalFees,
-//            String loggedInUser
-//    ) {
-//
-//        double totalDebit = 0;
-//        double totalCredit = 0;
-//
-//        ChartOfAccount bookingLiability =
-//                journalUtilities.getChartOfAccount(organizationId, BOOKING_LIABILITY);
-//
-//        ChartOfAccount cancellationRevenue =
-//                journalUtilities.getChartOfAccount(organizationId, CANCELLATION_REVENUE_ACCOUNT);
-//
-//        ChartOfAccount refundPayable =
-//                journalUtilities.getChartOfAccount(organizationId, REFUND_ACCOUNT);
-//
-//        double refund = deposited - totalFees;
-//
-//        JournalEntry journalEntry = new JournalEntry();
-//        journalEntry.setOrganizationId(organizationId);
-//        journalEntry.setReferenceType("BOOKING_CANCELLATION");
-//        journalEntry.setBookingId(booking.getId());
-//        journalEntry.setUnitId(booking.getUnitId());
-//        journalEntry.setDescription("Booking cancelled. ID: " + booking.getId());
-//        journalEntry.setStatus(JournalEntryStatus.POSTED);
-//        journalEntry.setCreatedBy(loggedInUser);
-//
-//        journalEntry = journalEntryRepository.save(journalEntry);
-//
-//        List<JournalDetailEntry> entries = new ArrayList<>();
-//
-//        entries.add(buildEntry(journalEntry.getId(), bookingLiability.getId(), deposited, 0));
-//        totalDebit += deposited;
-//
-//        if (totalFees > 0) {
-//            entries.add(buildEntry(journalEntry.getId(), cancellationRevenue.getId(), 0, totalFees));
-//            totalCredit += totalFees;
-//        }
-//
-//        if (refund > 0) {
-//            entries.add(buildEntry(journalEntry.getId(), refundPayable.getId(), 0, refund));
-//            totalCredit += refund;
-//        }
-//
-//        validateAndSave(entries, totalDebit, totalCredit);
-//    }
+
 
 
     @Transactional
@@ -1053,16 +999,16 @@ public class JournalEntryService {
             // =========================
 
             ChartOfAccount customerReceivable =
-                    journalUtilities.getChartOfAccount(organizationId, CUSTOMER_RECEIVABLE);
+                    journalUtilities.customerReceivable(organizationId);
 
             ChartOfAccount bookingRevenue =
-                    journalUtilities.getChartOfAccount(organizationId, BOOKING_REVENUE);
+                    journalUtilities.bookingRevenue(organizationId);
 
             ChartOfAccount cancellationRevenue =
-                    journalUtilities.getChartOfAccount(organizationId, CANCELLATION_REVENUE_ACCOUNT);
+                    journalUtilities.cancellationRevenue(organizationId);
 
             ChartOfAccount refundPayable =
-                    journalUtilities.getChartOfAccount(organizationId, REFUND_ACCOUNT);
+                    journalUtilities.customerRefund(organizationId);
 
             // =========================
             // 2. JOURNAL HEADER
@@ -1198,7 +1144,7 @@ public class JournalEntryService {
                 findBankAccount(orgAccountDetail.getOrganizationAcctId(), organizationId);
 
         ChartOfAccount refundPayable =
-                journalUtilities.getChartOfAccount(organizationId, REFUND_ACCOUNT);
+                journalUtilities.customerRefund(organizationId);
 
         JournalEntry journalEntry = new JournalEntry();
         journalEntry.setOrganizationId(organizationId);
@@ -1310,7 +1256,7 @@ public class JournalEntryService {
             long organizationId = customerAccount.getCustomer().getOrganizationId();
 
             ChartOfAccount undepositedAccount =
-                    journalUtilities.getChartOfAccount(organizationId, UNDEPOSITED_FUND_ACCOUNT);
+                    journalUtilities.undepositedFunds(organizationId);
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(organizationId);
@@ -1445,7 +1391,7 @@ public class JournalEntryService {
 
             // Get Vendor Payable (AP) account
             ChartOfAccount accountsPayableAccount = journalUtilities
-                    .getChartOfAccount(vendorAccount.getOrganizationId(), VENDOR_PAYABLE);
+                    .vendorPayable(vendorAccount.getOrganizationId());
 
             double absDifference = Math.abs(difference);
 
@@ -1538,7 +1484,7 @@ public class JournalEntryService {
             }
 
             // Debit: Construction Inventory (asset increase)
-            ChartOfAccount constructionInventoryAccount = journalUtilities.getChartOfAccount(project.getOrganizationId(), PROJECT_CONSTRUCTION_VALUE);
+            ChartOfAccount constructionInventoryAccount = journalUtilities.constructionInventory(project.getOrganizationId());
             JournalDetailEntry debitEntry = new JournalDetailEntry();
             debitEntry.setJournalEntryId(journalEntry.getId());
             debitEntry.setChartOfAccountId(constructionInventoryAccount.getId());
@@ -1597,9 +1543,9 @@ public class JournalEntryService {
             }
 
             ChartOfAccount inventoryAccount =
-                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), STANDALONE_PROPERTY_INVENTORY);
+                    journalUtilities.standAlonePropertyInventory(purchase.getOrganizationId());
             ChartOfAccount sellerPayable =
-                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), PROPERTY_SELLER_PAYABLE);
+                    journalUtilities.propertySellerPayable(purchase.getOrganizationId());
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(purchase.getOrganizationId());
@@ -1650,10 +1596,11 @@ public class JournalEntryService {
             }
 
             ChartOfAccount sellerPayable =
-                    journalUtilities.getChartOfAccount(purchase.getOrganizationId(), PROPERTY_SELLER_PAYABLE);
+                    journalUtilities.propertySellerPayable(purchase.getOrganizationId());
 
             ChartOfAccount bankAccount =
                     findBankAccount(organizationAccount.getId(), purchase.getOrganizationId());
+
             if (bankAccount == null) {
                 throw new RuntimeException("Bank account COA not found for organization account ID: " + organizationAccount.getId());
             }
@@ -1732,14 +1679,14 @@ public class JournalEntryService {
             // 3️⃣ Get COA Accounts
             // ===========================
             ChartOfAccount grnClearingAccount =
-                    journalUtilities.getChartOfAccount(grn.getOrgId(), GRN_CLEARING);
+                    journalUtilities.grnClearing(grn.getOrgId());
 
             ChartOfAccount debitAccount;
 
             if (grn.getReceiptType() == ReceiptType.STOCK) {
-                debitAccount = journalUtilities.getChartOfAccount(grn.getOrgId(), STOCK_INVENTORY);
+                debitAccount = journalUtilities.stockInventory(grn.getOrgId());
             } else {
-                debitAccount = journalUtilities.getChartOfAccount(grn.getOrgId(), PROJECT_CONSTRUCTION_VALUE);
+                debitAccount = journalUtilities.constructionInventory(grn.getOrgId());
             }
 
             // ===========================
@@ -1794,6 +1741,330 @@ public class JournalEntryService {
         }
     }
 
+
+    @Transactional
+    public void updateJournalEntryForGrn(
+            Grn updatedGrn,
+            ReceiptType oldReceiptType,
+            List<GrnItems> oldGrnItems,
+            List<GrnItems> newGrnItems,
+            Map<Long, PurchaseOrderItem> poItemMap,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+
+            double oldTotalAmount = 0.0;
+            double newTotalAmount = 0.0;
+
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // ===========================
+            // 1️⃣ Calculate Old GRN Amount
+            // ===========================
+            for (GrnItems item : oldGrnItems) {
+                PurchaseOrderItem poItem = poItemMap.get(item.getPoItemId());
+
+                if (poItem == null) {
+                    throw new RuntimeException("PO item not found for old GRN item: " + item.getPoItemId());
+                }
+
+                double rate = poItem.getRate();
+                oldTotalAmount += item.getQuantityReceived() * rate;
+            }
+
+            // ===========================
+            // 2️⃣ Calculate New GRN Amount
+            // ===========================
+            for (GrnItems item : newGrnItems) {
+                PurchaseOrderItem poItem = poItemMap.get(item.getPoItemId());
+
+                if (poItem == null) {
+                    throw new RuntimeException("PO item not found for new GRN item: " + item.getPoItemId());
+                }
+
+                double rate = poItem.getRate();
+                newTotalAmount += item.getQuantityReceived() * rate;
+            }
+
+            if (oldTotalAmount <= 0 && newTotalAmount <= 0) {
+                return;
+            }
+
+            // ===========================
+            // 3️⃣ Create Journal Entry Header
+            // ===========================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(updatedGrn.getOrgId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("GRN_UPDATE");
+            journalEntry.setAdditionalReferenceId(updatedGrn.getId());
+            journalEntry.setVendorId(updatedGrn.getVendorId());
+            journalEntry.setProjectId(updatedGrn.getProjectId());
+            journalEntry.setDescription("GRN Updated: " + updatedGrn.getGrnNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created GRN Update Journal Entry ID: {} for GRN ID: {}",
+                    journalEntry.getId(), updatedGrn.getId());
+
+            // ===========================
+            // 4️⃣ Get COA Accounts
+            // ===========================
+            ChartOfAccount grnClearingAccount =
+                    journalUtilities.grnClearing(updatedGrn.getOrgId());
+
+            ChartOfAccount oldDebitAccount;
+
+            if (oldReceiptType == ReceiptType.STOCK) {
+                oldDebitAccount = journalUtilities.stockInventory(updatedGrn.getOrgId());
+            } else if (oldReceiptType == ReceiptType.DIRECT) {
+                oldDebitAccount = journalUtilities.constructionInventory(updatedGrn.getOrgId());
+            } else {
+                throw new RuntimeException("Invalid old GRN receipt type for accounting");
+            }
+
+            ChartOfAccount newDebitAccount;
+
+            if (updatedGrn.getReceiptType() == ReceiptType.STOCK) {
+                newDebitAccount = journalUtilities.stockInventory(updatedGrn.getOrgId());
+            } else if (updatedGrn.getReceiptType() == ReceiptType.DIRECT) {
+                newDebitAccount = journalUtilities.constructionInventory(updatedGrn.getOrgId());
+            } else {
+                throw new RuntimeException("Invalid new GRN receipt type for accounting");
+            }
+
+            // ===========================
+            // 5️⃣ Reverse Old GRN Entry
+            // Old original was:
+            // Inventory Dr
+            //      GRN Clearing Cr
+            //
+            // Reversal:
+            // GRN Clearing Dr
+            //      Inventory Cr
+            // ===========================
+            if (oldTotalAmount > 0) {
+
+                JournalDetailEntry reverseDebitEntry = new JournalDetailEntry();
+                reverseDebitEntry.setJournalEntryId(journalEntry.getId());
+                reverseDebitEntry.setChartOfAccountId(grnClearingAccount.getId());
+                reverseDebitEntry.setDebitAmount(oldTotalAmount);
+                reverseDebitEntry.setCreditAmount(0.0);
+                reverseDebitEntry.setDescription("Reverse old GRN clearing: " + updatedGrn.getGrnNumber());
+
+                detailEntries.add(reverseDebitEntry);
+                totalDebit += oldTotalAmount;
+
+                JournalDetailEntry reverseCreditEntry = new JournalDetailEntry();
+                reverseCreditEntry.setJournalEntryId(journalEntry.getId());
+                reverseCreditEntry.setChartOfAccountId(oldDebitAccount.getId());
+                reverseCreditEntry.setDebitAmount(0.0);
+                reverseCreditEntry.setCreditAmount(oldTotalAmount);
+                reverseCreditEntry.setDescription(
+                        oldReceiptType == ReceiptType.STOCK
+                                ? "Reverse old stock inventory for GRN: " + updatedGrn.getGrnNumber()
+                                : "Reverse old construction inventory for GRN: " + updatedGrn.getGrnNumber()
+                );
+
+                detailEntries.add(reverseCreditEntry);
+                totalCredit += oldTotalAmount;
+            }
+
+            // ===========================
+            // 6️⃣ Post New Updated GRN Entry
+            // New entry:
+            // Inventory Dr
+            //      GRN Clearing Cr
+            // ===========================
+            if (newTotalAmount > 0) {
+
+                JournalDetailEntry newDebitEntry = new JournalDetailEntry();
+                newDebitEntry.setJournalEntryId(journalEntry.getId());
+                newDebitEntry.setChartOfAccountId(newDebitAccount.getId());
+                newDebitEntry.setDebitAmount(newTotalAmount);
+                newDebitEntry.setCreditAmount(0.0);
+                newDebitEntry.setDescription(
+                        updatedGrn.getReceiptType() == ReceiptType.STOCK
+                                ? "Updated stock inventory via GRN: " + updatedGrn.getGrnNumber()
+                                : "Updated direct consumption for project via GRN: " + updatedGrn.getGrnNumber()
+                );
+
+                detailEntries.add(newDebitEntry);
+                totalDebit += newTotalAmount;
+
+                JournalDetailEntry newCreditEntry = new JournalDetailEntry();
+                newCreditEntry.setJournalEntryId(journalEntry.getId());
+                newCreditEntry.setChartOfAccountId(grnClearingAccount.getId());
+                newCreditEntry.setDebitAmount(0.0);
+                newCreditEntry.setCreditAmount(newTotalAmount);
+                newCreditEntry.setDescription("Updated GRN clearing liability for GRN: " + updatedGrn.getGrnNumber());
+
+                detailEntries.add(newCreditEntry);
+                totalCredit += newTotalAmount;
+            }
+
+            // ===========================
+            // 7️⃣ Validate Double Entry
+            // ===========================
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("GRN update journal imbalance! Debit: "
+                        + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // ===========================
+            // 8️⃣ Save Entries
+            // ===========================
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+            }
+
+            log.info("GRN Update Journal Entry {} completed. Old Total: {}, New Total: {}",
+                    journalEntry.getId(), oldTotalAmount, newTotalAmount);
+
+        } catch (Exception e) {
+            log.error("Failed to create update journal entry for GRN {}: {}",
+                    updatedGrn.getId(), e.getMessage(), e);
+
+            throw new RuntimeException("Failed to create GRN update journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void cancelJournalEntryForGrn(
+            Grn grn,
+            Map<Long, PurchaseOrderItem> poItemMap,
+            List<GrnItems> grnItemsList,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            double totalAmount = 0.0;
+
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // ===========================
+            // 1️⃣ Calculate GRN Amount To Reverse
+            // ===========================
+            for (GrnItems item : grnItemsList) {
+                PurchaseOrderItem poItem = poItemMap.get(item.getPoItemId());
+
+                if (poItem == null) {
+                    throw new RuntimeException("PO Item not found for GRN Item PO Item ID: " + item.getPoItemId());
+                }
+
+                double rate = poItem.getRate();
+                totalAmount += item.getQuantityReceived() * rate;
+            }
+
+            if (totalAmount <= 0) {
+                return;
+            }
+
+            // ===========================
+            // 2️⃣ Create Journal Entry Header
+            // ===========================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(grn.getOrgId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("GRN_CANCEL");
+            journalEntry.setAdditionalReferenceId(grn.getId());
+            journalEntry.setVendorId(grn.getVendorId());
+            journalEntry.setProjectId(grn.getProjectId());
+            journalEntry.setDescription("GRN Cancelled: " + grn.getGrnNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created GRN Cancel Journal Entry ID: {} for GRN ID: {}",
+                    journalEntry.getId(), grn.getId());
+
+            // ===========================
+            // 3️⃣ Get COA Accounts
+            // ===========================
+            ChartOfAccount grnClearingAccount =
+                    journalUtilities.grnClearing(grn.getOrgId());
+
+            ChartOfAccount creditAccount;
+
+            if (grn.getReceiptType() == ReceiptType.STOCK) {
+                creditAccount = journalUtilities.stockInventory(grn.getOrgId());
+            } else if (grn.getReceiptType() == ReceiptType.DIRECT) {
+                creditAccount = journalUtilities.constructionInventory(grn.getOrgId());
+            } else {
+                throw new RuntimeException("Invalid GRN receipt type for cancel accounting");
+            }
+
+            // ===========================
+            // 4️⃣ Debit GRN Clearing
+            // Original was:
+            // Inventory Dr
+            //      GRN Clearing Cr
+            //
+            // Cancel reversal:
+            // GRN Clearing Dr
+            //      Inventory Cr
+            // ===========================
+            JournalDetailEntry debitEntry = new JournalDetailEntry();
+            debitEntry.setJournalEntryId(journalEntry.getId());
+            debitEntry.setChartOfAccountId(grnClearingAccount.getId());
+            debitEntry.setDebitAmount(totalAmount);
+            debitEntry.setCreditAmount(0.0);
+            debitEntry.setDescription("Reverse GRN clearing for cancelled GRN: " + grn.getGrnNumber());
+
+            detailEntries.add(debitEntry);
+            totalDebit += totalAmount;
+
+            // ===========================
+            // 5️⃣ Credit Inventory / Construction Inventory
+            // ===========================
+            JournalDetailEntry creditEntry = new JournalDetailEntry();
+            creditEntry.setJournalEntryId(journalEntry.getId());
+            creditEntry.setChartOfAccountId(creditAccount.getId());
+            creditEntry.setDebitAmount(0.0);
+            creditEntry.setCreditAmount(totalAmount);
+            creditEntry.setDescription(
+                    grn.getReceiptType() == ReceiptType.STOCK
+                            ? "Reverse stock inventory for cancelled GRN: " + grn.getGrnNumber()
+                            : "Reverse construction inventory for cancelled GRN: " + grn.getGrnNumber()
+            );
+
+            detailEntries.add(creditEntry);
+            totalCredit += totalAmount;
+
+            // ===========================
+            // 6️⃣ Validate Double Entry
+            // ===========================
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException(
+                        "GRN cancel journal imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit
+                );
+            }
+
+            // ===========================
+            // 7️⃣ Save Entries
+            // ===========================
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+            }
+
+            log.info("GRN Cancel Journal Entry {} completed. Total: {}",
+                    journalEntry.getId(), totalAmount);
+
+        } catch (Exception e) {
+            log.error("Failed to create cancel journal entry for GRN {}: {}",
+                    grn.getId(), e.getMessage(), e);
+
+            throw new RuntimeException("Failed to create GRN cancel journal entry: " + e.getMessage(), e);
+        }
+    }
+
+
     /**
      * Property assignment journal entry for NEW_PROJECT creation.
      * This is an internal asset reclassification when a property is assigned to a project.
@@ -1826,10 +2097,10 @@ public class JournalEntryService {
             long organizationId = propertyPurchase.getOrganizationId();
 
             ChartOfAccount projectsInventoryAccount =
-                    journalUtilities.getChartOfAccount(organizationId, PROJECT_CONSTRUCTION_VALUE);
+                    journalUtilities.constructionInventory(organizationId);
 
             ChartOfAccount propertyLandInventoryAccount =
-                    journalUtilities.getChartOfAccount(organizationId, STANDALONE_PROPERTY_INVENTORY);
+                    journalUtilities.standAlonePropertyInventory(organizationId);
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(organizationId);
@@ -1862,4 +2133,605 @@ public class JournalEntryService {
             throw new RuntimeException("Failed to create property assignment journal entry: " + e.getMessage(), e);
         }
     }
+
+
+    @Transactional
+    public void createJournalEntryForVendorInvoice(
+            VendorInvoice invoice,
+            List<VendorInvoiceItem> invoiceItems,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+            double totalAmount = 0.0;
+
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // ===========================
+            // 1️⃣ Calculate Invoice Amount
+            // ===========================
+            for (VendorInvoiceItem item : invoiceItems) {
+                double amount = item.getAmount() != null
+                        ? item.getAmount()
+                        : item.getQuantity() * item.getRate();
+
+                totalAmount += amount;
+            }
+
+            if (totalAmount <= 0) {
+                return;
+            }
+
+            // ===========================
+            // 2️⃣ Create Journal Entry Header
+            // ===========================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(invoice.getOrgId());
+            journalEntry.setCreatedDate(invoice.getCreatedDate() != null ? invoice.getCreatedDate() : LocalDateTime.now());
+            journalEntry.setReferenceType("VENDOR_INVOICE");
+            journalEntry.setAdditionalReferenceId(invoice.getId());
+            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+            journalEntry.setVendorId(invoice.getVendorId());
+            journalEntry.setProjectId(invoice.getProjectId());
+            journalEntry.setDescription("Vendor Invoice: " + invoice.getInvoiceNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Journal Entry ID: {} for Vendor Invoice ID: {}",
+                    journalEntry.getId(), invoice.getId());
+
+            // ===========================
+            // 3️⃣ Get COA Accounts
+            // ===========================
+            ChartOfAccount grnClearingAccount =
+                    journalUtilities.grnClearing(invoice.getOrgId());
+
+            ChartOfAccount vendorPayableAccount =
+                    journalUtilities.vendorPayable(invoice.getOrgId());
+
+            // ===========================
+            // 4️⃣ Debit GRN Clearing
+            // ===========================
+            JournalDetailEntry debitEntry = new JournalDetailEntry();
+            debitEntry.setJournalEntryId(journalEntry.getId());
+            debitEntry.setChartOfAccountId(grnClearingAccount.getId());
+            debitEntry.setDebitAmount(totalAmount);
+            debitEntry.setCreditAmount(0.0);
+            debitEntry.setDescription("GRN clearing transferred to vendor payable. Invoice: " + invoice.getInvoiceNumber());
+
+            detailEntries.add(debitEntry);
+            totalDebit += totalAmount;
+
+            // ===========================
+            // 5️⃣ Credit Vendor Payable
+            // ===========================
+            JournalDetailEntry creditEntry = new JournalDetailEntry();
+            creditEntry.setJournalEntryId(journalEntry.getId());
+            creditEntry.setChartOfAccountId(vendorPayableAccount.getId());
+            creditEntry.setDebitAmount(0.0);
+            creditEntry.setCreditAmount(totalAmount);
+            creditEntry.setDescription("Vendor payable created. Invoice: " + invoice.getInvoiceNumber());
+
+            detailEntries.add(creditEntry);
+            totalCredit += totalAmount;
+
+            // ===========================
+            // 6️⃣ Validate Double Entry
+            // ===========================
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Vendor invoice journal imbalance! Debit: "
+                        + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // ===========================
+            // 7️⃣ Save Entries
+            // ===========================
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+            }
+
+            log.info("Vendor Invoice Journal Entry {} completed. Total: {}",
+                    journalEntry.getId(), totalAmount);
+
+        } catch (Exception e) {
+            log.error("Failed to create journal entry for Vendor Invoice {}: {}",
+                    invoice.getId(), e.getMessage(), e);
+
+            throw new RuntimeException("Failed to create vendor invoice journal entry: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Transactional
+    public void updateJournalEntryForVendorInvoice(
+            VendorInvoice invoice,
+            List<VendorInvoiceItem> oldInvoiceItems,
+            List<VendorInvoiceItem> newInvoiceItems,
+            String loggedInUser
+    ) {
+        try {
+            double totalDebit = 0.0;
+            double totalCredit = 0.0;
+
+            double oldTotalAmount = 0.0;
+            double newTotalAmount = 0.0;
+
+            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+
+            // ===========================
+            // 1️⃣ Calculate Old Invoice Amount
+            // ===========================
+            for (VendorInvoiceItem item : oldInvoiceItems) {
+                double amount = item.getAmount() != null
+                        ? item.getAmount()
+                        : item.getQuantity() * item.getRate();
+
+                oldTotalAmount += amount;
+            }
+
+            // ===========================
+            // 2️⃣ Calculate New Invoice Amount
+            // ===========================
+            for (VendorInvoiceItem item : newInvoiceItems) {
+                double amount = item.getAmount() != null
+                        ? item.getAmount()
+                        : item.getQuantity() * item.getRate();
+
+                newTotalAmount += amount;
+            }
+
+            if (oldTotalAmount <= 0 && newTotalAmount <= 0) {
+                return;
+            }
+
+            // ===========================
+            // 3️⃣ Create Journal Entry Header
+            // ===========================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(invoice.getOrgId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("VENDOR_INVOICE_UPDATE");
+            journalEntry.setAdditionalReferenceId(invoice.getId());
+            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+            journalEntry.setVendorId(invoice.getVendorId());
+            journalEntry.setProjectId(invoice.getProjectId());
+            journalEntry.setDescription("Vendor Invoice Updated: " + invoice.getInvoiceNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            log.info("Created Vendor Invoice Update Journal Entry ID: {} for Invoice ID: {}",
+                    journalEntry.getId(), invoice.getId());
+
+            // ===========================
+            // 4️⃣ Get COA Accounts
+            // ===========================
+            ChartOfAccount grnClearingAccount =
+                    journalUtilities.grnClearing(invoice.getOrgId());
+
+            ChartOfAccount vendorPayableAccount =
+                    journalUtilities.vendorPayable(invoice.getOrgId());
+
+            // ===========================
+            // 5️⃣ Reverse Old Invoice Entry
+            // Original:
+            // GRN Clearing Dr
+            //      Vendor Payable Cr
+            //
+            // Reversal:
+            // Vendor Payable Dr
+            //      GRN Clearing Cr
+            // ===========================
+            if (oldTotalAmount > 0) {
+                JournalDetailEntry reverseDebitEntry = new JournalDetailEntry();
+                reverseDebitEntry.setJournalEntryId(journalEntry.getId());
+                reverseDebitEntry.setChartOfAccountId(vendorPayableAccount.getId());
+                reverseDebitEntry.setDebitAmount(oldTotalAmount);
+                reverseDebitEntry.setCreditAmount(0.0);
+                reverseDebitEntry.setDescription("Reverse old vendor payable. Invoice: " + invoice.getInvoiceNumber());
+
+                detailEntries.add(reverseDebitEntry);
+                totalDebit += oldTotalAmount;
+
+                JournalDetailEntry reverseCreditEntry = new JournalDetailEntry();
+                reverseCreditEntry.setJournalEntryId(journalEntry.getId());
+                reverseCreditEntry.setChartOfAccountId(grnClearingAccount.getId());
+                reverseCreditEntry.setDebitAmount(0.0);
+                reverseCreditEntry.setCreditAmount(oldTotalAmount);
+                reverseCreditEntry.setDescription("Reverse old GRN clearing. Invoice: " + invoice.getInvoiceNumber());
+
+                detailEntries.add(reverseCreditEntry);
+                totalCredit += oldTotalAmount;
+            }
+
+            // ===========================
+            // 6️⃣ Post New Updated Invoice Entry
+            // New:
+            // GRN Clearing Dr
+            //      Vendor Payable Cr
+            // ===========================
+            if (newTotalAmount > 0) {
+                JournalDetailEntry newDebitEntry = new JournalDetailEntry();
+                newDebitEntry.setJournalEntryId(journalEntry.getId());
+                newDebitEntry.setChartOfAccountId(grnClearingAccount.getId());
+                newDebitEntry.setDebitAmount(newTotalAmount);
+                newDebitEntry.setCreditAmount(0.0);
+                newDebitEntry.setDescription("Updated GRN clearing transferred. Invoice: " + invoice.getInvoiceNumber());
+
+                detailEntries.add(newDebitEntry);
+                totalDebit += newTotalAmount;
+
+                JournalDetailEntry newCreditEntry = new JournalDetailEntry();
+                newCreditEntry.setJournalEntryId(journalEntry.getId());
+                newCreditEntry.setChartOfAccountId(vendorPayableAccount.getId());
+                newCreditEntry.setDebitAmount(0.0);
+                newCreditEntry.setCreditAmount(newTotalAmount);
+                newCreditEntry.setDescription("Updated vendor payable. Invoice: " + invoice.getInvoiceNumber());
+
+                detailEntries.add(newCreditEntry);
+                totalCredit += newTotalAmount;
+            }
+
+            // ===========================
+            // 7️⃣ Validate Double Entry
+            // ===========================
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Vendor invoice update journal imbalance! Debit: "
+                        + totalDebit + ", Credit: " + totalCredit);
+            }
+
+            // ===========================
+            // 8️⃣ Save Entries
+            // ===========================
+            for (JournalDetailEntry entry : detailEntries) {
+                journalDetailEntryRepository.save(entry);
+            }
+
+            log.info("Vendor Invoice Update Journal Entry {} completed. Old Total: {}, New Total: {}",
+                    journalEntry.getId(), oldTotalAmount, newTotalAmount);
+
+        } catch (Exception e) {
+            log.error("Failed to create update journal entry for Vendor Invoice {}: {}",
+                    invoice.getId(), e.getMessage(), e);
+
+            throw new RuntimeException("Failed to create vendor invoice update journal entry: " + e.getMessage(), e);
+        }
+    }
+
+//    vendor invoice payment
+
+    @Transactional
+    public void createJournalEntryForVendorPayment(
+            VendorPaymentPO payment,
+            Long organizationAccountId,
+            String loggedInUser
+    ) {
+        try {
+
+            double amount = payment.getAmount() != null ? payment.getAmount() : 0.0;
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            // ✅ Accounts
+            ChartOfAccount vendorPayable =
+                    journalUtilities.vendorPayable(payment.getOrgId());
+
+            ChartOfAccount cashAccount =
+                    chartOfAccountRepository.findById(organizationAccountId)
+                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+
+            // ✅ Journal Header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(payment.getOrgId());
+            journalEntry.setReferenceType("VENDOR_PAYMENT");
+            journalEntry.setAdditionalReferenceId(payment.getId());
+            journalEntry.setVendorId(payment.getVendorId());
+            journalEntry.setProjectId(payment.getProjectId());
+            journalEntry.setDescription("Vendor Payment: " + payment.getReferenceNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ DR Vendor Payable
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    vendorPayable.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // ✅ CR Cash / Bank
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    cashAccount.getId(),
+                    0,
+                    amount
+
+            ));
+            totalCredit += amount;
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Vendor payment journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Vendor payment journal failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Transactional
+    public void updateJournalEntryForVendorPayment(
+            VendorPaymentPO existingPayment,
+            double delta,
+            Long organizationAccountId,
+            String loggedInUser
+    ) {
+        try {
+
+            if (delta == 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            ChartOfAccount vendorPayable =
+                    journalUtilities.vendorPayable(existingPayment.getOrgId());
+
+            ChartOfAccount cashAccount =
+                    chartOfAccountRepository.findById(organizationAccountId)
+                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(existingPayment.getOrgId());
+            journalEntry.setReferenceType("VENDOR_PAYMENT_UPDATE");
+            journalEntry.setAdditionalReferenceId(existingPayment.getId());
+            journalEntry.setVendorId(existingPayment.getVendorId());
+            journalEntry.setProjectId(existingPayment.getProjectId());
+            journalEntry.setDescription("Vendor Payment Update: " + existingPayment.getReferenceNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            if (delta > 0) {
+                // ✅ Payment Increased
+
+                entries.add(buildEntry(journalEntry.getId(), vendorPayable.getId(), delta, 0));
+                entries.add(buildEntry(journalEntry.getId(), cashAccount.getId(), 0, delta));
+                totalDebit += delta;
+                totalCredit += delta;
+
+            } else {
+                double refund = -delta;
+
+                // ✅ Payment Decreased (Refund case)
+
+                entries.add(buildEntry(journalEntry.getId(), cashAccount.getId(), refund, 0));
+                entries.add(buildEntry(journalEntry.getId(), vendorPayable.getId(), 0, refund));
+
+                totalDebit += refund;
+                totalCredit += refund;
+            }
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Vendor payment update imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Vendor payment update journal failed: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public void cancelJournalEntryForVendorPayment(
+            VendorPaymentPO payment,
+            Long organizationAccountId,
+            String loggedInUser
+    ) {
+        try {
+
+            double amount = payment.getAmount();
+
+            ChartOfAccount vendorPayable =
+                    journalUtilities.vendorPayable(payment.getOrgId());
+
+            ChartOfAccount cashAccount =
+                    chartOfAccountRepository.findById(organizationAccountId)
+                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(payment.getOrgId());
+            journalEntry.setReferenceType("VENDOR_PAYMENT_CANCEL");
+            journalEntry.setAdditionalReferenceId(payment.getId());
+            journalEntry.setVendorId(payment.getVendorId());
+            journalEntry.setProjectId(payment.getProjectId());
+            journalEntry.setDescription("Vendor Payment Cancel: " + payment.getReferenceNumber());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ Reverse payment
+            entries.add(buildEntry(journalEntry.getId(), cashAccount.getId(), amount, 0));
+            entries.add(buildEntry(journalEntry.getId(), vendorPayable.getId(), 0, amount));
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Vendor payment cancel journal failed", e);
+        }
+    }
+
+//    payroll management
+
+    @Transactional
+    public void createJournalEntryForSalarySlip(
+            SalarySlip slip,
+            String loggedInUser
+    ) {
+        try {
+
+            double amount = slip.getNetSalary() != null
+                    ? slip.getNetSalary().doubleValue()
+                    : 0.0;
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            // ✅ Accounts
+            ChartOfAccount expense =
+                    journalUtilities.salaryExpense(slip.getOrganizationId());
+
+            ChartOfAccount payable =
+                    journalUtilities.salaryPayable(slip.getOrganizationId());
+
+            // ✅ Journal Header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(slip.getOrganizationId());
+            journalEntry.setReferenceType("SALARY_SLIP");
+            journalEntry.setAdditionalReferenceId(slip.getId());
+            journalEntry.setEmployeeId(slip.getEmployeeId());
+            journalEntry.setDescription(
+                    "Salary Generated - " +
+                            slip.getEmployeeName() +
+                            " (" + slip.getSalaryMonth() + "/" + slip.getSalaryYear() + ")"
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ DR Salary Expense
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    expense.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // ✅ CR Salary Payable
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    payable.getId(),
+                    0,
+                    amount
+            ));
+            totalCredit += amount;
+
+            // ✅ Balance Validation
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Salary slip journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Salary slip journal failed: " + e.getMessage(),
+                    e
+            );
+        }
+    }
+
+
+    @Transactional
+    public void paySalaryJournalEntry(
+            SalarySlip slip,
+            Long orgAccountId,
+            String loggedInUser
+    ) {
+        try {
+
+            double amount = slip.getNetSalary() != null
+                    ? slip.getNetSalary().doubleValue()
+                    : 0.0;
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            // ✅ Accounts
+            ChartOfAccount payable =
+                    journalUtilities.salaryPayable(slip.getOrganizationId());
+
+            ChartOfAccount cash =
+                    chartOfAccountRepository.findById(orgAccountId)
+                            .orElseThrow(() ->
+                                    new RuntimeException("Cash/Bank account not found"));
+
+            // ✅ Journal Header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(slip.getOrganizationId());
+            journalEntry.setReferenceType("SALARY_PAYMENT");
+            journalEntry.setAdditionalReferenceId(slip.getId());
+            journalEntry.setEmployeeId(slip.getEmployeeId());
+            journalEntry.setDescription(
+                    "Salary Paid - " +
+                            slip.getEmployeeName() +
+                            " (" + slip.getSalaryMonth() + "/" + slip.getSalaryYear() + ")"
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ DR Salary Payable
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    payable.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // ✅ CR Cash / Bank
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    cash.getId(),
+                    0,
+                    amount
+            ));
+            totalCredit += amount;
+
+            // ✅ Balance Validation
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Salary payment journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Salary payment journal failed: " + e.getMessage(),
+                    e
+            );
+        }
+    }
+
 }

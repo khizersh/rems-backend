@@ -39,6 +39,13 @@ public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, 
             boolean isSystemGenerated
     );
 
+
+    Optional<ChartOfAccount> findByOrganization_OrganizationIdAndCodeAndStatus(
+            Long organizationId,
+            String code,
+            AccountStatus status
+    );
+
 }
 
 

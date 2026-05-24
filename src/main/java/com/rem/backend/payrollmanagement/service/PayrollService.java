@@ -1,9 +1,16 @@
 package com.rem.backend.payrollmanagement.service;
 
+import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.enums.TransactionType;
 import com.rem.backend.payrollmanagement.dto.PayrollDashboardDTO;
 import com.rem.backend.payrollmanagement.dto.ProcessPayrollRequest;
 import com.rem.backend.payrollmanagement.entity.*;
 import com.rem.backend.payrollmanagement.repository.*;
+import com.rem.backend.repository.OrganizationAccoutRepo;
+import com.rem.backend.repository.OrganizationAccountDetailRepo;
+import com.rem.backend.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +37,9 @@ public class PayrollService {
     private final DepartmentRepository departmentRepository;
     private final AttendanceRepository attendanceRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final JournalEntryService journalEntryService;
+    private final OrganizationAccoutRepo organizationAccountRepo;
+    private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
 
     /**
      * Process payroll for an entire organization for a given month/year.
@@ -133,6 +143,8 @@ public class PayrollService {
 
                 SalarySlip savedSlip = salarySlipRepository.save(slip);
                 generatedSlips.add(savedSlip);
+
+                journalEntryService.createJournalEntryForSalarySlip(savedSlip, request.getProcessedBy());
 
                 totalBasic = totalBasic.add(basicSalary);
                 totalAllowancesSum = totalAllowancesSum.add(totalAllowances);
@@ -314,9 +326,10 @@ public class PayrollService {
     }
 
     /**
-     * Mark salary slip as paid
+     * Mark salary slip as paid and deduct from organization account
      */
-    public Map<String, Object> markSalarySlipPaid(Long id) {
+    @Transactional
+    public Map<String, Object> markSalarySlipPaid(Long id, Long organizationAccountId, String paidBy) {
         try {
             Optional<SalarySlip> optional = salarySlipRepository.findById(id);
             if (optional.isEmpty()) {
@@ -324,11 +337,51 @@ public class PayrollService {
             }
 
             SalarySlip slip = optional.get();
+
+            if ("PAID".equals(slip.getStatus())) {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "Salary slip is already marked as paid");
+            }
+
+            double paymentAmount = slip.getNetSalary() != null ? slip.getNetSalary().doubleValue() : 0.0;
+
+            OrganizationAccount orgAccount = organizationAccountRepo
+                    .findByIdAndOrganizationId(organizationAccountId, slip.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid organization account for this organization"));
+
+            if (orgAccount.getTotalAmount() < paymentAmount) {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER,
+                        "Insufficient organization account balance. Available: " + orgAccount.getTotalAmount() + ", Required: " + paymentAmount);
+            }
+
+            double newBalance = orgAccount.getTotalAmount() - paymentAmount;
+            orgAccount.setTotalAmount(newBalance);
+            orgAccount.setUpdatedBy(paidBy);
+            organizationAccountRepo.save(orgAccount);
+
+            OrganizationAccountDetail accountDetail = new OrganizationAccountDetail();
+            accountDetail.setOrganizationAcctId(orgAccount.getId());
+            accountDetail.setTransactionType(TransactionType.CREDIT);
+            accountDetail.setTransactionCategory(TransactionCategory.OTHER);
+            accountDetail.setAmount(paymentAmount);
+            accountDetail.setComments("Salary Payment: employee=" + slip.getEmployeeName()
+                    + " slipId=" + slip.getId()
+                    + " (" + slip.getSalaryMonth() + "/" + slip.getSalaryYear() + ")");
+            accountDetail.setCreatedBy(paidBy);
+            accountDetail.setUpdatedBy(paidBy);
+            organizationAccountDetailRepo.save(accountDetail);
+
             slip.setStatus("PAID");
             slip.setPaidDate(LocalDateTime.now());
             salarySlipRepository.save(slip);
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, slip);
+            journalEntryService.paySalaryJournalEntry(slip, organizationAccountId, paidBy);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("salarySlip", slip);
+            result.put("orgAccountBalance", newBalance);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, result);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
@@ -336,23 +389,61 @@ public class PayrollService {
     }
 
     /**
-     * Mark all slips for a month as paid (bulk)
+     * Mark all slips for a month as paid (bulk) and deduct total from organization account
      */
     @Transactional
-    public Map<String, Object> markAllSlipsPaid(Long organizationId, Integer month, Integer year) {
+    public Map<String, Object> markAllSlipsPaid(Long organizationId, Integer month, Integer year,
+                                                Long organizationAccountId, String paidBy) {
         try {
             List<SalarySlip> slips = salarySlipRepository.findByOrganizationIdAndSalaryMonthAndSalaryYear(organizationId, month, year);
-            int paidCount = 0;
-            for (SalarySlip slip : slips) {
-                if ("GENERATED".equals(slip.getStatus())) {
-                    slip.setStatus("PAID");
-                    slip.setPaidDate(LocalDateTime.now());
-                    salarySlipRepository.save(slip);
-                    paidCount++;
-                }
+
+            List<SalarySlip> pendingSlips = slips.stream()
+                    .filter(s -> "GENERATED".equals(s.getStatus()))
+                    .toList();
+
+            if (pendingSlips.isEmpty()) {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, "No generated salary slips found to pay");
             }
 
-            // Update payroll status
+            double totalPayable = pendingSlips.stream()
+                    .mapToDouble(s -> s.getNetSalary() != null ? s.getNetSalary().doubleValue() : 0.0)
+                    .sum();
+
+            OrganizationAccount orgAccount = organizationAccountRepo
+                    .findByIdAndOrganizationId(organizationAccountId, organizationId)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid organization account for this organization"));
+
+            if (orgAccount.getTotalAmount() < totalPayable) {
+                return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER,
+                        "Insufficient organization account balance. Available: " + orgAccount.getTotalAmount()
+                                + ", Required: " + totalPayable);
+            }
+
+            double newBalance = orgAccount.getTotalAmount() - totalPayable;
+            orgAccount.setTotalAmount(newBalance);
+            orgAccount.setUpdatedBy(paidBy);
+            organizationAccountRepo.save(orgAccount);
+
+            OrganizationAccountDetail accountDetail = new OrganizationAccountDetail();
+            accountDetail.setOrganizationAcctId(orgAccount.getId());
+            accountDetail.setTransactionType(TransactionType.CREDIT);
+            accountDetail.setTransactionCategory(TransactionCategory.OTHER);
+            accountDetail.setAmount(totalPayable);
+            accountDetail.setComments("Bulk Salary Payment: " + pendingSlips.size()
+                    + " employees (" + month + "/" + year + ")");
+            accountDetail.setCreatedBy(paidBy);
+            accountDetail.setUpdatedBy(paidBy);
+            organizationAccountDetailRepo.save(accountDetail);
+
+            int paidCount = 0;
+            for (SalarySlip slip : pendingSlips) {
+                slip.setStatus("PAID");
+                slip.setPaidDate(LocalDateTime.now());
+                salarySlipRepository.save(slip);
+                journalEntryService.paySalaryJournalEntry(slip, organizationAccountId, paidBy);
+                paidCount++;
+            }
+
             Optional<Payroll> payrollOpt = payrollRepository.findByOrganizationIdAndPayrollMonthAndPayrollYear(organizationId, month, year);
             payrollOpt.ifPresent(payroll -> {
                 payroll.setStatus("COMPLETED");
@@ -362,7 +453,11 @@ public class PayrollService {
             Map<String, Object> result = new HashMap<>();
             result.put("paidCount", paidCount);
             result.put("totalSlips", slips.size());
+            result.put("totalAmountPaid", totalPayable);
+            result.put("orgAccountBalance", newBalance);
             return ResponseMapper.buildResponse(Responses.SUCCESS, result);
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());

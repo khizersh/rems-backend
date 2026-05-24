@@ -74,16 +74,21 @@ public class PayrollController {
     // ======================== PAYMENT STATUS ========================
 
     @PutMapping("/salary-slip/mark-paid/{id}")
-    public Map<String, Object> markSalarySlipPaid(@PathVariable Long id) {
-        return payrollService.markSalarySlipPaid(id);
+    public Map<String, Object> markSalarySlipPaid(
+            @PathVariable Long id,
+            @RequestParam Long organizationAccountId,
+            @RequestParam String paidBy) {
+        return payrollService.markSalarySlipPaid(id, organizationAccountId, paidBy);
     }
 
     @PutMapping("/salary-slips/mark-all-paid/{organizationId}")
     public Map<String, Object> markAllSlipsPaid(
             @PathVariable Long organizationId,
             @RequestParam Integer month,
-            @RequestParam Integer year) {
-        return payrollService.markAllSlipsPaid(organizationId, month, year);
+            @RequestParam Integer year,
+            @RequestParam Long organizationAccountId,
+            @RequestParam String paidBy) {
+        return payrollService.markAllSlipsPaid(organizationId, month, year, organizationAccountId, paidBy);
     }
 
     // ======================== PAYROLL HISTORY ========================

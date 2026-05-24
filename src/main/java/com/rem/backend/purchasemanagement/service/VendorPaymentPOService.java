@@ -10,6 +10,7 @@ import com.rem.backend.purchasemanagement.repository.GrnRepo;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.enums.ReceiptType;
+import com.rem.backend.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -42,6 +43,7 @@ public class VendorPaymentPOService {
     private final VendorInvoiceRepo vendorInvoiceRepo;
     private final GrnRepo grnRepo;
     private final ProjectRepo projectRepo;
+    private final JournalEntryService journalEntryService;
 
     // new repos
     private final OrganizationAccoutRepo organizationAccountRepo;
@@ -157,6 +159,18 @@ public class VendorPaymentPOService {
             // 7️⃣ Update Project Construction Amount for DIRECT GRNs
             // ===========================
             updateConstructionAmountForDirectGrn(invoice, paymentAmount, loggedInUser);
+
+
+
+// ===========================
+// 8️⃣ Accounting Entry
+// ===========================
+            journalEntryService.createJournalEntryForVendorPayment(
+                    payment,
+                    payment.getOrganizationAccountId(),
+                    loggedInUser
+            );
+
 
             Map<String, Object> result = new HashMap<>();
             result.put("payment", payment);
@@ -290,6 +304,18 @@ public class VendorPaymentPOService {
                     .orElseThrow(() -> new IllegalArgumentException("Invoice not found"));
 
             adjustInvoiceForUpdatedPayment(invoice, delta, loggedInUser);
+
+
+            // ===========================
+            // 🔟 Accounting Entry for Payment Update
+            // ===========================
+                        journalEntryService.updateJournalEntryForVendorPayment(
+                                existing,
+                                delta,
+                                existing.getOrganizationAccountId(),
+                                loggedInUser
+                        );
+
 
             Map<String, Object> resp = new HashMap<>();
             resp.put("payment", existing);

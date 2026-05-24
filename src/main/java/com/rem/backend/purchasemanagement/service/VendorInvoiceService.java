@@ -9,6 +9,7 @@ import com.rem.backend.purchasemanagement.enums.InvoiceStatus;
 import com.rem.backend.purchasemanagement.repository.*;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountRepo;
+import com.rem.backend.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -37,6 +38,7 @@ public class VendorInvoiceService {
     private final VendorAccountRepo vendorAccountRepo;
     private final ItemsRepo itemsRepo;
     private final GrnService grnService;
+    private final JournalEntryService journalEntryService;
 
     // ==================== 1. CREATE INVOICE AGAINST GRN ====================
     @Transactional
@@ -151,10 +153,29 @@ public class VendorInvoiceService {
                 grnItemsRepo.save(grnItem);
             }
 
-            // Calculate and update GRN invoice status based on all items
+
+            // ===========================
+// 6️⃣ Fetch Saved Invoice Items For Accounting
+// ===========================
+            List<VendorInvoiceItem> savedInvoiceItems =
+                    vendorInvoiceItemRepo.findByInvoiceId(invoice.getId());
+
+// ===========================
+// 7️⃣ Create Accounting Journal Entry
+// ===========================
+            journalEntryService.createJournalEntryForVendorInvoice(
+                    invoice,
+                    savedInvoiceItems,
+                    loggedInUser
+            );
+
+// ===========================
+// 8️⃣ Calculate and update GRN invoice status based on all items
+// ===========================
             grnService.calculateAndUpdateGrnInvoiceStatus(grn.getId(), loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Invoice created successfully");
+
 
         } catch (IllegalArgumentException e) {
             TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
@@ -411,7 +432,25 @@ public class VendorInvoiceService {
                 grnItemsRepo.save(grnItem);
             }
 
-            // Calculate and update GRN invoice status based on all items
+// ===========================
+// 🔟 Fetch New Saved Invoice Items For Accounting
+// ===========================
+            List<VendorInvoiceItem> newInvoiceItems =
+                    vendorInvoiceItemRepo.findByInvoiceId(existingInvoice.getId());
+
+// ===========================
+// 1️⃣1️⃣ Create Accounting Journal Entry For Invoice Update
+// ===========================
+            journalEntryService.updateJournalEntryForVendorInvoice(
+                    existingInvoice,
+                    oldInvoiceItems,
+                    newInvoiceItems,
+                    loggedInUser
+            );
+
+// ===========================
+// 1️⃣2️⃣ Calculate and update GRN invoice status based on all items
+// ===========================
             grnService.calculateAndUpdateGrnInvoiceStatus(grn.getId(), loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Invoice updated successfully");

@@ -46,6 +46,9 @@ public class JournalEntry {
     private Long bookingId;
 
     @Column(nullable = true)
+    private Long employeeId;
+
+    @Column(nullable = true)
     private Long additionalReferenceId;
 
     @Column(nullable = true)
