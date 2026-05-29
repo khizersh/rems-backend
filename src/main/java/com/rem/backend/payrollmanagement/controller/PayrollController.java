@@ -2,6 +2,7 @@ package com.rem.backend.payrollmanagement.controller;
 
 import com.rem.backend.payrollmanagement.dto.ProcessPayrollRequest;
 import com.rem.backend.payrollmanagement.service.PayrollService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
 
 @RestController
 @RequestMapping("/api/hr/payroll")
@@ -32,8 +35,10 @@ public class PayrollController {
     // ======================== PAYROLL PROCESSING ========================
 
     @PostMapping("/process")
-    public Map<String, Object> processPayroll(@RequestBody ProcessPayrollRequest request) {
-        return payrollService.processPayroll(request);
+    public Map<String, Object> processPayroll(@RequestBody ProcessPayrollRequest requestBody, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+
+        return payrollService.processPayroll(requestBody , loggedInUser);
     }
 
     @PostMapping("/generate-slip/{employeeId}")

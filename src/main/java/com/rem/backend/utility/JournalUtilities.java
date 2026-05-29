@@ -1,7 +1,7 @@
 package com.rem.backend.utility;
 
 
-import com.rem.backend.entity.account.ChartOfAccount;
+import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.repository.ChartOfAccountRepository;
@@ -60,7 +60,7 @@ public class JournalUtilities {
     public static final String CANCELLATION_REVENUE = "INC-CANCEL-001";
 
     // ✅ EXPENSE
-    public static final String GENERAL_EXPENSE = "EXP-GENERAL-001";
+    public static final String WITHDRAWL_EQUITY = "EQT-WITHDRAWAL-001";
     public static final String CONSTRUCTION_EXPENSE = "EXP-CONST-001";
     public static final String MISCELLANEOUS_EXPENSE = "EXP-MISC-001";
     public static final String SALARY_EXPENSE = "EXP-SALARY-001";
@@ -146,8 +146,8 @@ public class JournalUtilities {
         return getByCode(orgId, CANCELLATION_REVENUE);
     }
 
-    public ChartOfAccount generalExpense(Long orgId) {
-        return getByCode(orgId, GENERAL_EXPENSE);
+    public ChartOfAccount withdrawlEquity(Long orgId) {
+        return getByCode(orgId, WITHDRAWL_EQUITY);
     }
 
     public ChartOfAccount adjustmentExpense(Long orgId) {

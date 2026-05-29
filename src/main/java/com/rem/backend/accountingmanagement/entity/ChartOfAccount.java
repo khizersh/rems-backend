@@ -1,4 +1,4 @@
-package com.rem.backend.entity.account;
+package com.rem.backend.accountingmanagement.entity;
 
 import com.rem.backend.entity.organization.Organization;
 import com.rem.backend.enums.AccountStatus;

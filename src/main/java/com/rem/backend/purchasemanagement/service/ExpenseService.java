@@ -1,16 +1,16 @@
 package com.rem.backend.purchasemanagement.service;
 
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
-import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.service.OrganizationAccountService;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
-import com.rem.backend.entity.account.ChartOfAccount;
+import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.entity.expense.ExpenseType;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.pdc.PdcRecord;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.entity.vendor.VendorPayment;

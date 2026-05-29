@@ -1,9 +1,9 @@
 package com.rem.backend.propertymanagement.service;
 
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
-import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.service.OrganizationAccountService;
 import com.rem.backend.propertymanagement.entity.PropertyPayment;
 import com.rem.backend.propertymanagement.entity.PropertyPurchase;
 import com.rem.backend.propertymanagement.repository.PropertyPaymentRepo;

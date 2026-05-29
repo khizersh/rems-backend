@@ -3,7 +3,7 @@ package com.rem.backend.service;
 import com.rem.backend.dto.analytic.CountStateByTenureRequest;
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.repository.*;

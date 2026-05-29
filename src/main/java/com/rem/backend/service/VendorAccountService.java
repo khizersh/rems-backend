@@ -2,8 +2,8 @@ package com.rem.backend.service;
 
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.expense.ExpenseDetail;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.organization.Organization;
 import com.rem.backend.entity.pdc.PdcRecord;
 import com.rem.backend.entity.vendor.VendorAccount;

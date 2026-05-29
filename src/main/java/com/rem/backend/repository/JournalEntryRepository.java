@@ -1,6 +1,6 @@
 package com.rem.backend.repository;
 
-import com.rem.backend.entity.account.JournalEntry;
+import com.rem.backend.accountingmanagement.entity.JournalEntry;
 import com.rem.backend.enums.JournalEntryStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

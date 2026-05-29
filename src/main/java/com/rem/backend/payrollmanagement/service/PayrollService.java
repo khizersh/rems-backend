@@ -1,8 +1,8 @@
 package com.rem.backend.payrollmanagement.service;
 
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.payrollmanagement.dto.PayrollDashboardDTO;
 import com.rem.backend.payrollmanagement.dto.ProcessPayrollRequest;
@@ -46,7 +46,7 @@ public class PayrollService {
      * Generates salary slips for all active employees.
      */
     @Transactional
-    public Map<String, Object> processPayroll(ProcessPayrollRequest request) {
+    public Map<String, Object> processPayroll(ProcessPayrollRequest request , String loggedInUser) {
         try {
             Long orgId = request.getOrganizationId();
             Integer month = request.getPayrollMonth();
@@ -144,7 +144,7 @@ public class PayrollService {
                 SalarySlip savedSlip = salarySlipRepository.save(slip);
                 generatedSlips.add(savedSlip);
 
-                journalEntryService.createJournalEntryForSalarySlip(savedSlip, request.getProcessedBy());
+                journalEntryService.createJournalEntryForSalarySlip(savedSlip, loggedInUser);
 
                 totalBasic = totalBasic.add(basicSalary);
                 totalAllowancesSum = totalAllowancesSum.add(totalAllowances);

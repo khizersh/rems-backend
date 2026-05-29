@@ -1,6 +1,6 @@
 package com.rem.backend.repository;
 
-import com.rem.backend.entity.account.JournalDetailEntry;
+import com.rem.backend.accountingmanagement.entity.JournalDetailEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

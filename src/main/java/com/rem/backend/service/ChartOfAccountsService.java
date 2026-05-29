@@ -1,9 +1,9 @@
 package com.rem.backend.service;
 
-import com.rem.backend.entity.account.AccountGroup;
-import com.rem.backend.entity.account.ChartOfAccount;
+import com.rem.backend.accountingmanagement.entity.AccountGroup;
+import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
 import com.rem.backend.entity.organization.Organization;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.repository.AccountGroupRepository;
 import com.rem.backend.repository.AccountTypeRepository;

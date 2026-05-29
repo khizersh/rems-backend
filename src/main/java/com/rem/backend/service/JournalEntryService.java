@@ -1,18 +1,18 @@
 package com.rem.backend.service;
 
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
-import com.rem.backend.entity.account.AccountGroup;
-import com.rem.backend.entity.account.ChartOfAccount;
-import com.rem.backend.entity.account.JournalDetailEntry;
-import com.rem.backend.entity.account.JournalEntry;
+import com.rem.backend.accountingmanagement.entity.AccountGroup;
+import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
+import com.rem.backend.accountingmanagement.entity.JournalDetailEntry;
+import com.rem.backend.accountingmanagement.entity.JournalEntry;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.customerpayable.CustomerPayable;
 import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.entity.vendor.VendorAccount;
 import com.rem.backend.enums.*;
@@ -40,8 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import static com.rem.backend.utility.JournalUtilities.*;
 
 @Service
 @AllArgsConstructor
@@ -754,7 +752,7 @@ public class JournalEntryService {
                     break;
 
                 case WITHDRAWL:
-                    controlAccount = journalUtilities.generalExpense(organizationId).getName();
+                    controlAccount = journalUtilities.withdrawlEquity(organizationId).getName();
                     break;
 
                 case CONSTRUCTION:

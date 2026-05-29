@@ -1,4 +1,4 @@
-package com.rem.backend.accountmanagement.enums;
+package com.rem.backend.orgaccountmanagement.enums;
 
 public enum TransactionCategory {
 

@@ -1,6 +1,9 @@
 package com.rem.backend.payrollmanagement.service;
 
 import com.rem.backend.payrollmanagement.dto.SalaryAmendmentRequest;
+import com.rem.backend.payrollmanagement.dto.SalaryAmendmentResponse;
+import com.rem.backend.payrollmanagement.entity.Employee;
+import com.rem.backend.payrollmanagement.repository.EmployeeRepository;
 import com.rem.backend.payrollmanagement.entity.SalaryAmendment;
 import com.rem.backend.payrollmanagement.repository.SalaryAmendmentRepository;
 import com.rem.backend.utility.ResponseMapper;
@@ -17,6 +20,7 @@ import java.util.Optional;
 public class SalaryAmendmentService {
 
     private final SalaryAmendmentRepository salaryAmendmentRepository;
+    private final EmployeeRepository employeeRepository;
 
     public Map<String, Object> createAmendment(SalaryAmendmentRequest request) {
         try {
@@ -65,7 +69,31 @@ public class SalaryAmendmentService {
     public Map<String, Object> getAmendmentsByEmployee(Long employeeId) {
         try {
             List<SalaryAmendment> amendments = salaryAmendmentRepository.findByEmployeeId(employeeId);
-            return ResponseMapper.buildResponse(Responses.SUCCESS, amendments);
+            java.util.List<SalaryAmendmentResponse> responses = new java.util.ArrayList<>();
+            for (SalaryAmendment a : amendments) {
+                String employeeName = "";
+                try {
+                    Employee emp = employeeRepository.findById(a.getEmployeeId()).orElse(null);
+                    if (emp != null) employeeName = emp.getFullName();
+                } catch (Exception ignored) {}
+
+                SalaryAmendmentResponse resp = SalaryAmendmentResponse.builder()
+                        .id(a.getId())
+                        .organizationId(a.getOrganizationId())
+                        .employeeId(a.getEmployeeId())
+                        .employeeName(employeeName)
+                        .amount(a.getAmount())
+                        .amendmentType(a.getAmendmentType())
+                        .description(a.getDescription())
+                        .status(a.getStatus())
+                        .salaryMonth(a.getSalaryMonth())
+                        .salaryYear(a.getSalaryYear())
+                        .createdDate(a.getCreatedDate())
+                        .build();
+                responses.add(resp);
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, responses);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
@@ -75,7 +103,31 @@ public class SalaryAmendmentService {
     public Map<String, Object> getAmendmentsByOrganizationAndMonth(Long organizationId, Integer month, Integer year) {
         try {
             List<SalaryAmendment> amendments = salaryAmendmentRepository.findByOrganizationIdAndSalaryMonthAndSalaryYear(organizationId, month, year);
-            return ResponseMapper.buildResponse(Responses.SUCCESS, amendments);
+            java.util.List<SalaryAmendmentResponse> responses = new java.util.ArrayList<>();
+            for (SalaryAmendment a : amendments) {
+                String employeeName = "";
+                try {
+                    Employee emp = employeeRepository.findById(a.getEmployeeId()).orElse(null);
+                    if (emp != null) employeeName = emp.getFullName();
+                } catch (Exception ignored) {}
+
+                SalaryAmendmentResponse resp = SalaryAmendmentResponse.builder()
+                        .id(a.getId())
+                        .organizationId(a.getOrganizationId())
+                        .employeeId(a.getEmployeeId())
+                        .employeeName(employeeName)
+                        .amount(a.getAmount())
+                        .amendmentType(a.getAmendmentType())
+                        .description(a.getDescription())
+                        .status(a.getStatus())
+                        .salaryMonth(a.getSalaryMonth())
+                        .salaryYear(a.getSalaryYear())
+                        .createdDate(a.getCreatedDate())
+                        .build();
+                responses.add(resp);
+            }
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, responses);
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());

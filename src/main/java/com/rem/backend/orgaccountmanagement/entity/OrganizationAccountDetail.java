@@ -1,6 +1,6 @@
-package com.rem.backend.accountmanagement.entity;
+package com.rem.backend.orgaccountmanagement.entity;
 
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 import com.rem.backend.enums.TransactionType;
 import jakarta.persistence.*;
 import lombok.Data;

@@ -1,11 +1,11 @@
-package com.rem.backend.accountmanagement.controller;
+package com.rem.backend.orgaccountmanagement.controller;
 
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.commonRequest.CommonPaginationRequest;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.service.OrganizationAccountService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;

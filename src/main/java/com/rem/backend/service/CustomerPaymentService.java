@@ -1,11 +1,11 @@
 package com.rem.backend.service;
 
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
-import com.rem.backend.accountmanagement.service.OrganizationAccountService;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.service.OrganizationAccountService;
 import com.rem.backend.entity.customer.CustomerAccount;
 import com.rem.backend.entity.customer.CustomerPayment;
 import com.rem.backend.entity.customer.CustomerPaymentDetail;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PaymentType;
 import com.rem.backend.repository.*;

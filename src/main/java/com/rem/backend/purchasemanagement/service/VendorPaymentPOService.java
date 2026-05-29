@@ -27,12 +27,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 // new imports
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.enums.TransactionType;
-import com.rem.backend.accountmanagement.enums.TransactionCategory;
+import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 
 @Service
 @RequiredArgsConstructor

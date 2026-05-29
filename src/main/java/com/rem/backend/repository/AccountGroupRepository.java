@@ -1,7 +1,7 @@
 package com.rem.backend.repository;
 
-import com.rem.backend.entity.account.AccountCategory;
-import com.rem.backend.entity.account.AccountGroup;
+import com.rem.backend.accountingmanagement.entity.AccountCategory;
+import com.rem.backend.accountingmanagement.entity.AccountGroup;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

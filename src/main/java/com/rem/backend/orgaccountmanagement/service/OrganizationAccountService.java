@@ -1,10 +1,10 @@
-package com.rem.backend.accountmanagement.service;
+package com.rem.backend.orgaccountmanagement.service;
 
 import com.rem.backend.dto.analytic.DateRangeRequest;
 import com.rem.backend.dto.analytic.OrganizationAccountDetailProjection;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
-import com.rem.backend.accountmanagement.entity.OrganizationAccount;
-import com.rem.backend.accountmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
+import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
