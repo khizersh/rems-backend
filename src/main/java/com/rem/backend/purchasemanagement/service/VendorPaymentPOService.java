@@ -10,7 +10,7 @@ import com.rem.backend.purchasemanagement.repository.GrnRepo;
 import com.rem.backend.entity.project.Project;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.enums.ReceiptType;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;

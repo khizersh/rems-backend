@@ -1,4 +1,4 @@
-package com.rem.backend.repository;
+package com.rem.backend.accountingmanagement.repos;
 
 import com.rem.backend.accountingmanagement.entity.AccountCategory;
 import com.rem.backend.accountingmanagement.entity.AccountGroup;

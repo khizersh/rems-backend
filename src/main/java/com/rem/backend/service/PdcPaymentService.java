@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
 import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;

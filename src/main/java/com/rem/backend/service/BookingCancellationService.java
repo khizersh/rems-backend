@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.dto.booking.BookingCancellationRequest;
 import com.rem.backend.dto.customerpayable.CustomerPayableDto;
 import com.rem.backend.entity.booking.Booking;

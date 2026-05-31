@@ -1,10 +1,13 @@
 package com.rem.backend.warehousemanagement.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.warehousemanagement.dto.StockAdjustmentRequestDTO;
 import com.rem.backend.warehousemanagement.dto.StockSummaryDTO;
 import com.rem.backend.warehousemanagement.dto.StockTransferRequestDTO;
 import com.rem.backend.warehousemanagement.entity.Stock;
+import com.rem.backend.warehousemanagement.entity.Warehouse;
 import com.rem.backend.warehousemanagement.repo.StockRepository;
+import com.rem.backend.warehousemanagement.repo.WarehouseRepository;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -26,6 +29,8 @@ public class StockService {
 
     private final StockRepository stockRepository;
     private final InventoryService inventoryService;
+    private final WarehouseRepository warehouseRepository;
+    private final JournalEntryService journalEntryService;
 
     public Map<String, Object> getStockByWarehouse(Long warehouseId, Pageable pageable) {
         try {
@@ -163,6 +168,12 @@ public class StockService {
             ValidationService.validate(loggedInUser, "Logged in user");
             validateStockAdjustmentRequest(request);
 
+            // Capture the valuation rate before adjusting (increase uses existing avg rate, else zero)
+            Stock existingStock = stockRepository
+                .findByWarehouseIdAndItemId(request.getWarehouseId(), request.getItemId())
+                .orElse(null);
+            BigDecimal rate = existingStock != null ? existingStock.getAvgRate() : BigDecimal.ZERO;
+
             inventoryService.adjustStock(
                 request.getWarehouseId(),
                 request.getItemId(),
@@ -171,6 +182,21 @@ public class StockService {
                 request.getRemarks(),
                 loggedInUser
             );
+
+            // Book the inventory adjustment against the Adjustment account
+            Warehouse warehouse = warehouseRepository.findById(request.getWarehouseId()).orElse(null);
+            if (warehouse != null) {
+                double amount = request.getQuantity().multiply(rate).doubleValue();
+                journalEntryService.createJournalEntryForStockAdjustment(
+                    warehouse.getOrganizationId(),
+                    request.getWarehouseId(),
+                    request.getItemId(),
+                    null,
+                    amount,
+                    request.getIncrease(),
+                    loggedInUser
+                );
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Stock adjusted successfully");
 

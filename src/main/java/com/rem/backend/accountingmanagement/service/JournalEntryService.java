@@ -1,5 +1,9 @@
-package com.rem.backend.service;
+package com.rem.backend.accountingmanagement.service;
 
+import com.rem.backend.accountingmanagement.repos.AccountGroupRepository;
+import com.rem.backend.accountingmanagement.repos.ChartOfAccountRepository;
+import com.rem.backend.accountingmanagement.repos.JournalDetailEntryRepository;
+import com.rem.backend.accountingmanagement.repos.JournalEntryRepository;
 import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 import com.rem.backend.dto.orgAccount.TransferFundRequest;
@@ -26,10 +30,10 @@ import com.rem.backend.purchasemanagement.entity.purchaseorder.PurchaseOrderItem
 import com.rem.backend.purchasemanagement.entity.vendorinvoice.VendorInvoice;
 import com.rem.backend.purchasemanagement.entity.vendorinvoice.VendorInvoiceItem;
 import com.rem.backend.purchasemanagement.entity.vendorpayment.VendorPaymentPO;
-import com.rem.backend.repository.*;
-import com.rem.backend.utility.JournalUtilities;
+import com.rem.backend.accountingmanagement.utility.JournalUtilities;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
+import com.rem.backend.warehousemanagement.entity.ExpenseItem;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,9 +54,7 @@ public class JournalEntryService {
     private final JournalDetailEntryRepository journalDetailEntryRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
     private final AccountGroupRepository accountGroupRepository;
-    private final OrganizationAccoutRepo organizationAccoutRepo;
     private final PropertyPurchaseRepo propertyPurchaseRepo;
-
     private final JournalUtilities journalUtilities;
 
 
@@ -2729,6 +2731,347 @@ public class JournalEntryService {
                     "Salary payment journal failed: " + e.getMessage(),
                     e
             );
+        }
+    }
+
+//    WAREHOUSE
+
+    @Transactional
+    public void createJournalEntryForWarehouseExpenseIssue(
+            Expense expense,
+            ExpenseItem expenseItem,
+            String loggedInUser
+    ) {
+        try {
+
+            if (expenseItem == null || expense == null) return;
+            if (expenseItem.getStockEffect() == null || !expenseItem.getStockEffect()) return;
+
+            double amount = expenseItem.getAmount() != null
+                    ? expenseItem.getAmount().doubleValue()
+                    : 0.0;
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            // ✅ Credit account = Stock Inventory
+            ChartOfAccount stockInventory =
+                    journalUtilities.stockInventory(expense.getOrganizationId());
+
+            // ✅ Debit account = Construction Inventory or Expense COA
+            ChartOfAccount debitAccount;
+
+            if (expense.getExpenseType() != null
+                    && expense.getExpenseType().name().equalsIgnoreCase("CONSTRUCTION")) {
+
+                debitAccount =
+                        journalUtilities.constructionInventory(expense.getOrganizationId());
+
+            } else if (expense.getExpenseCOAId() > 0) {
+
+                debitAccount = chartOfAccountRepository.findById(expense.getExpenseCOAId())
+                        .orElseThrow(() -> new RuntimeException("Expense COA not found"));
+
+            } else {
+
+                debitAccount =
+                        journalUtilities.miscellaneousExpense(expense.getOrganizationId());
+            }
+
+            // ✅ Journal Header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(expense.getOrganizationId());
+            journalEntry.setReferenceType("WAREHOUSE_ISSUE");
+            journalEntry.setAdditionalReferenceId(expenseItem.getId());
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setProjectId(expense.getProjectId());
+            journalEntry.setDescription(
+                    "Warehouse stock issued against expense. Expense ID: " + expense.getId()
+                            + ", Item ID: " + expenseItem.getItemId()
+                            + ", Warehouse ID: " + expenseItem.getWarehouseId()
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ DR Construction Inventory / Expense
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    debitAccount.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // ✅ CR Stock Inventory
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    stockInventory.getId(),
+                    0,
+                    amount
+            ));
+            totalCredit += amount;
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Warehouse issue journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Warehouse issue journal failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Transactional
+    public void reverseJournalEntryForWarehouseExpenseIssue(
+            Expense expense,
+            ExpenseItem expenseItem,
+            String loggedInUser
+    ) {
+        try {
+
+            if (expenseItem == null || expense == null) return;
+            if (expenseItem.getStockEffect() == null || !expenseItem.getStockEffect()) return;
+
+            double amount = expenseItem.getAmount() != null
+                    ? expenseItem.getAmount().doubleValue()
+                    : 0.0;
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            ChartOfAccount stockInventory =
+                    journalUtilities.stockInventory(expense.getOrganizationId());
+
+            ChartOfAccount creditReversalAccount;
+
+            if (expense.getExpenseType() != null
+                    && expense.getExpenseType().name().equalsIgnoreCase("CONSTRUCTION")) {
+
+                creditReversalAccount =
+                        journalUtilities.constructionInventory(expense.getOrganizationId());
+
+            } else if (expense.getExpenseCOAId() > 0) {
+
+                creditReversalAccount = chartOfAccountRepository.findById(expense.getExpenseCOAId())
+                        .orElseThrow(() -> new RuntimeException("Expense COA not found"));
+
+            } else {
+
+                creditReversalAccount =
+                        journalUtilities.miscellaneousExpense(expense.getOrganizationId());
+            }
+
+            // ✅ Journal Header
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(expense.getOrganizationId());
+            journalEntry.setReferenceType("WAREHOUSE_ISSUE_REVERSAL");
+            journalEntry.setAdditionalReferenceId(expenseItem.getId());
+            journalEntry.setExpenseId(expense.getId());
+            journalEntry.setProjectId(expense.getProjectId());
+            journalEntry.setDescription(
+                    "Warehouse issue reversed. Expense ID: " + expense.getId()
+                            + ", Item ID: " + expenseItem.getItemId()
+                            + ", Warehouse ID: " + expenseItem.getWarehouseId()
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // ✅ DR Stock Inventory
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    stockInventory.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // ✅ CR Construction Inventory / Expense
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    creditReversalAccount.getId(),
+                    0,
+                    amount
+            ));
+            totalCredit += amount;
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Warehouse issue reversal journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Warehouse issue reversal journal failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    /**
+     * Journal Entry for material issued out of a warehouse (e.g. to a project).
+     * The stock asset is consumed and recognised as a construction cost.
+     * <p>
+     * DR Construction Inventory   (amount)
+     * CR Stock Inventory          (amount)
+     *
+     * @param amount valuation of the issued stock (quantity * average rate)
+     */
+    @Transactional
+    public void createJournalEntryForMaterialIssue(
+            long organizationId,
+            Long projectId,
+            Long warehouseId,
+            Long itemId,
+            Long refId,
+            double amount,
+            String loggedInUser
+    ) {
+        try {
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            ChartOfAccount stockInventory =
+                    journalUtilities.stockInventory(organizationId);
+
+            ChartOfAccount constructionInventory =
+                    journalUtilities.constructionInventory(organizationId);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(organizationId);
+            journalEntry.setReferenceType("MATERIAL_ISSUE");
+            journalEntry.setAdditionalReferenceId(refId);
+            journalEntry.setProjectId(projectId);
+            journalEntry.setDescription(
+                    "Material issued from warehouse. Warehouse ID: " + warehouseId
+                            + ", Item ID: " + itemId
+                            + (projectId != null ? ", Project ID: " + projectId : "")
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            // DR Construction Inventory
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    constructionInventory.getId(),
+                    amount,
+                    0
+            ));
+            totalDebit += amount;
+
+            // CR Stock Inventory
+            entries.add(buildEntry(
+                    journalEntry.getId(),
+                    stockInventory.getId(),
+                    0,
+                    amount
+            ));
+            totalCredit += amount;
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Material issue journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Material issue journal failed: " + e.getMessage(), e);
+        }
+    }
+
+
+    /**
+     * Journal Entry for a manual stock adjustment (physical count correction, damage, etc.).
+     * The offsetting side is booked against the Adjustment account.
+     * <p>
+     * Increase: DR Stock Inventory / CR Adjustment
+     * Decrease: DR Adjustment       / CR Stock Inventory
+     *
+     * @param amount valuation of the adjusted stock (quantity * rate)
+     */
+    @Transactional
+    public void createJournalEntryForStockAdjustment(
+            long organizationId,
+            Long warehouseId,
+            Long itemId,
+            Long refId,
+            double amount,
+            boolean increase,
+            String loggedInUser
+    ) {
+        try {
+
+            if (amount <= 0) return;
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            ChartOfAccount stockInventory =
+                    journalUtilities.stockInventory(organizationId);
+
+            ChartOfAccount adjustmentAccount =
+                    journalUtilities.adjustmentExpense(organizationId);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(organizationId);
+            journalEntry.setReferenceType(increase ? "STOCK_ADJUSTMENT_INCREASE" : "STOCK_ADJUSTMENT_DECREASE");
+            journalEntry.setAdditionalReferenceId(refId);
+            journalEntry.setDescription(
+                    "Stock " + (increase ? "increase" : "decrease") + " adjustment. Warehouse ID: " + warehouseId
+                            + ", Item ID: " + itemId
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            if (increase) {
+                // DR Stock Inventory
+                entries.add(buildEntry(journalEntry.getId(), stockInventory.getId(), amount, 0));
+                totalDebit += amount;
+
+                // CR Adjustment
+                entries.add(buildEntry(journalEntry.getId(), adjustmentAccount.getId(), 0, amount));
+                totalCredit += amount;
+            } else {
+                // DR Adjustment
+                entries.add(buildEntry(journalEntry.getId(), adjustmentAccount.getId(), amount, 0));
+                totalDebit += amount;
+
+                // CR Stock Inventory
+                entries.add(buildEntry(journalEntry.getId(), stockInventory.getId(), 0, amount));
+                totalCredit += amount;
+            }
+
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                throw new RuntimeException("Stock adjustment journal imbalance");
+            }
+
+            journalDetailEntryRepository.saveAll(entries);
+
+        } catch (Exception e) {
+            throw new RuntimeException("Stock adjustment journal failed: " + e.getMessage(), e);
         }
     }
 

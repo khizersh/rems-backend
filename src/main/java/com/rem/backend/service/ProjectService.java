@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.entity.paymentschedule.PaymentSchedule;
 import com.rem.backend.entity.project.Unit;
 import com.rem.backend.entity.project.Floor;

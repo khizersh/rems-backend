@@ -1,12 +1,19 @@
 package com.rem.backend.warehousemanagement.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
+import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.warehousemanagement.dto.ExpenseItemRequestDTO;
 import com.rem.backend.warehousemanagement.entity.ExpenseItem;
+import com.rem.backend.warehousemanagement.entity.Stock;
+import com.rem.backend.warehousemanagement.entity.Warehouse;
 import com.rem.backend.enums.ReceiptType;
 import com.rem.backend.enums.StockRefType;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
+import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.warehousemanagement.repo.ExpenseItemRepository;
+import com.rem.backend.warehousemanagement.repo.StockRepository;
+import com.rem.backend.warehousemanagement.repo.WarehouseRepository;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -19,6 +26,7 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +35,10 @@ public class WarehouseIntegrationService {
 
     private final InventoryService inventoryService;
     private final ExpenseItemRepository expenseItemRepository;
+    private final ExpenseRepo expenseRepo;
+    private final WarehouseRepository warehouseRepository;
+    private final StockRepository stockRepository;
+    private final JournalEntryService journalEntryService;
 
     /**
      * Process GRN approval and add stock to warehouse if receipt type is STOCK
@@ -150,6 +162,9 @@ public class WarehouseIntegrationService {
             // Delete existing expense items for this expense
             expenseItemRepository.deleteByExpenseId(request.getExpenseId());
 
+            // Parent expense is needed to capitalise stock purchases into the Stock Inventory account
+            Expense expense = expenseRepo.findById(request.getExpenseId()).orElse(null);
+
             for (ExpenseItemRequestDTO.ExpenseItemDTO itemDto : request.getExpenseItems()) {
                 // Create expense item record
                 ExpenseItem expenseItem = new ExpenseItem();
@@ -181,6 +196,13 @@ public class WarehouseIntegrationService {
 
                     log.info("Stock added from expense: Expense={}, Item={}, Warehouse={}, Qty={}",
                             request.getExpenseId(), itemDto.getItemId(), itemDto.getWarehouseId(), itemDto.getQuantity());
+
+                    // Capitalise the purchased material into Stock Inventory.
+                    // The parent expense already booked the cost (DR Construction/Expense, CR Bank/Payable);
+                    // this reclassifies that amount into the Stock Inventory asset (DR Stock Inventory, CR Construction/Expense).
+                    if (expense != null) {
+                        journalEntryService.reverseJournalEntryForWarehouseExpenseIssue(expense, expenseItem, loggedInUser);
+                    }
                 }
             }
 
@@ -217,6 +239,10 @@ public class WarehouseIntegrationService {
             String materialIssueRemarks = "Material issue to project " + projectId +
                                         (remarks != null ? " - " + remarks : "");
 
+            // Capture the issue valuation (quantity * average rate) before deducting
+            Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId).orElse(null);
+            BigDecimal issueRate = stock != null ? stock.getAvgRate() : BigDecimal.ZERO;
+
             inventoryService.deductStock(
                 warehouseId,
                 itemId,
@@ -229,6 +255,21 @@ public class WarehouseIntegrationService {
 
             log.info("Material issued: Warehouse={}, Item={}, Qty={}, Project={}",
                     warehouseId, itemId, quantity, projectId);
+
+            // Recognise the consumption: DR Construction Inventory, CR Stock Inventory
+            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
+            if (warehouse != null) {
+                double amount = quantity.multiply(issueRate).doubleValue();
+                journalEntryService.createJournalEntryForMaterialIssue(
+                    warehouse.getOrganizationId(),
+                    projectId,
+                    warehouseId,
+                    itemId,
+                    refId,
+                    amount,
+                    loggedInUser
+                );
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Material issued successfully");
 

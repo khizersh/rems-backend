@@ -12,7 +12,7 @@ import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountDetailRepo;
 import com.rem.backend.service.AccountService;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.Utility;

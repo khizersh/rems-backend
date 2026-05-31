@@ -1,4 +1,4 @@
-package com.rem.backend.repository;
+package com.rem.backend.accountingmanagement.repos;
 
 import com.rem.backend.accountingmanagement.entity.JournalDetailEntry;
 import org.springframework.data.jpa.repository.JpaRepository;

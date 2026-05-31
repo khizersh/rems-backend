@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.entity.expense.Expense;
 import com.rem.backend.entity.expense.ExpenseDetail;
 import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;

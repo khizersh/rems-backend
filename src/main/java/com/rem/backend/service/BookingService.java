@@ -1,5 +1,6 @@
 package com.rem.backend.service;
 
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.entity.booking.Booking;
 import com.rem.backend.entity.customer.Customer;
 import com.rem.backend.entity.customer.CustomerAccount;

@@ -9,7 +9,7 @@ import com.rem.backend.purchasemanagement.enums.InvoiceStatus;
 import com.rem.backend.purchasemanagement.repository.*;
 import com.rem.backend.repository.ProjectRepo;
 import com.rem.backend.repository.VendorAccountRepo;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;

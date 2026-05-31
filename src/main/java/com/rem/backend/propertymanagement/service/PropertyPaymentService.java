@@ -9,7 +9,7 @@ import com.rem.backend.propertymanagement.entity.PropertyPurchase;
 import com.rem.backend.propertymanagement.repository.PropertyPaymentRepo;
 import com.rem.backend.propertymanagement.repository.PropertyPurchaseRepo;
 import com.rem.backend.repository.OrganizationAccoutRepo;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;

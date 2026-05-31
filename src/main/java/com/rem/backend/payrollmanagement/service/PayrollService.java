@@ -10,7 +10,7 @@ import com.rem.backend.payrollmanagement.entity.*;
 import com.rem.backend.payrollmanagement.repository.*;
 import com.rem.backend.repository.OrganizationAccoutRepo;
 import com.rem.backend.repository.OrganizationAccountDetailRepo;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import lombok.RequiredArgsConstructor;

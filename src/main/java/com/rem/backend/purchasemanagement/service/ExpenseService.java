@@ -1,5 +1,8 @@
 package com.rem.backend.purchasemanagement.service;
 
+import com.rem.backend.accountingmanagement.repos.AccountGroupRepository;
+import com.rem.backend.accountingmanagement.repos.ChartOfAccountRepository;
+import com.rem.backend.accountingmanagement.utility.JournalUtilities;
 import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
 import com.rem.backend.orgaccountmanagement.service.OrganizationAccountService;
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
@@ -22,8 +25,7 @@ import com.rem.backend.purchasemanagement.repository.ExpenseDetailRepo;
 import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
 import com.rem.backend.purchasemanagement.repository.ExpenseTypeRepo;
 import com.rem.backend.repository.*;
-import com.rem.backend.utility.*;
-import com.rem.backend.service.JournalEntryService;
+import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.service.PdcPaymentService;
 import com.rem.backend.service.VendorAccountService;
 import com.rem.backend.warehousemanagement.service.WarehouseIntegrationService;
