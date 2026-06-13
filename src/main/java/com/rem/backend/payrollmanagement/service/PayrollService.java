@@ -1,15 +1,15 @@
 package com.rem.backend.payrollmanagement.service;
 
-import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
-import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
+import com.rem.backend.organizationmanagement.entity.OrganizationAccount;
+import com.rem.backend.organizationmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.organizationmanagement.enums.TransactionCategory;
 import com.rem.backend.enums.TransactionType;
 import com.rem.backend.payrollmanagement.dto.PayrollDashboardDTO;
 import com.rem.backend.payrollmanagement.dto.ProcessPayrollRequest;
 import com.rem.backend.payrollmanagement.entity.*;
 import com.rem.backend.payrollmanagement.repository.*;
-import com.rem.backend.repository.OrganizationAccoutRepo;
-import com.rem.backend.repository.OrganizationAccountDetailRepo;
+import com.rem.backend.organizationmanagement.repository.OrganizationAccoutRepo;
+import com.rem.backend.organizationmanagement.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;

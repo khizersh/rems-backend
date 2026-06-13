@@ -1,6 +1,6 @@
 package com.rem.backend.dto.customerpayable;
 
-import com.rem.backend.entity.customerpayable.CustomerPayableDetail;
+import com.rem.backend.customermanagement.entity.CustomerPayableDetail;
 import lombok.Data;
 
 import java.time.LocalDateTime;

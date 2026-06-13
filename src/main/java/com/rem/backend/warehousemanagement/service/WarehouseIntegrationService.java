@@ -1,7 +1,7 @@
 package com.rem.backend.warehousemanagement.service;
 
 import com.rem.backend.accountingmanagement.service.JournalEntryService;
-import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.warehousemanagement.dto.ExpenseItemRequestDTO;
 import com.rem.backend.warehousemanagement.entity.ExpenseItem;
 import com.rem.backend.warehousemanagement.entity.Stock;
@@ -26,7 +26,6 @@ import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor

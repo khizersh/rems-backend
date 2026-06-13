@@ -1,0 +1,119 @@
+package com.rem.backend.customermanagement.controller;
+
+import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
+import com.rem.backend.customermanagement.entity.Customer;
+import com.rem.backend.organizationmanagement.entity.Organization;
+import com.rem.backend.organizationmanagement.repository.OrganizationRepo;
+import com.rem.backend.customermanagement.service.CustomerService;
+import com.rem.backend.customermanagement.service.EmailService;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+
+import static com.rem.backend.usermanagement.utillity.JWTUtils.LOGGED_IN_USER;
+
+
+@RestController
+@RequestMapping("/api/customer/")
+@AllArgsConstructor
+public class CustomerController {
+
+    private final CustomerService customerService;
+    private final EmailService emailService;
+    private final OrganizationRepo organizationRepo;
+
+
+    @GetMapping("/{id}")
+    public Map getCustomerById(@PathVariable long id) {
+        return customerService.getCustomerById(id);
+    }
+
+
+    @GetMapping("/detail/{id}")
+    public Map getFullCustomerDetails(@PathVariable long id) {
+        return customerService.getFullDetailByCustomer(id);
+    }
+
+
+    @PostMapping("search")
+    public Map searchCustomersByName(@RequestBody Map<String, String> request) {
+        return customerService.searchCustomersByName(request);
+    }
+
+
+    @PostMapping("/addCustomer")
+    public Map addCustomer(@RequestBody Customer customer, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return customerService.createCustomer(customer , loggedInUser);
+    }
+
+    @PostMapping("/{customerId}/upload-image")
+    public ResponseEntity<?> uploadCustomerImage(
+            @PathVariable Long customerId,
+            @RequestParam("image") MultipartFile image
+    ) {
+        return ResponseEntity.ok(customerService.uploadCustomerImage(customerId, image));
+    }
+
+
+
+    @PostMapping("/updateCustomer")
+    public Map updateCustomer(@RequestBody Customer customer, HttpServletRequest request){
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        return customerService.updateCustomer(customer , loggedInUser);
+    }
+
+
+    @PostMapping("/sendCredentialEmail")
+    public Map sendCredentialEmail(@RequestBody Customer customer){
+        return customerService.sendCredentialEmail(customer );
+    }
+
+
+    @GetMapping("/email")
+    public ResponseEntity<?> test() {
+
+        Organization organization = organizationRepo.findById(1l).get();
+        emailService.sendEmailAsync("khizeroff61@gmail.com" , "username" , "password" , organization );
+        return ResponseEntity.ok("Success");
+    }
+
+
+    @PostMapping("/getByIds")
+    public ResponseEntity<?> getProjectsByIds(@RequestBody FilterPaginationRequest request) {
+        Pageable pageable = PageRequest.of(
+                request.getPage(),
+                request.getSize(),
+                request.getSortDir().equalsIgnoreCase("asc")
+                        ? Sort.by(request.getSortBy()).ascending()
+                        : Sort.by(request.getSortBy()).descending());
+
+        Map<String, Object> projectPage = customerService.getCustomerByIds(request.getId(), request.getFilteredBy(), pageable);
+        return ResponseEntity.ok(projectPage);
+    }
+
+
+    @PostMapping("/getFullDetailsByCustomerId")
+    public Map getCustomerFullDetailsByCustomerId(@RequestBody Map<String , String> request) {
+        return customerService.getFullDetailByCustomerId(request);
+    }
+
+
+    @GetMapping("/getByAccountId/{accountId}")
+    public Map getCustomerDetailByAccount(@PathVariable long accountId) {
+        return customerService.getFullDetailByCustomerAccountId(accountId);
+    }
+
+    @GetMapping("/getUnitListDetailsByCustomerId/{cId}")
+    public Map getUnitListDetailsByCustomerId(@PathVariable long cId) {
+        return customerService.getUnitListByCustomerId(cId);
+    }
+
+}

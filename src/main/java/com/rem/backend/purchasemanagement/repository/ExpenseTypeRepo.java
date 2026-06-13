@@ -1,6 +1,6 @@
 package com.rem.backend.purchasemanagement.repository;
 
-import com.rem.backend.entity.expense.ExpenseType;
+import com.rem.backend.purchasemanagement.entity.expense.ExpenseType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

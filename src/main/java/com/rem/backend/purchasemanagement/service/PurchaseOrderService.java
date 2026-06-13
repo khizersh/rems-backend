@@ -23,8 +23,8 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-import com.rem.backend.repository.ProjectRepo;
-import com.rem.backend.repository.VendorAccountRepo;
+import com.rem.backend.projectmanagement.repository.ProjectRepo;
+import com.rem.backend.vendormanagement.repository.VendorAccountRepo;
 
 @Service
 @RequiredArgsConstructor

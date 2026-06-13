@@ -7,8 +7,8 @@ import com.rem.backend.purchasemanagement.enums.InvoiceStatus;
 import com.rem.backend.purchasemanagement.repository.VendorInvoiceRepo;
 import com.rem.backend.purchasemanagement.repository.VendorPaymentPORepo;
 import com.rem.backend.purchasemanagement.repository.GrnRepo;
-import com.rem.backend.entity.project.Project;
-import com.rem.backend.repository.ProjectRepo;
+import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.projectmanagement.repository.ProjectRepo;
 import com.rem.backend.enums.ReceiptType;
 import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
@@ -27,12 +27,12 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 // new imports
-import com.rem.backend.orgaccountmanagement.entity.OrganizationAccount;
-import com.rem.backend.orgaccountmanagement.entity.OrganizationAccountDetail;
-import com.rem.backend.repository.OrganizationAccoutRepo;
-import com.rem.backend.repository.OrganizationAccountDetailRepo;
+import com.rem.backend.organizationmanagement.entity.OrganizationAccount;
+import com.rem.backend.organizationmanagement.entity.OrganizationAccountDetail;
+import com.rem.backend.organizationmanagement.repository.OrganizationAccoutRepo;
+import com.rem.backend.organizationmanagement.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.enums.TransactionType;
-import com.rem.backend.orgaccountmanagement.enums.TransactionCategory;
+import com.rem.backend.organizationmanagement.enums.TransactionCategory;
 
 @Service
 @RequiredArgsConstructor

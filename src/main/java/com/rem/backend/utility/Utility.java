@@ -1,9 +1,9 @@
 package com.rem.backend.utility;
 
-import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.entity.paymentschedule.MonthSpecificPayment;
-import com.rem.backend.entity.paymentschedule.MonthWisePayment;
-import com.rem.backend.entity.paymentschedule.PaymentSchedule;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
+import com.rem.backend.paymentschedulemanagement.entity.MonthSpecificPayment;
+import com.rem.backend.paymentschedulemanagement.entity.MonthWisePayment;
+import com.rem.backend.paymentschedulemanagement.entity.PaymentSchedule;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.dto.booking.BookingCancellationRequest;

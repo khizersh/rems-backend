@@ -1,6 +1,6 @@
 package com.rem.backend.dto;
 
-import com.rem.backend.entity.project.Unit;
+import com.rem.backend.projectmanagement.entity.Unit;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

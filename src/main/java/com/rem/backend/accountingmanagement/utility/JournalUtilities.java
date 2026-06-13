@@ -2,7 +2,7 @@ package com.rem.backend.accountingmanagement.utility;
 
 
 import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
-import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.enums.AccountStatus;
 import com.rem.backend.accountingmanagement.repos.ChartOfAccountRepository;
 import lombok.RequiredArgsConstructor;

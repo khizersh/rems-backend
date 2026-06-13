@@ -1,6 +1,6 @@
 package com.rem.backend.purchasemanagement.repository;
 
-import com.rem.backend.entity.expense.Expense;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.enums.PaymentStatus;
 import com.rem.backend.enums.PdcStatus;
@@ -82,6 +82,21 @@ public interface ExpenseRepo extends JpaRepository<Expense, Long> {
       AND e.created_date >= NOW() - INTERVAL :days DAY
     """, nativeQuery = true)
     Map<String , Object> getExpenseSumsByOrgAndDays(@Param("orgId") Long orgId, @Param("days") int days);
+
+    @Query("""
+    SELECT COALESCE(SUM(e.totalAmount), 0),
+           COALESCE(SUM(e.amountPaid), 0),
+           COALESCE(SUM(e.creditAmount), 0),
+           COUNT(e)
+    FROM Expense e
+    WHERE e.organizationId = :orgId
+      AND e.createdDate BETWEEN :start AND :end
+    """)
+    List<Object[]> summarizeByOrgAndDateRange(
+            @Param("orgId") long orgId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 
 //
 //    Page<Expense> findAllByOrganizationId(long orgId, Pageable pageable);

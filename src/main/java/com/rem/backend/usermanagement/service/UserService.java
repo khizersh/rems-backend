@@ -2,11 +2,11 @@ package com.rem.backend.usermanagement.service;
 
 
 import com.rem.backend.dto.commonRequest.PasswordResetRequest;
-import com.rem.backend.entity.organization.Organization;
-import com.rem.backend.entity.sidebar.Sidebar;
-import com.rem.backend.repository.OrganizationRepo;
-import com.rem.backend.service.EmailService;
-import com.rem.backend.service.SidebarService;
+import com.rem.backend.organizationmanagement.entity.Organization;
+import com.rem.backend.sidebarmanagement.entity.Sidebar;
+import com.rem.backend.organizationmanagement.repository.OrganizationRepo;
+import com.rem.backend.customermanagement.service.EmailService;
+import com.rem.backend.sidebarmanagement.service.SidebarService;
 import com.rem.backend.usermanagement.dto.AuthRequest;
 import com.rem.backend.usermanagement.entity.*;
 import com.rem.backend.usermanagement.repository.PasswordResetCodeRepo;

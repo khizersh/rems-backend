@@ -1,6 +1,6 @@
 package com.rem.backend.accountingmanagement.entity;
 
-import com.rem.backend.entity.organization.Organization;
+import com.rem.backend.organizationmanagement.entity.Organization;
 import com.rem.backend.enums.AccountStatus;
 import jakarta.persistence.*;
 import lombok.Data;

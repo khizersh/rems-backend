@@ -2,9 +2,9 @@ package com.rem.backend.purchasemanagement.controller;
 
 import com.rem.backend.dto.commonRequest.FilterPaginationRequest;
 import com.rem.backend.dto.expense.ExpenseFetchRequestDTO;
-import com.rem.backend.entity.expense.Expense;
-import com.rem.backend.entity.expense.ExpenseDetail;
-import com.rem.backend.entity.expense.ExpenseType;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
+import com.rem.backend.purchasemanagement.entity.expense.ExpenseDetail;
+import com.rem.backend.purchasemanagement.entity.expense.ExpenseType;
 import com.rem.backend.purchasemanagement.service.ExpenseService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;

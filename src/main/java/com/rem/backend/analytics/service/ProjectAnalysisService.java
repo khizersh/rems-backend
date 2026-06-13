@@ -1,0 +1,126 @@
+package com.rem.backend.analytics.service;
+
+import com.rem.backend.projectmanagement.service.ProjectService;
+import com.rem.backend.purchasemanagement.entity.expense.Expense;
+import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.bookingmanagement.repository.BookingRepository;
+import com.rem.backend.customermanagement.repository.CustomerAccountRepo;
+import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
+import com.rem.backend.utility.ResponseMapper;
+import com.rem.backend.utility.Responses;
+import com.rem.backend.utility.ValidationService;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Service;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@AllArgsConstructor
+public class ProjectAnalysisService {
+
+    private final ProjectService projectService;
+    private final ExpenseRepo expenseRepo;
+    private final CustomerAccountRepo customerAccountRepo;
+    private final BookingRepository bookingRepository;
+
+    public Map<String, Object> getProjectAnalyticsByid(long projectId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            ValidationService.validate(projectId, "project id");
+            Project project = projectService.getProjectDataById(projectId);
+
+            if (project == null)
+                throw new IllegalArgumentException("Invalid Project");
+
+            List<Expense> expenseList = expenseRepo.findAllByProjectId(projectId);
+            Double totalSaleAmount = customerAccountRepo.getTotalAmountSaleByProjectId(projectId);
+            Double totalRecAmount = customerAccountRepo.getTotalAmountReceivedByProjectId(projectId);
+            Double totalProfit = 0d;
+            if (totalRecAmount != null && project.getTotalAmount() <= totalRecAmount)
+                totalProfit = totalRecAmount - project.getTotalAmount();
+
+            response.put("project", project);
+            response.put("expenseList", expenseList);
+            response.put("totalSaleAmount", totalSaleAmount);
+            response.put("totalReceivedAmount", totalRecAmount);
+            response.put("totalProfit", totalProfit);
+
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getProjectSalesByid(long projectId) {
+        try {
+            ValidationService.validate(projectId, "project id");
+            List<Map<String, Object>> list = bookingRepository.findMonthlyProjectSales(projectId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getProjectRecievedAmountByid(long projectId) {
+        try {
+            ValidationService.validate(projectId, "project id");
+            List<Map<String, Object>> list = bookingRepository.findMonthlyProjectReceivedAmount(projectId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+
+    public Map<String, Object> getProjectClientCountByid(long projectId) {
+        try {
+            ValidationService.validate(projectId, "project id");
+            List<Map<String, Object>> list = bookingRepository.findMonthlyProjectClientCount(projectId);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, list);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> getProjectExpensePurchaseAndPaid(long projectId) {
+        Map<String , Object> response = new HashMap<>();
+
+        try {
+            ValidationService.validate(projectId, "project id");
+            List<Map<String, Object>> purchasedList = expenseRepo.findMonthlyProjectExpensePurchased(projectId);
+            List<Map<String, Object>> paidList = expenseRepo.findMonthlyProjectExpensePaid(projectId);
+            List<Map<String, Object>> creditList = expenseRepo.findMonthlyProjectExpenseCredit(projectId);
+
+            response.put("purchase", purchasedList);
+            response.put("paid", paidList);
+            response.put("credit", creditList);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
+        } catch (Exception e) {
+            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
+        }
+    }
+
+
+
+
+}

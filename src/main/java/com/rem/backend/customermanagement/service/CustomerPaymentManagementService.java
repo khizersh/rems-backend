@@ -1,14 +1,19 @@
 package com.rem.backend.customermanagement.service;
 
 import com.rem.backend.customermanagement.dto.*;
-import com.rem.backend.entity.customer.Customer;
-import com.rem.backend.entity.customer.CustomerAccount;
-import com.rem.backend.entity.customer.CustomerPayment;
-import com.rem.backend.entity.customer.CustomerPaymentDetail;
-import com.rem.backend.entity.project.Project;
-import com.rem.backend.entity.project.Unit;
+import com.rem.backend.customermanagement.entity.Customer;
+import com.rem.backend.customermanagement.entity.CustomerAccount;
+import com.rem.backend.customermanagement.entity.CustomerPayment;
+import com.rem.backend.customermanagement.entity.CustomerPaymentDetail;
+import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.projectmanagement.entity.Unit;
 import com.rem.backend.enums.PaymentStatus;
-import com.rem.backend.repository.*;
+import com.rem.backend.customermanagement.repository.CustomerAccountRepo;
+import com.rem.backend.customermanagement.repository.CustomerPaymentDetailRepo;
+import com.rem.backend.customermanagement.repository.CustomerPaymentRepo;
+import com.rem.backend.customermanagement.repository.CustomerRepo;
+import com.rem.backend.projectmanagement.repository.ProjectRepo;
+import com.rem.backend.projectmanagement.repository.UnitRepo;
 import com.rem.backend.usermanagement.entity.User;
 import com.rem.backend.usermanagement.repository.UserRepo;
 import com.rem.backend.utility.ResponseMapper;
