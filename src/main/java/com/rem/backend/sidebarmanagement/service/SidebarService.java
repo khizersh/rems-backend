@@ -78,6 +78,7 @@ public class SidebarService {
     public Map<String, Object> getAllSidebars() {
         try {
             List<Sidebar> sidebarList = sidebarRepo.findAll();
+            sidebarList.sort(Comparator.comparingInt(s -> s.getPrecedence() == null ? Integer.MAX_VALUE : s.getPrecedence()));
             return ResponseMapper.buildResponse(Responses.SUCCESS, sidebarList);
         } catch (Exception e) {
             e.printStackTrace();
@@ -101,6 +102,7 @@ public class SidebarService {
             existing.setTitle(updatedSidebar.getTitle());
             existing.setPage(updatedSidebar.isPage());
             existing.setUpdatedBy(loggedInUser);
+            existing.setPrecedence(updatedSidebar.getPrecedence());
 
             // Clear and replace children (orphanRemoval handles grand children cascaded)
             existing.getChildList().clear();
@@ -233,6 +235,7 @@ public class SidebarService {
                 }
             }
 
+            finalSidebarList.sort(Comparator.comparingInt(s -> s.getPrecedence() == null ? Integer.MAX_VALUE : s.getPrecedence()));
             return finalSidebarList;
         } catch (Exception e) {
             e.printStackTrace();

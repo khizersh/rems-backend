@@ -28,6 +28,9 @@ public class Sidebar {
     @Column(nullable = false)
     private String roles;
 
+    @Column(nullable = false)
+    private Integer precedence = 9999;
+
     @Column(nullable = false, columnDefinition = "boolean default false")
     private boolean isPage = false;
 
