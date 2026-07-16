@@ -187,7 +187,7 @@ public class CustomerPaymentService {
             double currentPaidAmount = customerPayment.getCustomerPaymentDetails().stream().mapToDouble(p -> p.getAmount()).sum();
 
 
-            if (totalReceivedAmount <= currentPaidAmount)
+            if (totalReceivedAmount < currentPaidAmount)
                 throw new IllegalArgumentException("Invalid Amount!");
 
             customerPayment.setSerialNo(0);

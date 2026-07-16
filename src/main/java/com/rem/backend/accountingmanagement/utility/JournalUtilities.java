@@ -60,16 +60,25 @@ public class JournalUtilities {
     public static final String CANCELLATION_REVENUE = "INC-CANCEL-001";
 
     // ✅ EXPENSE
-    public static final String WITHDRAWL_EQUITY = "EQT-WITHDRAWAL-001";
     public static final String CONSTRUCTION_EXPENSE = "EXP-CONST-001";
     public static final String MISCELLANEOUS_EXPENSE = "EXP-MISC-001";
     public static final String SALARY_EXPENSE = "EXP-SALARY-001";
+    
+    
+    // ✅ EQUITY  / CAPITAL
+    public static final String OWNER_CAPITAL_EQUITY = "EQT-OWNER-CAPITAL";
+    public static final String WITHDRAWL_EQUITY = "EQT-WITHDRAWAL";
+    public static final String OPENING_VENDOR_BALANCE_EQUITY = "EQT-VENDOR-OPENING-BAL-001";
+
+
+    
 
     // ✅ SPECIAL
     public static final String UNDEPOSITED_FUNDS = "AST-UNDEP-001";
     public static final String GRN_CLEARING = "AST-GRN-CLR-001";
     public static final String ADJUSTMENT_EXPENSE = "EXP-ADJUSTMENT-001";
     public static final String SCRAP_INCOME_ACCOUNT = "INC-SCRAP-001";
+
 
 
 
@@ -121,6 +130,12 @@ public class JournalUtilities {
     }
 
 
+    public ChartOfAccount openingBalanceEquity(Long orgId) {
+        return getByCode(orgId, OPENING_VENDOR_BALANCE_EQUITY);
+    }
+
+
+
     public ChartOfAccount bookingLiability(Long orgId) {
         return getByCode(orgId, BOOKING_LIABILITY);
     }
@@ -148,6 +163,11 @@ public class JournalUtilities {
 
     public ChartOfAccount withdrawlEquity(Long orgId) {
         return getByCode(orgId, WITHDRAWL_EQUITY);
+    }
+
+
+    public ChartOfAccount ownerCapitalEquity(Long orgId) {
+        return getByCode(orgId, OWNER_CAPITAL_EQUITY);
     }
 
     public ChartOfAccount adjustmentExpense(Long orgId) {

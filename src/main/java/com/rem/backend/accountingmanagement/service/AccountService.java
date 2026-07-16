@@ -186,39 +186,27 @@ public class AccountService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public Map<String, Object> createOrganizationAccount(
+    public ChartOfAccount createOrganizationAccount(
             OrganizationAccount organizationAccount,
             String loggedInUser
     ) {
-        try {
-            AccountGroup group = groupRepo
-                    .findByNameAndOrganization_OrganizationId("bank/cash", organizationAccount.getOrganizationId())
-                    .orElseThrow(() ->
-                            new RuntimeException("Account group not found"));
+        AccountGroup group = groupRepo
+                .findByNameAndOrganization_OrganizationId("bank/cash", organizationAccount.getOrganizationId())
+                .orElseThrow(() ->
+                        new RuntimeException("Bank/Cash account group not found"));
 
-            ChartOfAccount coa = new ChartOfAccount();
-            coa.setOrganization(group.getOrganization());
-            coa.setAccountGroup(group);
-            coa.setCode(utility.generateAccountCode(group.getOrganization().getOrganizationId(),
-                    group.getAccountCategory().getAccountType().getName().substring(0, 3)));
-            coa.setName(organizationAccount.getName());
-            coa.setStatus(AccountStatus.ACTIVE);
-            coa.setSystemGenerated(false);
-            coa.setOrganizationAccountId(organizationAccount.getOrganizationId());
+        ChartOfAccount coa = new ChartOfAccount();
+        coa.setOrganization(group.getOrganization());
+        coa.setAccountGroup(group);
+        coa.setCode(utility.generateAccountCode(
+                group.getOrganization().getOrganizationId(),
+                group.getAccountCategory().getAccountType().getName().substring(0, 3)));
+        coa.setName(organizationAccount.getBankName() + " - " + organizationAccount.getName());
+        coa.setStatus(AccountStatus.ACTIVE);
+        coa.setSystemGenerated(false);
+        coa.setOrganizationAccountId(organizationAccount.getId());
 
-            ChartOfAccount saved = coaRepo.save(coa);
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("id", saved.getId());
-            response.put("code", saved.getCode());
-            response.put("name", saved.getName());
-            response.put("group", group.getName());
-
-            return ResponseMapper.buildResponse(Responses.SUCCESS, response);
-
-        } catch (Exception e) {
-            return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
-        }
+        return coaRepo.save(coa);
     }
 
     @Transactional

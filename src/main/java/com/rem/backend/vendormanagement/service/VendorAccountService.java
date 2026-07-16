@@ -587,6 +587,14 @@ public class VendorAccountService {
             ValidationService.validate(vendorAccount.getName(), "name");
             ValidationService.validate(vendorAccount.getOrganizationId(), "organization");
 
+            double amountPaid = Math.max(0, vendorAccount.getTotalAmountPaid());
+            double payable = Math.max(0, vendorAccount.getTotalCreditAmount());
+
+            double totalAmount = amountPaid + payable;
+            vendorAccount.setTotalAmountPaid(amountPaid);
+            vendorAccount.setTotalCreditAmount(payable);
+            vendorAccount.setTotalAmount(totalAmount);
+            vendorAccount.setTotalBalanceAmount(payable);
             vendorAccount.setCreatedBy(loggedInUser);
             vendorAccount.setUpdatedBy(loggedInUser);
 
@@ -598,15 +606,17 @@ public class VendorAccountService {
             payment.setUpdatedBy(loggedInUser);
             payment.setCreatedBy(loggedInUser);
             payment.setVendorAccount(vendorAccount.getName());
-            payment.setCreditAmount(vendorAccount.getTotalCreditAmount());
-            payment.setBalanceAmount(vendorAccount.getTotalCreditAmount());
-            payment.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            payment.setCreditAmount(payable);
+            payment.setBalanceAmount(payable);
+            payment.setAmountPaid(amountPaid);
             payment.setVendorPaymentType(VendorPaymentType.DIRECT_PURCHASE);
-            if (vendorAccount.getTotalAmountPaid() == vendorAccount.getTotalAmount())
+            if (amountPaid == totalAmount && totalAmount > 0) {
                 payment.setTransactionType(TransactionType.DEBIT);
-            else if (vendorAccount.getTotalCreditAmount() == vendorAccount.getTotalAmount())
+            } else if (payable == totalAmount && totalAmount > 0) {
                 payment.setTransactionType(TransactionType.CREDIT);
-            else payment.setTransactionType(TransactionType.DEBIT_CREDIT);
+            } else if (totalAmount > 0) {
+                payment.setTransactionType(TransactionType.DEBIT_CREDIT);
+            }
             vendorAccountDetailRepo.save(payment);
 
 
@@ -620,9 +630,9 @@ public class VendorAccountService {
             expense.setExpenseTypeId(0l);
             expense.setOrganizationAccountId(0l);
             expense.setProjectId(0l);
-            expense.setCreditAmount(vendorAccount.getTotalCreditAmount());
-            expense.setAmountPaid(vendorAccount.getTotalAmountPaid());
-            expense.setTotalAmount(vendorAccount.getTotalCreditAmount() + vendorAccount.getTotalAmountPaid());
+            expense.setCreditAmount(payable);
+            expense.setAmountPaid(amountPaid);
+            expense.setTotalAmount(totalAmount);
             expense.setCreatedBy(loggedInUser);
             expense.setUpdatedBy(loggedInUser);
             expense.setPaymentStatus(getPaymentStatus(expense));
@@ -635,7 +645,7 @@ public class VendorAccountService {
             ExpenseDetail expenseDetail = new ExpenseDetail();
             expenseDetail.setExpenseTitle(expense.getExpenseTitle());
             expenseDetail.setExpenseId(expense.getId());
-            expenseDetail.setAmountPaid(vendorAccount.getTotalAmountPaid());
+            expenseDetail.setAmountPaid(amountPaid);
             expenseDetail.setOrganizationAccountTitle("");
             expenseDetail.setOrganizationAccountId(0l);
             expenseDetail.setUpdatedBy(loggedInUser);
@@ -643,6 +653,7 @@ public class VendorAccountService {
 
             expenseDetailRepo.save(expenseDetail);
 
+            journalEntryService.createJournalEntryForHistoricalVendor(vendorAccount, expense, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, vendorAccount);
         } catch (IllegalArgumentException e) {

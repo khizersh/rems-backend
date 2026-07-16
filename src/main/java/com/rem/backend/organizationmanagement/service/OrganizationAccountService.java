@@ -11,6 +11,7 @@ import com.rem.backend.organizationmanagement.repository.OrganizationAccountDeta
 import com.rem.backend.organizationmanagement.repository.OrganizationAccoutRepo;
 import com.rem.backend.projectmanagement.repository.ProjectRepo;
 import com.rem.backend.vendormanagement.repository.VendorAccountDetailRepo;
+import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
 import com.rem.backend.accountingmanagement.service.AccountService;
 import com.rem.backend.accountingmanagement.service.JournalEntryService;
 import com.rem.backend.utility.ResponseMapper;
@@ -231,7 +232,8 @@ public class OrganizationAccountService {
             organizationAccount.setUpdatedBy(loggedInUser);
             OrganizationAccount saved = organizationAccountRepo.save(organizationAccount);
 
-            accountService.createOrganizationAccount(saved,loggedInUser);
+            ChartOfAccount bankCoa = accountService.createOrganizationAccount(saved, loggedInUser);
+            journalEntryService.createJournalEntryForOrganizationAccount(saved, bankCoa, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, saved);
 

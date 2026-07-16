@@ -1232,6 +1232,190 @@ public class JournalEntryService {
 
     }
 
+    /**
+     * Opening-balance journal when a new organization bank/cash account is created.
+     * <p>
+     * Double entry (when {@code totalAmount > 0}):
+     * <ul>
+     *   <li>DR Bank/Cash COA (asset increases)</li>
+     *   <li>CR Owner Equity COA (capital introduced)</li>
+     * </ul>
+     * Skipped when the account is created with zero opening balance.
+     */
+    @Transactional
+    public void createJournalEntryForOrganizationAccount(
+            OrganizationAccount organizationAccount,
+            ChartOfAccount bankCoa,
+            String loggedInUser) {
+
+        double amount = organizationAccount.getTotalAmount();
+        if (amount <= 0) {
+            log.info("Org account {} created with zero balance; no opening journal posted",
+                    organizationAccount.getId());
+            return;
+        }
+
+        try {
+            long organizationId = organizationAccount.getOrganizationId();
+            ChartOfAccount equityAccount = journalUtilities.ownerCapitalEquity(organizationId);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(organizationId);
+            journalEntry.setOrganizationAccountId(organizationAccount.getId());
+            journalEntry.setReferenceType("ORGANIZATION_ACCOUNT");
+            journalEntry.setDescription(
+                    "Opening balance for organization account: "
+                            + organizationAccount.getName()
+                            + " | A/C: " + organizationAccount.getAccountNo());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            JournalDetailEntry debitEntry = buildEntry(journalEntry.getId(), bankCoa.getId(), amount, 0);
+            debitEntry.setDescription("Opening balance – " + bankCoa.getName());
+            entries.add(debitEntry);
+
+            JournalDetailEntry creditEntry = buildEntry(journalEntry.getId(), equityAccount.getId(), 0, amount);
+            creditEntry.setDescription("Opening balance – owner equity");
+            entries.add(creditEntry);
+
+            validateAndSave(entries, amount, amount);
+
+            log.info("Opening balance journal {} posted for org account {} amount {}",
+                    journalEntry.getId(), organizationAccount.getId(), amount);
+
+        } catch (Exception e) {
+            log.error("Failed opening balance journal for org account {}: {}",
+                    organizationAccount.getId(), e.getMessage(), e);
+            throw new RuntimeException(
+                    "Failed to create opening balance journal entry: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Historical vendor onboarding journal (single controlled AP account {@code LIA-VENDOR-001}
+     * with {@code vendor_id} on the journal header for per-vendor traceability).
+     * <p>
+     * Example: paid = 1000, payable = 500, total purchases = 1500
+     * <ul>
+     *   <li>DR Construction Inventory — total historical purchases</li>
+     *   <li>CR Vendor Payable ({@code LIA-VENDOR-001}) — outstanding payable only</li>
+     *   <li>CR Owner Equity — amounts already paid before system go-live (no bank account)</li>
+     * </ul>
+     * Skipped when both paid and payable are zero.
+     */
+    @Transactional
+    public void createJournalEntryForHistoricalVendor(
+            VendorAccount vendorAccount,
+            Expense expense,
+            String loggedInUser
+    ) {
+
+        double amountPaid = vendorAccount.getTotalAmountPaid();
+        double payable = vendorAccount.getTotalCreditAmount();
+
+        /*
+         * IMPORTANT:
+         * amountPaid is treated as historical informational value only.
+         * It should NOT create accounting unless it is confirmed vendor advance.
+         *
+         * Only payable represents current outstanding liability.
+         */
+
+        if (payable <= 0) {
+            log.info(
+                    "Vendor {} created with no opening payable; no journal posted. Historical paid amount: {}",
+                    vendorAccount.getId(),
+                    amountPaid
+            );
+            return;
+        }
+
+        try {
+            long organizationId = vendorAccount.getOrganizationId();
+
+            ChartOfAccount vendorPayable =
+                    journalUtilities.vendorPayable(organizationId);
+
+            ChartOfAccount openingBalanceEquity =
+                    journalUtilities.openingBalanceEquity(organizationId);
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(organizationId);
+            journalEntry.setVendorId(vendorAccount.getId());
+
+            if (expense != null) {
+                journalEntry.setExpenseId(expense.getId());
+            }
+
+            journalEntry.setReferenceType("VENDOR_OPENING_BALANCE");
+            journalEntry.setDescription(
+                    "Opening vendor payable for: " + vendorAccount.getName()
+                            + " | Opening Payable: " + payable
+                            + " | Historical Paid (info only): " + amountPaid
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+
+            double totalDebit = 0;
+            double totalCredit = 0;
+
+            // DR Opening Balance Equity
+            JournalDetailEntry debitOpeningBalance = buildEntry(
+                    journalEntry.getId(),
+                    openingBalanceEquity.getId(),
+                    payable,
+                    0
+            );
+            debitOpeningBalance.setDescription(
+                    "Opening balance adjustment for vendor payable - " + vendorAccount.getName()
+            );
+            entries.add(debitOpeningBalance);
+            totalDebit += payable;
+
+            // CR Vendor Payable
+            JournalDetailEntry creditVendorPayable = buildEntry(
+                    journalEntry.getId(),
+                    vendorPayable.getId(),
+                    0,
+                    payable
+            );
+            creditVendorPayable.setDescription(
+                    "Opening payable balance - " + vendorAccount.getName()
+            );
+            entries.add(creditVendorPayable);
+            totalCredit += payable;
+
+            validateAndSave(entries, totalDebit, totalCredit);
+
+            log.info(
+                    "Opening vendor payable journal {} posted for vendor {} | payable={} | historicalPaidInfoOnly={}",
+                    journalEntry.getId(),
+                    vendorAccount.getId(),
+                    payable,
+                    amountPaid
+            );
+
+        } catch (Exception e) {
+            log.error(
+                    "Failed opening vendor payable journal for vendor {}: {}",
+                    vendorAccount.getId(),
+                    e.getMessage(),
+                    e
+            );
+
+            throw new RuntimeException(
+                    "Failed to create opening vendor payable journal entry: " + e.getMessage(),
+                    e
+            );
+        }
+    }
 
     /**
      * Journal Entry for posting already-received customer payment to organization bank account.
