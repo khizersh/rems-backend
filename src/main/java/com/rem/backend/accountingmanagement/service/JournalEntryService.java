@@ -105,6 +105,10 @@ public class JournalEntryService {
 
             // Find or create Chart of Account for Bank/Cash Account
             ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), expense.getOrganizationId());
+            if (bankAccount == null) {
+                throw new RuntimeException("Bank account COA not found for organization account ID: "
+                        + organizationAccount.getId());
+            }
             log.info("Bank Account COA ID: {} - {}", bankAccount.getId(), bankAccount.getName());
 
 
@@ -812,7 +816,8 @@ public class JournalEntryService {
     }
 
 
-    @Transactional
+    // Runs within the caller's transaction (createJournalEntryForAccountDetail is @Transactional).
+    // @Transactional on a private method is not proxied by Spring, so it is intentionally omitted here.
     private void saveJournal(
             String controlAccountName,
             long organizationId,
@@ -823,7 +828,10 @@ public class JournalEntryService {
 
         try{
             ChartOfAccount companyAccount = findBankAccount(organizationAccountDetail.getOrganizationAcctId(), organizationId);
-
+            if (companyAccount == null) {
+                throw new RuntimeException("Bank account COA not found for organization account ID: "
+                        + organizationAccountDetail.getOrganizationAcctId());
+            }
 
             ChartOfAccount controlAccount = journalUtilities.getChartOfAccount(organizationId,
                     controlAccountName);
