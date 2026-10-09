@@ -16,7 +16,7 @@ public class Permissions {
     private long id;
     @Column(nullable = false , unique = true)
     private String code;
-    @Column(nullable = false , unique = true)
+    @Column(nullable = false)
     private String endPoint;
 
 
