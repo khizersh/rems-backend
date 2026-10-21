@@ -53,7 +53,8 @@ public class SecurityConfig  {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",                // Local dev
-                "https://portal.propertydhoondo.com"    // Production frontend
+                "https://portal.propertydhoondo.com" ,   // Production frontend
+                "https://app.cloudrems.com"    // Production frontend
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

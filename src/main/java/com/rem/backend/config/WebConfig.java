@@ -16,6 +16,7 @@ public class WebConfig {
                 registry.addMapping("/**")
                         .allowedOrigins(
                                 "https://portal.propertydhoondo.com",  // Production frontend
+                                "https://app.cloudrems.com",    // Production frontend
                                 "http://localhost:3000"                // Local dev frontend
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")

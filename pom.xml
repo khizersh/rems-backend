@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.rem</groupId>
-    <artifactId>rem</artifactId>
+    <artifactId>cloud-rem</artifactId>
     <version>0.1</version>
     <name>backend</name>
     <description>project for Spring Boot</description>
