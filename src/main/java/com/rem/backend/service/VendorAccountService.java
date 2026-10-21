@@ -161,6 +161,9 @@ public class VendorAccountService {
                 detail.setTransactionType(TransactionType.CREDIT); // deducted from org account
                 detail.setCreatedBy(loggedInUser);
                 detail.setUpdatedBy(loggedInUser);
+                if (request.getCreatedDate() != null) {
+                    detail.setCreatedDate(request.getCreatedDate());
+                }
                 organizationAccountDetailRepo.save(detail);
             }
 
@@ -182,6 +185,9 @@ public class VendorAccountService {
             vendorPayment.setCreatedBy(loggedInUser);
             vendorPayment.setComments(request.getComments());
             vendorPayment.setIdempotencyKey(request.getIdempotencyKey());
+            if (request.getCreatedDate() != null) {
+                vendorPayment.setCreatedDate(request.getCreatedDate());
+            }
 
             vendorAccountDetailRepo.save(vendorPayment);
 

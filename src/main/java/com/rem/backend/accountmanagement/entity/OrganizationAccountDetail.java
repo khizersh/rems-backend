@@ -74,7 +74,9 @@ public class OrganizationAccountDetail {
 
     @PrePersist
     protected void onCreate() {
-        this.createdDate = LocalDateTime.now();
+        if (this.createdDate == null) {
+            this.createdDate = LocalDateTime.now();
+        }
         this.updatedDate = LocalDateTime.now();
     }
 

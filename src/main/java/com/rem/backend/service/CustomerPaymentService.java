@@ -172,7 +172,7 @@ public class CustomerPaymentService {
             double currentPaidAmount = customerPayment.getCustomerPaymentDetails().stream().mapToDouble(p -> p.getAmount()).sum();
 
 
-            if (totalReceivedAmount <= currentPaidAmount)
+            if (totalReceivedAmount < currentPaidAmount)
                 throw new IllegalArgumentException("Invalid Amount!");
 
             customerPayment.setSerialNo(0);
@@ -194,6 +194,7 @@ public class CustomerPaymentService {
                 customerPayment.setPaymentAddedToAccount(true);
 
             customerPayment.setAmount(currentPaidAmount);
+            customerPayment.setCreatedDate(customerPayment.getCustomerPaymentDetails().get(0).getCreatedDate());
             customerPayment.setAmount(currentPaidAmount);
             customerPayment.setCreatedBy(loggedInUser);
             customerPayment.setUpdatedBy(loggedInUser);
