@@ -149,6 +149,8 @@ public class ProjectService {
                 if (!journalResponse.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     throw new RuntimeException("Failed to create journal entry for property assignment.");
                 }
+            } else if (project.getAcquisitionType() == ProjectAcquisitionType.EXISTING_PROJECT) {
+                journalEntryService.createJournalEntryForExistingProject(projectSaved, loggedInUser);
             }
 
             if (project.getProjectType().equals(ProjectType.APARTMENT) ||  project.getProjectType().equals(ProjectType.SHOP)) {

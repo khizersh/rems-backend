@@ -1717,6 +1717,45 @@ public class JournalEntryService {
         }
     }
 
+    @Transactional
+    public void createJournalEntryForExistingProject(Project project, String loggedInUser) {
+        double amount = project.getTotalAmount();
+        if (amount <= 0) {
+            log.info("Existing project {} has no opening value; skipping journal entry", project.getProjectId());
+            return;
+        }
+
+        try {
+            ChartOfAccount constructionInventory =
+                    journalUtilities.constructionInventory(project.getOrganizationId());
+            ChartOfAccount ownerCapital =
+                    journalUtilities.ownerCapitalEquity(project.getOrganizationId());
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(project.getOrganizationId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("PROJECT_OPENING_BALANCE");
+            journalEntry.setProjectId(project.getProjectId());
+            journalEntry.setDescription("Opening project balance: " + project.getName());
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+            entries.add(buildEntry(journalEntry.getId(), constructionInventory.getId(), amount, 0));
+            entries.add(buildEntry(journalEntry.getId(), ownerCapital.getId(), 0, amount));
+            validateAndSave(entries, amount, amount);
+
+            log.info("Created opening journal entry {} for existing project {} with amount {}",
+                    journalEntry.getId(), project.getProjectId(), amount);
+        } catch (Exception e) {
+            log.error("Failed to create opening journal entry for existing project {}: {}",
+                    project.getProjectId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to create opening journal entry for existing project: "
+                    + e.getMessage(), e);
+        }
+    }
+
     /**
      * Property purchase journal entry.
      *
