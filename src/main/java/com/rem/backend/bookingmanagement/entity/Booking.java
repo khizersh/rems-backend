@@ -2,6 +2,7 @@ package com.rem.backend.bookingmanagement.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.rem.backend.customermanagement.entity.Customer;
+import com.rem.backend.enums.BookingType;
 import com.rem.backend.paymentschedulemanagement.entity.PaymentSchedule;
 import com.rem.backend.projectmanagement.entity.Unit;
 import jakarta.persistence.*;
@@ -55,6 +56,13 @@ public class Booking {
 
     @Column(nullable = false)
     private Long customerId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "varchar(16) NOT NULL DEFAULT 'NEW'")
+    private BookingType bookingType = BookingType.NEW;
+
+    @Column(nullable = false, columnDefinition = "DOUBLE NOT NULL DEFAULT 0")
+    private double paidAmount = 0.0;
 
     @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
     private boolean isActive = true;

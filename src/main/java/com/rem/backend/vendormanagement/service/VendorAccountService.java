@@ -617,7 +617,9 @@ public class VendorAccountService {
             } else if (totalAmount > 0) {
                 payment.setTransactionType(TransactionType.DEBIT_CREDIT);
             }
-            vendorAccountDetailRepo.save(payment);
+            if (totalAmount > 0) {
+                vendorAccountDetailRepo.save(payment);
+            }
 
 
             Expense expense = new Expense();

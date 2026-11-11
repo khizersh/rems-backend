@@ -12,6 +12,15 @@ import java.util.Optional;
 @Repository
 public interface ChartOfAccountRepository extends JpaRepository<ChartOfAccount, Long> {
     List<ChartOfAccount> findAllByOrganization_OrganizationId(long organizationId);
+
+    Optional<ChartOfAccount>
+    findFirstByOrganization_OrganizationIdAndOrganizationAccountIdAndStatusAndAccountGroup_NameIgnoreCase(
+            long organizationId,
+            long organizationAccountId,
+            AccountStatus status,
+            String accountGroupName
+    );
+
     List<ChartOfAccount> findAllByOrganization_OrganizationIdAndStatus(long organizationId, AccountStatus status);
     boolean existsByCodeAndOrganization_OrganizationId(String code, long organizationId);
     List<ChartOfAccount> findAllByOrganization_OrganizationIdAndAccountGroup(

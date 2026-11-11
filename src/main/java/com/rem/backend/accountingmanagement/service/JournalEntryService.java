@@ -18,6 +18,9 @@ import com.rem.backend.customermanagement.entity.CustomerPayable;
 import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.organizationmanagement.entity.OrganizationAccount;
 import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.purchasemanagement.repository.GrnItemsRepo;
+import com.rem.backend.purchasemanagement.repository.GrnRepo;
+import com.rem.backend.purchasemanagement.repository.PurchaseOrderItemRepo;
 import com.rem.backend.vendormanagement.entity.VendorAccount;
 import com.rem.backend.enums.*;
 import com.rem.backend.payrollmanagement.entity.SalarySlip;
@@ -40,10 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @AllArgsConstructor
@@ -53,9 +53,11 @@ public class JournalEntryService {
     private final JournalEntryRepository journalEntryRepository;
     private final JournalDetailEntryRepository journalDetailEntryRepository;
     private final ChartOfAccountRepository chartOfAccountRepository;
-    private final AccountGroupRepository accountGroupRepository;
     private final PropertyPurchaseRepo propertyPurchaseRepo;
     private final JournalUtilities journalUtilities;
+    private final GrnRepo grnRepo;
+    private final GrnItemsRepo grnItemsRepo;
+    private final PurchaseOrderItemRepo purchaseOrderItemRepo;
 
 
     /**
@@ -572,27 +574,100 @@ public class JournalEntryService {
         }
     }
 
+    @Transactional
+    public void createJournalEntryForExistingBooking(
+            Booking booking,
+            double outstandingAmount,
+            String loggedInUser
+    ) {
+        if (outstandingAmount <= 0) {
+            log.info("Existing booking {} has no outstanding amount; skipping opening journal entry",
+                    booking.getId());
+            return;
+        }
+
+        try {
+            ChartOfAccount customerReceivable =
+                    journalUtilities.customerReceivable(booking.getOrganizationId());
+            ChartOfAccount ownerEquity =
+                    journalUtilities.ownerCapitalEquity(booking.getOrganizationId());
+
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(booking.getOrganizationId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("BOOKING_OPENING_BALANCE");
+            journalEntry.setBookingId(booking.getId());
+            journalEntry.setCustomerId(booking.getCustomerId());
+            journalEntry.setProjectId(booking.getProjectId());
+            journalEntry.setUnitId(booking.getUnitId());
+            journalEntry.setDescription("Opening receivable for existing booking "
+                    + booking.getId() + " | Outstanding amount: " + outstandingAmount);
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> entries = new ArrayList<>();
+            JournalDetailEntry debitReceivable = new JournalDetailEntry();
+            debitReceivable.setJournalEntryId(journalEntry.getId());
+            debitReceivable.setChartOfAccountId(customerReceivable.getId());
+            debitReceivable.setDebitAmount(outstandingAmount);
+            debitReceivable.setCreditAmount(0.0);
+            debitReceivable.setDescription("Existing booking receivable, booking ID: " + booking.getId());
+            entries.add(debitReceivable);
+
+            JournalDetailEntry creditEquity = new JournalDetailEntry();
+            creditEquity.setJournalEntryId(journalEntry.getId());
+            creditEquity.setChartOfAccountId(ownerEquity.getId());
+            creditEquity.setDebitAmount(0.0);
+            creditEquity.setCreditAmount(outstandingAmount);
+            creditEquity.setDescription("Opening balance equity, booking ID: " + booking.getId());
+            entries.add(creditEquity);
+
+            validateAndSave(entries, outstandingAmount, outstandingAmount);
+            log.info("Created opening receivable journal entry {} for booking {} with amount {}",
+                    journalEntry.getId(), booking.getId(), outstandingAmount);
+        } catch (Exception e) {
+            log.error("Failed to create opening receivable journal entry for booking {}: {}",
+                    booking.getId(), e.getMessage(), e);
+            throw new RuntimeException("Failed to create opening receivable journal entry: "
+                    + e.getMessage(), e);
+        }
+    }
+
 
     /**
      * Find or create Chart of Account for Bank/Cash Account
      * This links OrganizationAccount to ChartOfAccount for proper ledger entries
      */
+//    private ChartOfAccount findBankAccount(long organizationAccountId, long organizationId) {
+//        // Find existing account by name and organization
+//
+//        Optional<AccountGroup> accountGroup = accountGroupRepository.
+//                findByNameAndOrganization_OrganizationId("bank/cash", organizationId);
+//
+//        Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
+//                .findAllByOrganization_OrganizationId(organizationId)
+//                .stream()
+//                .filter(coa -> coa.getOrganizationAccountId() != null && coa.getOrganizationAccountId() == organizationAccountId
+//                        && coa.getStatus() == AccountStatus.ACTIVE && coa.getAccountGroup().getId() ==
+//                        accountGroup.get().getId())
+//                .findFirst();
+//
+//        return existingAccount.orElse(null);
+//
+//    }
+
     private ChartOfAccount findBankAccount(long organizationAccountId, long organizationId) {
-        // Find existing account by name and organization
-
-        Optional<AccountGroup> accountGroup = accountGroupRepository.
-                findByNameAndOrganization_OrganizationId("bank/cash", organizationId);
-
-        Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findAllByOrganization_OrganizationId(organizationId)
-                .stream()
-                .filter(coa -> coa.getOrganizationAccountId() != null && coa.getOrganizationAccountId() == organizationAccountId
-                        && coa.getStatus() == AccountStatus.ACTIVE && coa.getAccountGroup().getId() ==
-                        accountGroup.get().getId())
-                .findFirst();
-
-        return existingAccount.orElse(null);
-
+        return chartOfAccountRepository
+                .findFirstByOrganization_OrganizationIdAndOrganizationAccountIdAndStatusAndAccountGroup_NameIgnoreCase(
+                        organizationId,
+                        organizationAccountId,
+                        AccountStatus.ACTIVE,
+                        "Bank/Cash"
+                )
+                .orElseThrow(() -> new IllegalStateException(
+                        "Active bank COA not found for organization account: " + organizationAccountId
+                ));
     }
 
     /**
@@ -2366,6 +2441,116 @@ public class JournalEntryService {
     }
 
 
+//    @Transactional
+//    public void createJournalEntryForVendorInvoice(
+//            VendorInvoice invoice,
+//            List<VendorInvoiceItem> invoiceItems,
+//            String loggedInUser
+//    ) {
+//        try {
+//            double totalDebit = 0.0;
+//            double totalCredit = 0.0;
+//            double totalAmount = 0.0;
+//
+//            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+//
+//            // ===========================
+//            // 1️⃣ Calculate Invoice Amount
+//            // ===========================
+//            for (VendorInvoiceItem item : invoiceItems) {
+//                double amount = item.getAmount() != null
+//                        ? item.getAmount()
+//                        : item.getQuantity() * item.getRate();
+//
+//                totalAmount += amount;
+//            }
+//
+//            if (totalAmount <= 0) {
+//                return;
+//            }
+//
+//            // ===========================
+//            // 2️⃣ Create Journal Entry Header
+//            // ===========================
+//            JournalEntry journalEntry = new JournalEntry();
+//            journalEntry.setOrganizationId(invoice.getOrgId());
+//            journalEntry.setCreatedDate(invoice.getCreatedDate() != null ? invoice.getCreatedDate() : LocalDateTime.now());
+//            journalEntry.setReferenceType("VENDOR_INVOICE");
+//            journalEntry.setAdditionalReferenceId(invoice.getId());
+//            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+//            journalEntry.setVendorId(invoice.getVendorId());
+//            journalEntry.setProjectId(invoice.getProjectId());
+//            journalEntry.setDescription("Vendor Invoice: " + invoice.getInvoiceNumber());
+//            journalEntry.setStatus(JournalEntryStatus.POSTED);
+//            journalEntry.setCreatedBy(loggedInUser);
+//
+//            journalEntry = journalEntryRepository.save(journalEntry);
+//
+//            log.info("Created Journal Entry ID: {} for Vendor Invoice ID: {}",
+//                    journalEntry.getId(), invoice.getId());
+//
+//            // ===========================
+//            // 3️⃣ Get COA Accounts
+//            // ===========================
+//            ChartOfAccount grnClearingAccount =
+//                    journalUtilities.grnClearing(invoice.getOrgId());
+//
+//            ChartOfAccount vendorPayableAccount =
+//                    journalUtilities.vendorPayable(invoice.getOrgId());
+//
+//            // ===========================
+//            // 4️⃣ Debit GRN Clearing
+//            // ===========================
+//            JournalDetailEntry debitEntry = new JournalDetailEntry();
+//            debitEntry.setJournalEntryId(journalEntry.getId());
+//            debitEntry.setChartOfAccountId(grnClearingAccount.getId());
+//            debitEntry.setDebitAmount(totalAmount);
+//            debitEntry.setCreditAmount(0.0);
+//            debitEntry.setDescription("GRN clearing transferred to vendor payable. Invoice: " + invoice.getInvoiceNumber());
+//
+//            detailEntries.add(debitEntry);
+//            totalDebit += totalAmount;
+//
+//            // ===========================
+//            // 5️⃣ Credit Vendor Payable
+//            // ===========================
+//            JournalDetailEntry creditEntry = new JournalDetailEntry();
+//            creditEntry.setJournalEntryId(journalEntry.getId());
+//            creditEntry.setChartOfAccountId(vendorPayableAccount.getId());
+//            creditEntry.setDebitAmount(0.0);
+//            creditEntry.setCreditAmount(totalAmount);
+//            creditEntry.setDescription("Vendor payable created. Invoice: " + invoice.getInvoiceNumber());
+//
+//            detailEntries.add(creditEntry);
+//            totalCredit += totalAmount;
+//
+//            // ===========================
+//            // 6️⃣ Validate Double Entry
+//            // ===========================
+//            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+//                throw new RuntimeException("Vendor invoice journal imbalance! Debit: "
+//                        + totalDebit + ", Credit: " + totalCredit);
+//            }
+//
+//            // ===========================
+//            // 7️⃣ Save Entries
+//            // ===========================
+//            for (JournalDetailEntry entry : detailEntries) {
+//                journalDetailEntryRepository.save(entry);
+//            }
+//
+//            log.info("Vendor Invoice Journal Entry {} completed. Total: {}",
+//                    journalEntry.getId(), totalAmount);
+//
+//        } catch (Exception e) {
+//            log.error("Failed to create journal entry for Vendor Invoice {}: {}",
+//                    invoice.getId(), e.getMessage(), e);
+//
+//            throw new RuntimeException("Failed to create vendor invoice journal entry: " + e.getMessage(), e);
+//        }
+//    }
+
+
     @Transactional
     public void createJournalEntryForVendorInvoice(
             VendorInvoice invoice,
@@ -2373,108 +2558,555 @@ public class JournalEntryService {
             String loggedInUser
     ) {
         try {
-            double totalDebit = 0.0;
-            double totalCredit = 0.0;
-            double totalAmount = 0.0;
-
-            List<JournalDetailEntry> detailEntries = new ArrayList<>();
-
-            // ===========================
-            // 1️⃣ Calculate Invoice Amount
-            // ===========================
-            for (VendorInvoiceItem item : invoiceItems) {
-                double amount = item.getAmount() != null
-                        ? item.getAmount()
-                        : item.getQuantity() * item.getRate();
-
-                totalAmount += amount;
+            if (invoice == null) {
+                throw new IllegalArgumentException("Vendor invoice is required");
             }
 
-            if (totalAmount <= 0) {
-                return;
+            if (invoice.getGrnId() == null || invoice.getGrnId() <= 0) {
+                throw new IllegalArgumentException("GRN ID is required");
             }
 
-            // ===========================
-            // 2️⃣ Create Journal Entry Header
-            // ===========================
-            JournalEntry journalEntry = new JournalEntry();
-            journalEntry.setOrganizationId(invoice.getOrgId());
-            journalEntry.setCreatedDate(invoice.getCreatedDate() != null ? invoice.getCreatedDate() : LocalDateTime.now());
-            journalEntry.setReferenceType("VENDOR_INVOICE");
-            journalEntry.setAdditionalReferenceId(invoice.getId());
-            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
-            journalEntry.setVendorId(invoice.getVendorId());
-            journalEntry.setProjectId(invoice.getProjectId());
-            journalEntry.setDescription("Vendor Invoice: " + invoice.getInvoiceNumber());
-            journalEntry.setStatus(JournalEntryStatus.POSTED);
-            journalEntry.setCreatedBy(loggedInUser);
+            if (invoiceItems == null || invoiceItems.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Vendor invoice must contain at least one item"
+                );
+            }
 
-            journalEntry = journalEntryRepository.save(journalEntry);
+            // ==========================================
+            // 1. Fetch GRN
+            // ==========================================
+            Grn grn = grnRepo.findById(invoice.getGrnId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "GRN not found with ID: " + invoice.getGrnId()
+                    ));
 
-            log.info("Created Journal Entry ID: {} for Vendor Invoice ID: {}",
-                    journalEntry.getId(), invoice.getId());
+            double totalGrnAmount = 0.0;
+            double totalInvoiceAmount = 0.0;
 
-            // ===========================
-            // 3️⃣ Get COA Accounts
-            // ===========================
+            // ==========================================
+            // 2. Calculate GRN and invoice amounts
+            // ==========================================
+            for (VendorInvoiceItem invoiceItem : invoiceItems) {
+
+                if (invoiceItem.getGrnItemId() == null
+                        || invoiceItem.getGrnItemId() <= 0) {
+                    throw new IllegalArgumentException(
+                            "GRN item ID is required"
+                    );
+                }
+
+                GrnItems grnItem = grnItemsRepo
+                        .findById(invoiceItem.getGrnItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "GRN item not found with ID: "
+                                        + invoiceItem.getGrnItemId()
+                        ));
+
+                if (!Objects.equals(grnItem.getGrnId(), invoice.getGrnId())) {
+                    throw new IllegalArgumentException(
+                            "GRN item " + invoiceItem.getGrnItemId()
+                                    + " does not belong to GRN "
+                                    + invoice.getGrnId()
+                    );
+                }
+
+                double quantity = invoiceItem.getQuantity() != null
+                        ? invoiceItem.getQuantity()
+                        : 0.0;
+
+                double invoiceRate = invoiceItem.getRate() != null
+                        ? invoiceItem.getRate()
+                        : 0.0;
+
+                // GRN items carry no rate; the GRN valuation rate is the PO item rate
+                PurchaseOrderItem poItem = purchaseOrderItemRepo
+                        .findById(grnItem.getPoItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "PO item not found with ID: "
+                                        + grnItem.getPoItemId()
+                        ));
+
+                double grnRate = poItem.getRate() != null
+                        ? poItem.getRate()
+                        : 0.0;
+
+                if (quantity <= 0) {
+                    throw new IllegalArgumentException(
+                            "Invoice quantity must be greater than zero for GRN item: "
+                                    + invoiceItem.getGrnItemId()
+                    );
+                }
+
+                if (invoiceRate < 0) {
+                    throw new IllegalArgumentException(
+                            "Invoice rate cannot be negative for GRN item: "
+                                    + invoiceItem.getGrnItemId()
+                    );
+                }
+
+                if (grnRate < 0) {
+                    throw new IllegalArgumentException(
+                            "GRN rate cannot be negative for GRN item: "
+                                    + invoiceItem.getGrnItemId()
+                    );
+                }
+
+                double invoiceItemAmount = invoiceItem.getAmount() != null
+                        ? invoiceItem.getAmount()
+                        : quantity * invoiceRate;
+
+                double calculatedInvoiceItemAmount = quantity * invoiceRate;
+
+                if (Math.abs(
+                        invoiceItemAmount - calculatedInvoiceItemAmount
+                ) > 0.01) {
+                    throw new IllegalArgumentException(
+                            "Invoice item amount mismatch for GRN item "
+                                    + invoiceItem.getGrnItemId()
+                                    + ". Calculated amount: "
+                                    + calculatedInvoiceItemAmount
+                                    + ", saved amount: "
+                                    + invoiceItemAmount
+                    );
+                }
+
+                double grnItemAmount = quantity * grnRate;
+
+                totalInvoiceAmount += invoiceItemAmount;
+                totalGrnAmount += grnItemAmount;
+            }
+
+            if (totalInvoiceAmount <= 0) {
+                throw new IllegalArgumentException(
+                        "Total invoice amount must be greater than zero"
+                );
+            }
+
+            if (totalGrnAmount <= 0) {
+                throw new IllegalArgumentException(
+                        "Total GRN amount must be greater than zero"
+                );
+            }
+
+            if (invoice.getTotalAmount() != null
+                    && Math.abs(
+                    invoice.getTotalAmount() - totalInvoiceAmount
+            ) > 0.01) {
+                throw new IllegalArgumentException(
+                        "Invoice total mismatch. Calculated total: "
+                                + totalInvoiceAmount
+                                + ", invoice total: "
+                                + invoice.getTotalAmount()
+                );
+            }
+
+            double priceDifference =
+                    totalInvoiceAmount - totalGrnAmount;
+
+            // ==========================================
+            // 3. Fetch accounting COAs
+            // ==========================================
             ChartOfAccount grnClearingAccount =
                     journalUtilities.grnClearing(invoice.getOrgId());
 
             ChartOfAccount vendorPayableAccount =
                     journalUtilities.vendorPayable(invoice.getOrgId());
 
-            // ===========================
-            // 4️⃣ Debit GRN Clearing
-            // ===========================
-            JournalDetailEntry debitEntry = new JournalDetailEntry();
-            debitEntry.setJournalEntryId(journalEntry.getId());
-            debitEntry.setChartOfAccountId(grnClearingAccount.getId());
-            debitEntry.setDebitAmount(totalAmount);
-            debitEntry.setCreditAmount(0.0);
-            debitEntry.setDescription("GRN clearing transferred to vendor payable. Invoice: " + invoice.getInvoiceNumber());
+            if (grnClearingAccount == null) {
+                throw new IllegalStateException(
+                        "GRN Clearing account is not configured for organization: "
+                                + invoice.getOrgId()
+                );
+            }
 
-            detailEntries.add(debitEntry);
-            totalDebit += totalAmount;
+            if (vendorPayableAccount == null) {
+                throw new IllegalStateException(
+                        "Vendor Payable account is not configured for organization: "
+                                + invoice.getOrgId()
+                );
+            }
 
-            // ===========================
-            // 5️⃣ Credit Vendor Payable
-            // ===========================
-            JournalDetailEntry creditEntry = new JournalDetailEntry();
-            creditEntry.setJournalEntryId(journalEntry.getId());
-            creditEntry.setChartOfAccountId(vendorPayableAccount.getId());
-            creditEntry.setDebitAmount(0.0);
-            creditEntry.setCreditAmount(totalAmount);
-            creditEntry.setDescription("Vendor payable created. Invoice: " + invoice.getInvoiceNumber());
+            // ==========================================
+            // 4. Determine inventory variance account
+            // ==========================================
+            ChartOfAccount inventoryAccount = null;
 
-            detailEntries.add(creditEntry);
-            totalCredit += totalAmount;
+            if (Math.abs(priceDifference) > 0.01) {
 
-            // ===========================
-            // 6️⃣ Validate Double Entry
-            // ===========================
+                /*
+                 * Direct consumption into project:
+                 * COA 3, Construction Inventory
+                 *
+                 * Received into warehouse:
+                 * COA 51, Stock Inventory
+                 *
+                 * Prefer using your actual GRN type enum if available,
+                 * instead of detecting only through projectId.
+                 */
+                boolean directlyConsumedToProject =
+                        grn.getProjectId() != null
+                                && grn.getProjectId() > 0;
+
+                if (directlyConsumedToProject) {
+                    inventoryAccount =
+                            journalUtilities.constructionInventory(
+                                    invoice.getOrgId()
+                            );
+                } else {
+                    inventoryAccount =
+                            journalUtilities.stockInventory(
+                                    invoice.getOrgId()
+                            );
+                }
+
+                if (inventoryAccount == null) {
+                    throw new IllegalStateException(
+                            "Inventory account is not configured for price difference"
+                    );
+                }
+            }
+
+            // ==========================================
+            // 5. Create journal header
+            // ==========================================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(invoice.getOrgId());
+            journalEntry.setCreatedDate(
+                    invoice.getCreatedDate() != null
+                            ? invoice.getCreatedDate()
+                            : LocalDateTime.now()
+            );
+            journalEntry.setReferenceType("VENDOR_INVOICE");
+
+            /*
+             * Use invoice ID as the main reference.
+             * Use GRN ID as the additional reference.
+             *
+             * If referenceId is a String in your entity, use:
+             * String.valueOf(invoice.getId())
+             */
+            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+
+            journalEntry.setVendorId(invoice.getVendorId());
+            journalEntry.setProjectId(invoice.getProjectId());
+            journalEntry.setDescription(
+                    "Vendor Invoice: " + invoice.getInvoiceNumber()
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> detailEntries =
+                    new ArrayList<>();
+
+            // ==========================================
+            // 6. Debit GRN Clearing at original GRN value
+            // ==========================================
+            detailEntries.add(
+                    createJournalDetailEntry(
+                            journalEntry.getId(),
+                            grnClearingAccount.getId(),
+                            totalGrnAmount,
+                            0.0,
+                            "GRN clearing reversed at received value. Invoice: "
+                                    + invoice.getInvoiceNumber()
+                    )
+            );
+
+            // ==========================================
+            // 7. Record purchase price difference
+            // ==========================================
+
+            /*
+             * Invoice is higher than GRN:
+             *
+             * Dr GRN Clearing
+             * Dr Inventory difference
+             * Cr Vendor Payable
+             */
+            if (priceDifference > 0.01) {
+                detailEntries.add(
+                        createJournalDetailEntry(
+                                journalEntry.getId(),
+                                inventoryAccount.getId(),
+                                priceDifference,
+                                0.0,
+                                "Purchase price increase recorded against inventory. Invoice: "
+                                        + invoice.getInvoiceNumber()
+                        )
+                );
+            }
+
+            /*
+             * Invoice is lower than GRN:
+             *
+             * Dr GRN Clearing
+             * Cr Inventory difference
+             * Cr Vendor Payable
+             */
+            if (priceDifference < -0.01) {
+                detailEntries.add(
+                        createJournalDetailEntry(
+                                journalEntry.getId(),
+                                inventoryAccount.getId(),
+                                0.0,
+                                Math.abs(priceDifference),
+                                "Purchase price decrease recorded against inventory. Invoice: "
+                                        + invoice.getInvoiceNumber()
+                        )
+                );
+            }
+
+            // ==========================================
+            // 8. Credit Vendor Payable at invoice value
+            // ==========================================
+            detailEntries.add(
+                    createJournalDetailEntry(
+                            journalEntry.getId(),
+                            vendorPayableAccount.getId(),
+                            0.0,
+                            totalInvoiceAmount,
+                            "Vendor payable created. Invoice: "
+                                    + invoice.getInvoiceNumber()
+                    )
+            );
+
+            // ==========================================
+            // 9. Validate double entry
+            // ==========================================
+            double totalDebit = detailEntries.stream()
+                    .mapToDouble(entry ->
+                            entry.getDebitAmount() != 0
+                                    ? entry.getDebitAmount()
+                                    : 0.0
+                    )
+                    .sum();
+
+            double totalCredit = detailEntries.stream()
+                    .mapToDouble(entry ->
+                            entry.getCreditAmount() != 0
+                                    ? entry.getCreditAmount()
+                                    : 0.0
+                    )
+                    .sum();
+
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new RuntimeException("Vendor invoice journal imbalance! Debit: "
-                        + totalDebit + ", Credit: " + totalCredit);
+                throw new IllegalStateException(
+                        "Vendor invoice journal is imbalanced. Debit: "
+                                + totalDebit
+                                + ", Credit: "
+                                + totalCredit
+                );
             }
 
-            // ===========================
-            // 7️⃣ Save Entries
-            // ===========================
-            for (JournalDetailEntry entry : detailEntries) {
-                journalDetailEntryRepository.save(entry);
-            }
+            // ==========================================
+            // 10. Save journal details
+            // ==========================================
+            journalDetailEntryRepository.saveAll(detailEntries);
 
-            log.info("Vendor Invoice Journal Entry {} completed. Total: {}",
-                    journalEntry.getId(), totalAmount);
+            log.info(
+                    "Vendor invoice journal entry completed. "
+                            + "Journal ID: {}, Invoice ID: {}, "
+                            + "GRN amount: {}, Invoice amount: {}, "
+                            + "Price difference: {}",
+                    journalEntry.getId(),
+                    invoice.getId(),
+                    totalGrnAmount,
+                    totalInvoiceAmount,
+                    priceDifference
+            );
 
         } catch (Exception e) {
-            log.error("Failed to create journal entry for Vendor Invoice {}: {}",
-                    invoice.getId(), e.getMessage(), e);
+            log.error(
+                    "Failed to create journal entry for Vendor Invoice {}: {}",
+                    invoice != null ? invoice.getId() : null,
+                    e.getMessage(),
+                    e
+            );
 
-            throw new RuntimeException("Failed to create vendor invoice journal entry: " + e.getMessage(), e);
+            throw new RuntimeException(
+                    "Failed to create vendor invoice journal entry: "
+                            + e.getMessage(),
+                    e
+            );
         }
     }
 
+    private JournalDetailEntry createJournalDetailEntry(
+            long journalEntryId,
+            long chartOfAccountId,
+            double debitAmount,
+            double creditAmount,
+            String description
+    ) {
+        JournalDetailEntry entry = new JournalDetailEntry();
+
+        entry.setJournalEntryId(journalEntryId);
+        entry.setChartOfAccountId(chartOfAccountId);
+        entry.setDebitAmount(debitAmount);
+        entry.setCreditAmount(creditAmount);
+        entry.setDescription(description);
+
+        return entry;
+    }
+
+//    @Transactional
+//    public void updateJournalEntryForVendorInvoice(
+//            VendorInvoice invoice,
+//            List<VendorInvoiceItem> oldInvoiceItems,
+//            List<VendorInvoiceItem> newInvoiceItems,
+//            String loggedInUser
+//    ) {
+//        try {
+//            double totalDebit = 0.0;
+//            double totalCredit = 0.0;
+//
+//            double oldTotalAmount = 0.0;
+//            double newTotalAmount = 0.0;
+//
+//            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+//
+//            // ===========================
+//            // 1️⃣ Calculate Old Invoice Amount
+//            // ===========================
+//            for (VendorInvoiceItem item : oldInvoiceItems) {
+//                double amount = item.getAmount() != null
+//                        ? item.getAmount()
+//                        : item.getQuantity() * item.getRate();
+//
+//                oldTotalAmount += amount;
+//            }
+//
+//            // ===========================
+//            // 2️⃣ Calculate New Invoice Amount
+//            // ===========================
+//            for (VendorInvoiceItem item : newInvoiceItems) {
+//                double amount = item.getAmount() != null
+//                        ? item.getAmount()
+//                        : item.getQuantity() * item.getRate();
+//
+//                newTotalAmount += amount;
+//            }
+//
+//            if (oldTotalAmount <= 0 && newTotalAmount <= 0) {
+//                return;
+//            }
+//
+//            // ===========================
+//            // 3️⃣ Create Journal Entry Header
+//            // ===========================
+//            JournalEntry journalEntry = new JournalEntry();
+//            journalEntry.setOrganizationId(invoice.getOrgId());
+//            journalEntry.setCreatedDate(LocalDateTime.now());
+//            journalEntry.setReferenceType("VENDOR_INVOICE_UPDATE");
+//            journalEntry.setAdditionalReferenceId(invoice.getId());
+//            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+//            journalEntry.setVendorId(invoice.getVendorId());
+//            journalEntry.setProjectId(invoice.getProjectId());
+//            journalEntry.setDescription("Vendor Invoice Updated: " + invoice.getInvoiceNumber());
+//            journalEntry.setStatus(JournalEntryStatus.POSTED);
+//            journalEntry.setCreatedBy(loggedInUser);
+//
+//            journalEntry = journalEntryRepository.save(journalEntry);
+//
+//            log.info("Created Vendor Invoice Update Journal Entry ID: {} for Invoice ID: {}",
+//                    journalEntry.getId(), invoice.getId());
+//
+//            // ===========================
+//            // 4️⃣ Get COA Accounts
+//            // ===========================
+//            ChartOfAccount grnClearingAccount =
+//                    journalUtilities.grnClearing(invoice.getOrgId());
+//
+//            ChartOfAccount vendorPayableAccount =
+//                    journalUtilities.vendorPayable(invoice.getOrgId());
+//
+//            // ===========================
+//            // 5️⃣ Reverse Old Invoice Entry
+//            // Original:
+//            // GRN Clearing Dr
+//            //      Vendor Payable Cr
+//            //
+//            // Reversal:
+//            // Vendor Payable Dr
+//            //      GRN Clearing Cr
+//            // ===========================
+//            if (oldTotalAmount > 0) {
+//                JournalDetailEntry reverseDebitEntry = new JournalDetailEntry();
+//                reverseDebitEntry.setJournalEntryId(journalEntry.getId());
+//                reverseDebitEntry.setChartOfAccountId(vendorPayableAccount.getId());
+//                reverseDebitEntry.setDebitAmount(oldTotalAmount);
+//                reverseDebitEntry.setCreditAmount(0.0);
+//                reverseDebitEntry.setDescription("Reverse old vendor payable. Invoice: " + invoice.getInvoiceNumber());
+//
+//                detailEntries.add(reverseDebitEntry);
+//                totalDebit += oldTotalAmount;
+//
+//                JournalDetailEntry reverseCreditEntry = new JournalDetailEntry();
+//                reverseCreditEntry.setJournalEntryId(journalEntry.getId());
+//                reverseCreditEntry.setChartOfAccountId(grnClearingAccount.getId());
+//                reverseCreditEntry.setDebitAmount(0.0);
+//                reverseCreditEntry.setCreditAmount(oldTotalAmount);
+//                reverseCreditEntry.setDescription("Reverse old GRN clearing. Invoice: " + invoice.getInvoiceNumber());
+//
+//                detailEntries.add(reverseCreditEntry);
+//                totalCredit += oldTotalAmount;
+//            }
+//
+//            // ===========================
+//            // 6️⃣ Post New Updated Invoice Entry
+//            // New:
+//            // GRN Clearing Dr
+//            //      Vendor Payable Cr
+//            // ===========================
+//            if (newTotalAmount > 0) {
+//                JournalDetailEntry newDebitEntry = new JournalDetailEntry();
+//                newDebitEntry.setJournalEntryId(journalEntry.getId());
+//                newDebitEntry.setChartOfAccountId(grnClearingAccount.getId());
+//                newDebitEntry.setDebitAmount(newTotalAmount);
+//                newDebitEntry.setCreditAmount(0.0);
+//                newDebitEntry.setDescription("Updated GRN clearing transferred. Invoice: " + invoice.getInvoiceNumber());
+//
+//                detailEntries.add(newDebitEntry);
+//                totalDebit += newTotalAmount;
+//
+//                JournalDetailEntry newCreditEntry = new JournalDetailEntry();
+//                newCreditEntry.setJournalEntryId(journalEntry.getId());
+//                newCreditEntry.setChartOfAccountId(vendorPayableAccount.getId());
+//                newCreditEntry.setDebitAmount(0.0);
+//                newCreditEntry.setCreditAmount(newTotalAmount);
+//                newCreditEntry.setDescription("Updated vendor payable. Invoice: " + invoice.getInvoiceNumber());
+//
+//                detailEntries.add(newCreditEntry);
+//                totalCredit += newTotalAmount;
+//            }
+//
+//            // ===========================
+//            // 7️⃣ Validate Double Entry
+//            // ===========================
+//            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+//                throw new RuntimeException("Vendor invoice update journal imbalance! Debit: "
+//                        + totalDebit + ", Credit: " + totalCredit);
+//            }
+//
+//            // ===========================
+//            // 8️⃣ Save Entries
+//            // ===========================
+//            for (JournalDetailEntry entry : detailEntries) {
+//                journalDetailEntryRepository.save(entry);
+//            }
+//
+//            log.info("Vendor Invoice Update Journal Entry {} completed. Old Total: {}, New Total: {}",
+//                    journalEntry.getId(), oldTotalAmount, newTotalAmount);
+//
+//        } catch (Exception e) {
+//            log.error("Failed to create update journal entry for Vendor Invoice {}: {}",
+//                    invoice.getId(), e.getMessage(), e);
+//
+//            throw new RuntimeException("Failed to create vendor invoice update journal entry: " + e.getMessage(), e);
+//        }
+//    }
 
     @Transactional
     public void updateJournalEntryForVendorInvoice(
@@ -2484,152 +3116,410 @@ public class JournalEntryService {
             String loggedInUser
     ) {
         try {
-            double totalDebit = 0.0;
-            double totalCredit = 0.0;
+            if (invoice == null) {
+                throw new IllegalArgumentException("Vendor invoice is required");
+            }
 
-            double oldTotalAmount = 0.0;
-            double newTotalAmount = 0.0;
+            if (invoice.getGrnId() == null || invoice.getGrnId() <= 0) {
+                throw new IllegalArgumentException("GRN ID is required");
+            }
 
-            List<JournalDetailEntry> detailEntries = new ArrayList<>();
+            if (oldInvoiceItems == null || oldInvoiceItems.isEmpty()) {
+                throw new IllegalArgumentException("Old invoice items are required");
+            }
 
-            // ===========================
-            // 1️⃣ Calculate Old Invoice Amount
-            // ===========================
+            if (newInvoiceItems == null || newInvoiceItems.isEmpty()) {
+                throw new IllegalArgumentException("New invoice items are required");
+            }
+
+            // Prevent unsafe invoice changes after payments
+            if (invoice.getPaidAmount() != null && invoice.getPaidAmount() > 0) {
+                throw new IllegalStateException(
+                        "A vendor invoice with payments cannot be updated directly"
+                );
+            }
+
+            Grn grn = grnRepo.findById(invoice.getGrnId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "GRN not found with ID: " + invoice.getGrnId()
+                    ));
+
+            double oldInvoiceAmount = 0.0;
+            double oldGrnAmount = 0.0;
+
+            double newInvoiceAmount = 0.0;
+            double newGrnAmount = 0.0;
+
+            // ==========================================
+            // 1. Calculate old journal values
+            // ==========================================
             for (VendorInvoiceItem item : oldInvoiceItems) {
-                double amount = item.getAmount() != null
-                        ? item.getAmount()
-                        : item.getQuantity() * item.getRate();
 
-                oldTotalAmount += amount;
+                if (item.getGrnItemId() == null || item.getGrnItemId() <= 0) {
+                    throw new IllegalArgumentException(
+                            "GRN item ID is required in old invoice items"
+                    );
+                }
+
+                GrnItems grnItem = grnItemsRepo.findById(item.getGrnItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "GRN item not found with ID: "
+                                        + item.getGrnItemId()
+                        ));
+
+                if (!Objects.equals(grnItem.getGrnId(), invoice.getGrnId())) {
+                    throw new IllegalArgumentException(
+                            "GRN item " + item.getGrnItemId()
+                                    + " does not belong to GRN "
+                                    + invoice.getGrnId()
+                    );
+                }
+
+                PurchaseOrderItem poItem = purchaseOrderItemRepo
+                        .findById(grnItem.getPoItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "PO item not found with ID: "
+                                        + grnItem.getPoItemId()
+                        ));
+
+                double quantity = item.getQuantity() != null
+                        ? item.getQuantity()
+                        : 0.0;
+
+                double invoiceRate = item.getRate() != null
+                        ? item.getRate()
+                        : 0.0;
+
+                double poRate = poItem.getRate() != null
+                        ? poItem.getRate()
+                        : 0.0;
+
+                if (quantity <= 0) {
+                    throw new IllegalArgumentException(
+                            "Old invoice quantity must be greater than zero"
+                    );
+                }
+
+                double calculatedInvoiceAmount = quantity * invoiceRate;
+
+                double savedInvoiceAmount = item.getAmount() != null
+                        ? item.getAmount()
+                        : calculatedInvoiceAmount;
+
+                if (Math.abs(
+                        savedInvoiceAmount - calculatedInvoiceAmount
+                ) > 0.01) {
+                    throw new IllegalArgumentException(
+                            "Old invoice item amount mismatch for GRN item: "
+                                    + item.getGrnItemId()
+                    );
+                }
+
+                oldInvoiceAmount += savedInvoiceAmount;
+                oldGrnAmount += quantity * poRate;
             }
 
-            // ===========================
-            // 2️⃣ Calculate New Invoice Amount
-            // ===========================
+            // ==========================================
+            // 2. Calculate new journal values
+            // ==========================================
             for (VendorInvoiceItem item : newInvoiceItems) {
-                double amount = item.getAmount() != null
+
+                if (item.getGrnItemId() == null || item.getGrnItemId() <= 0) {
+                    throw new IllegalArgumentException(
+                            "GRN item ID is required in new invoice items"
+                    );
+                }
+
+                GrnItems grnItem = grnItemsRepo.findById(item.getGrnItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "GRN item not found with ID: "
+                                        + item.getGrnItemId()
+                        ));
+
+                if (!Objects.equals(grnItem.getGrnId(), invoice.getGrnId())) {
+                    throw new IllegalArgumentException(
+                            "GRN item " + item.getGrnItemId()
+                                    + " does not belong to GRN "
+                                    + invoice.getGrnId()
+                    );
+                }
+
+                PurchaseOrderItem poItem = purchaseOrderItemRepo
+                        .findById(grnItem.getPoItemId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "PO item not found with ID: "
+                                        + grnItem.getPoItemId()
+                        ));
+
+                double quantity = item.getQuantity() != null
+                        ? item.getQuantity()
+                        : 0.0;
+
+                double invoiceRate = item.getRate() != null
+                        ? item.getRate()
+                        : 0.0;
+
+                double poRate = poItem.getRate() != null
+                        ? poItem.getRate()
+                        : 0.0;
+
+                if (quantity <= 0) {
+                    throw new IllegalArgumentException(
+                            "New invoice quantity must be greater than zero"
+                    );
+                }
+
+                if (invoiceRate < 0 || poRate < 0) {
+                    throw new IllegalArgumentException(
+                            "Invoice and PO rates cannot be negative"
+                    );
+                }
+
+                double calculatedInvoiceAmount = quantity * invoiceRate;
+
+                double savedInvoiceAmount = item.getAmount() != null
                         ? item.getAmount()
-                        : item.getQuantity() * item.getRate();
+                        : calculatedInvoiceAmount;
 
-                newTotalAmount += amount;
+                if (Math.abs(
+                        savedInvoiceAmount - calculatedInvoiceAmount
+                ) > 0.01) {
+                    throw new IllegalArgumentException(
+                            "New invoice item amount mismatch for GRN item: "
+                                    + item.getGrnItemId()
+                    );
+                }
+
+                newInvoiceAmount += savedInvoiceAmount;
+                newGrnAmount += quantity * poRate;
             }
 
-            if (oldTotalAmount <= 0 && newTotalAmount <= 0) {
-                return;
+            if (oldInvoiceAmount <= 0 || oldGrnAmount <= 0) {
+                throw new IllegalArgumentException(
+                        "Old invoice and GRN amounts must be greater than zero"
+                );
             }
 
-            // ===========================
-            // 3️⃣ Create Journal Entry Header
-            // ===========================
-            JournalEntry journalEntry = new JournalEntry();
-            journalEntry.setOrganizationId(invoice.getOrgId());
-            journalEntry.setCreatedDate(LocalDateTime.now());
-            journalEntry.setReferenceType("VENDOR_INVOICE_UPDATE");
-            journalEntry.setAdditionalReferenceId(invoice.getId());
-            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
-            journalEntry.setVendorId(invoice.getVendorId());
-            journalEntry.setProjectId(invoice.getProjectId());
-            journalEntry.setDescription("Vendor Invoice Updated: " + invoice.getInvoiceNumber());
-            journalEntry.setStatus(JournalEntryStatus.POSTED);
-            journalEntry.setCreatedBy(loggedInUser);
+            if (newInvoiceAmount <= 0 || newGrnAmount <= 0) {
+                throw new IllegalArgumentException(
+                        "New invoice and GRN amounts must be greater than zero"
+                );
+            }
 
-            journalEntry = journalEntryRepository.save(journalEntry);
+            double oldPriceDifference =
+                    oldInvoiceAmount - oldGrnAmount;
 
-            log.info("Created Vendor Invoice Update Journal Entry ID: {} for Invoice ID: {}",
-                    journalEntry.getId(), invoice.getId());
+            double newPriceDifference =
+                    newInvoiceAmount - newGrnAmount;
 
-            // ===========================
-            // 4️⃣ Get COA Accounts
-            // ===========================
+            // ==========================================
+            // 3. Fetch COAs
+            // ==========================================
             ChartOfAccount grnClearingAccount =
                     journalUtilities.grnClearing(invoice.getOrgId());
 
             ChartOfAccount vendorPayableAccount =
                     journalUtilities.vendorPayable(invoice.getOrgId());
 
-            // ===========================
-            // 5️⃣ Reverse Old Invoice Entry
-            // Original:
-            // GRN Clearing Dr
-            //      Vendor Payable Cr
-            //
-            // Reversal:
-            // Vendor Payable Dr
-            //      GRN Clearing Cr
-            // ===========================
-            if (oldTotalAmount > 0) {
-                JournalDetailEntry reverseDebitEntry = new JournalDetailEntry();
-                reverseDebitEntry.setJournalEntryId(journalEntry.getId());
-                reverseDebitEntry.setChartOfAccountId(vendorPayableAccount.getId());
-                reverseDebitEntry.setDebitAmount(oldTotalAmount);
-                reverseDebitEntry.setCreditAmount(0.0);
-                reverseDebitEntry.setDescription("Reverse old vendor payable. Invoice: " + invoice.getInvoiceNumber());
+            boolean directlyConsumedToProject =
+                    grn.getProjectId() != null
+                            && grn.getProjectId() > 0;
 
-                detailEntries.add(reverseDebitEntry);
-                totalDebit += oldTotalAmount;
+            ChartOfAccount inventoryAccount;
 
-                JournalDetailEntry reverseCreditEntry = new JournalDetailEntry();
-                reverseCreditEntry.setJournalEntryId(journalEntry.getId());
-                reverseCreditEntry.setChartOfAccountId(grnClearingAccount.getId());
-                reverseCreditEntry.setDebitAmount(0.0);
-                reverseCreditEntry.setCreditAmount(oldTotalAmount);
-                reverseCreditEntry.setDescription("Reverse old GRN clearing. Invoice: " + invoice.getInvoiceNumber());
-
-                detailEntries.add(reverseCreditEntry);
-                totalCredit += oldTotalAmount;
+            if (directlyConsumedToProject) {
+                inventoryAccount =
+                        journalUtilities.constructionInventory(
+                                invoice.getOrgId()
+                        );
+            } else {
+                inventoryAccount =
+                        journalUtilities.stockInventory(
+                                invoice.getOrgId()
+                        );
             }
 
-            // ===========================
-            // 6️⃣ Post New Updated Invoice Entry
-            // New:
-            // GRN Clearing Dr
-            //      Vendor Payable Cr
-            // ===========================
-            if (newTotalAmount > 0) {
-                JournalDetailEntry newDebitEntry = new JournalDetailEntry();
-                newDebitEntry.setJournalEntryId(journalEntry.getId());
-                newDebitEntry.setChartOfAccountId(grnClearingAccount.getId());
-                newDebitEntry.setDebitAmount(newTotalAmount);
-                newDebitEntry.setCreditAmount(0.0);
-                newDebitEntry.setDescription("Updated GRN clearing transferred. Invoice: " + invoice.getInvoiceNumber());
-
-                detailEntries.add(newDebitEntry);
-                totalDebit += newTotalAmount;
-
-                JournalDetailEntry newCreditEntry = new JournalDetailEntry();
-                newCreditEntry.setJournalEntryId(journalEntry.getId());
-                newCreditEntry.setChartOfAccountId(vendorPayableAccount.getId());
-                newCreditEntry.setDebitAmount(0.0);
-                newCreditEntry.setCreditAmount(newTotalAmount);
-                newCreditEntry.setDescription("Updated vendor payable. Invoice: " + invoice.getInvoiceNumber());
-
-                detailEntries.add(newCreditEntry);
-                totalCredit += newTotalAmount;
+            if (grnClearingAccount == null
+                    || vendorPayableAccount == null
+                    || inventoryAccount == null) {
+                throw new IllegalStateException(
+                        "Required accounting COA is not configured"
+                );
             }
 
-            // ===========================
-            // 7️⃣ Validate Double Entry
-            // ===========================
+            // ==========================================
+            // 4. Create journal header
+            // ==========================================
+            JournalEntry journalEntry = new JournalEntry();
+            journalEntry.setOrganizationId(invoice.getOrgId());
+            journalEntry.setCreatedDate(LocalDateTime.now());
+            journalEntry.setReferenceType("VENDOR_INVOICE_UPDATE");
+
+            // Do not call setAdditionalReferenceId twice
+            journalEntry.setAdditionalReferenceId(invoice.getGrnId());
+
+            journalEntry.setVendorId(invoice.getVendorId());
+            journalEntry.setProjectId(invoice.getProjectId());
+            journalEntry.setDescription(
+                    "Vendor Invoice Updated: "
+                            + invoice.getInvoiceNumber()
+            );
+            journalEntry.setStatus(JournalEntryStatus.POSTED);
+            journalEntry.setCreatedBy(loggedInUser);
+
+            journalEntry = journalEntryRepository.save(journalEntry);
+
+            List<JournalDetailEntry> detailEntries =
+                    new ArrayList<>();
+
+            // ==========================================
+            // 5. Reverse the complete old invoice posting
+            // ==========================================
+
+            // Reverse old Vendor Payable credit
+            detailEntries.add(createJournalDetailEntry(
+                    journalEntry.getId(),
+                    vendorPayableAccount.getId(),
+                    oldInvoiceAmount,
+                    0.0,
+                    "Reverse old vendor payable. Invoice: "
+                            + invoice.getInvoiceNumber()
+            ));
+
+            // Reverse old GRN Clearing debit
+            detailEntries.add(createJournalDetailEntry(
+                    journalEntry.getId(),
+                    grnClearingAccount.getId(),
+                    0.0,
+                    oldGrnAmount,
+                    "Reverse old GRN clearing at received value. Invoice: "
+                            + invoice.getInvoiceNumber()
+            ));
+
+            /*
+             * Reverse previous price increase:
+             * Original was Dr Inventory, so reversal is Cr Inventory.
+             */
+            if (oldPriceDifference > 0.01) {
+                detailEntries.add(createJournalDetailEntry(
+                        journalEntry.getId(),
+                        inventoryAccount.getId(),
+                        0.0,
+                        oldPriceDifference,
+                        "Reverse old purchase price increase. Invoice: "
+                                + invoice.getInvoiceNumber()
+                ));
+            }
+
+            /*
+             * Reverse previous price decrease:
+             * Original was Cr Inventory, so reversal is Dr Inventory.
+             */
+            if (oldPriceDifference < -0.01) {
+                detailEntries.add(createJournalDetailEntry(
+                        journalEntry.getId(),
+                        inventoryAccount.getId(),
+                        Math.abs(oldPriceDifference),
+                        0.0,
+                        "Reverse old purchase price decrease. Invoice: "
+                                + invoice.getInvoiceNumber()
+                ));
+            }
+
+            // ==========================================
+            // 6. Post the updated invoice
+            // ==========================================
+
+            detailEntries.add(createJournalDetailEntry(
+                    journalEntry.getId(),
+                    grnClearingAccount.getId(),
+                    newGrnAmount,
+                    0.0,
+                    "Updated GRN clearing at received value. Invoice: "
+                            + invoice.getInvoiceNumber()
+            ));
+
+            if (newPriceDifference > 0.01) {
+                detailEntries.add(createJournalDetailEntry(
+                        journalEntry.getId(),
+                        inventoryAccount.getId(),
+                        newPriceDifference,
+                        0.0,
+                        "Updated purchase price increase. Invoice: "
+                                + invoice.getInvoiceNumber()
+                ));
+            }
+
+            if (newPriceDifference < -0.01) {
+                detailEntries.add(createJournalDetailEntry(
+                        journalEntry.getId(),
+                        inventoryAccount.getId(),
+                        0.0,
+                        Math.abs(newPriceDifference),
+                        "Updated purchase price decrease. Invoice: "
+                                + invoice.getInvoiceNumber()
+                ));
+            }
+
+            detailEntries.add(createJournalDetailEntry(
+                    journalEntry.getId(),
+                    vendorPayableAccount.getId(),
+                    0.0,
+                    newInvoiceAmount,
+                    "Updated vendor payable. Invoice: "
+                            + invoice.getInvoiceNumber()
+            ));
+
+            // ==========================================
+            // 7. Validate double entry
+            // ==========================================
+            double totalDebit = detailEntries.stream()
+                    .mapToDouble(JournalDetailEntry::getDebitAmount)
+                    .sum();
+
+            double totalCredit = detailEntries.stream()
+                    .mapToDouble(JournalDetailEntry::getCreditAmount)
+                    .sum();
+
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new RuntimeException("Vendor invoice update journal imbalance! Debit: "
-                        + totalDebit + ", Credit: " + totalCredit);
+                throw new IllegalStateException(
+                        "Vendor invoice update journal imbalance. Debit: "
+                                + totalDebit
+                                + ", Credit: "
+                                + totalCredit
+                );
             }
 
-            // ===========================
-            // 8️⃣ Save Entries
-            // ===========================
-            for (JournalDetailEntry entry : detailEntries) {
-                journalDetailEntryRepository.save(entry);
-            }
+            journalDetailEntryRepository.saveAll(detailEntries);
 
-            log.info("Vendor Invoice Update Journal Entry {} completed. Old Total: {}, New Total: {}",
-                    journalEntry.getId(), oldTotalAmount, newTotalAmount);
+            log.info(
+                    "Vendor invoice update journal completed. "
+                            + "Journal ID: {}, old invoice: {}, "
+                            + "old GRN: {}, old difference: {}, "
+                            + "new invoice: {}, new GRN: {}, "
+                            + "new difference: {}",
+                    journalEntry.getId(),
+                    oldInvoiceAmount,
+                    oldGrnAmount,
+                    oldPriceDifference,
+                    newInvoiceAmount,
+                    newGrnAmount,
+                    newPriceDifference
+            );
 
         } catch (Exception e) {
-            log.error("Failed to create update journal entry for Vendor Invoice {}: {}",
-                    invoice.getId(), e.getMessage(), e);
+            log.error(
+                    "Failed to create update journal for Vendor Invoice {}: {}",
+                    invoice != null ? invoice.getId() : null,
+                    e.getMessage(),
+                    e
+            );
 
-            throw new RuntimeException("Failed to create vendor invoice update journal entry: " + e.getMessage(), e);
+            throw new RuntimeException(
+                    "Failed to update vendor invoice journal entry: "
+                            + e.getMessage(),
+                    e
+            );
         }
     }
 
@@ -2653,9 +3543,7 @@ public class JournalEntryService {
             ChartOfAccount vendorPayable =
                     journalUtilities.vendorPayable(payment.getOrgId());
 
-            ChartOfAccount cashAccount =
-                    chartOfAccountRepository.findById(organizationAccountId)
-                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+            ChartOfAccount cashAccount = findBankAccount(organizationAccountId , payment.getOrgId() );
 
             // ✅ Journal Header
             JournalEntry journalEntry = new JournalEntry();

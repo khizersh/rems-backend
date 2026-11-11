@@ -10,6 +10,7 @@ import com.rem.backend.projectmanagement.entity.Project;
 import com.rem.backend.projectmanagement.entity.Unit;
 import com.rem.backend.enums.PaymentPlanType;
 import com.rem.backend.enums.PaymentScheduleType;
+import com.rem.backend.enums.BookingType;
 import com.rem.backend.bookingmanagement.repository.BookingRepository;
 import com.rem.backend.customermanagement.repository.CustomerAccountRepo;
 import com.rem.backend.customermanagement.repository.CustomerPaymentRepo;
@@ -63,6 +64,11 @@ public class BookingService {
             booking.setCreatedBy(loggedInUser);
             booking.setUpdatedBy(loggedInUser);
             validateBooking(booking);
+            if (booking.getBookingType() == BookingType.EXISTING) {
+                validateExistingBooking(booking);
+            } else {
+                booking.setPaidAmount(0.0);
+            }
 
 
             if (bookingRepository.existsByUnit_IdAndIsActiveTrue(booking.getUnitId()))
@@ -124,7 +130,13 @@ public class BookingService {
             booking.setTotalAmount(paymentSchedule.getTotalAmount());
             Booking bookingSaved = bookingRepository.save(booking);
             createCustomerAccount(bookingSaved, loggedInUser, paymentSchedule.getPaymentPlanType());
-            journalEntryService.createJournalEntryForBooking(booking, loggedInUser);
+            if (booking.getBookingType() == BookingType.EXISTING) {
+                double openingReceivable = paymentSchedule.getTotalAmount() - booking.getPaidAmount();
+                journalEntryService.createJournalEntryForExistingBooking(
+                        bookingSaved, openingReceivable, loggedInUser);
+            } else {
+                journalEntryService.createJournalEntryForBooking(booking, loggedInUser);
+            }
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, bookingSaved);
         } catch (IllegalArgumentException e) {
@@ -240,7 +252,8 @@ public class BookingService {
         account.setCustomer(booking.getCustomer());
         account.setUnit(booking.getUnit());
         account.setActive(true);
-        account.setTotalPaidAmount(0.0);
+        account.setTotalPaidAmount(booking.getBookingType() == BookingType.EXISTING
+                ? booking.getPaidAmount() : 0.0);
         account.setTotalBalanceAmount(0.0);
 
         if (booking.getUnit() != null) {
@@ -257,7 +270,7 @@ public class BookingService {
 
 
         account.setTotalAmount(schedule.getTotalAmount());
-        account.setTotalBalanceAmount(schedule.getTotalAmount());
+        account.setTotalBalanceAmount(schedule.getTotalAmount() - account.getTotalPaidAmount());
         account.setTotalAmount(schedule.getTotalAmount());
         account.setQuarterlyPayment(schedule.getQuarterlyPayment());
         account.setHalfYearly(schedule.getHalfYearlyPayment());
@@ -356,6 +369,19 @@ public class BookingService {
 //        }
 
 
+    }
+
+    private void validateExistingBooking(Booking booking) {
+        PaymentSchedule schedule = booking.getPaymentSchedule();
+        if (schedule == null) {
+            throw new IllegalArgumentException("Payment schedule is required for an existing booking.");
+        }
+        if (booking.getPaidAmount() < 0) {
+            throw new IllegalArgumentException("Paid amount cannot be negative.");
+        }
+        if (booking.getPaidAmount() > schedule.getTotalAmount()) {
+            throw new IllegalArgumentException("Paid amount cannot exceed the payment schedule total amount.");
+        }
     }
 
 
