@@ -3609,8 +3609,7 @@ public class JournalEntryService {
                     journalUtilities.vendorPayable(existingPayment.getOrgId());
 
             ChartOfAccount cashAccount =
-                    chartOfAccountRepository.findById(organizationAccountId)
-                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+                    findBankAccount(organizationAccountId , existingPayment.getOrgId());
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(existingPayment.getOrgId());
@@ -3670,9 +3669,7 @@ public class JournalEntryService {
             ChartOfAccount vendorPayable =
                     journalUtilities.vendorPayable(payment.getOrgId());
 
-            ChartOfAccount cashAccount =
-                    chartOfAccountRepository.findById(organizationAccountId)
-                            .orElseThrow(() -> new RuntimeException("Cash/Bank account not found"));
+            ChartOfAccount cashAccount = findBankAccount(organizationAccountId , payment.getOrgId());
 
             JournalEntry journalEntry = new JournalEntry();
             journalEntry.setOrganizationId(payment.getOrgId());
@@ -3798,9 +3795,7 @@ public class JournalEntryService {
                     journalUtilities.salaryPayable(slip.getOrganizationId());
 
             ChartOfAccount cash =
-                    chartOfAccountRepository.findById(orgAccountId)
-                            .orElseThrow(() ->
-                                    new RuntimeException("Cash/Bank account not found"));
+                    findBankAccount(orgAccountId , slip.getOrganizationId());
 
             // ✅ Journal Header
             JournalEntry journalEntry = new JournalEntry();
