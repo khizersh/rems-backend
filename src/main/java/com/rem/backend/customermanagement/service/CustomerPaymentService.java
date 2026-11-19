@@ -618,6 +618,8 @@ public class CustomerPaymentService {
 
             customerPaymentRepo.deleteById(request.getId());
 
+            journalEntryService.reverseJournalEntryForUnpostedCustomerPayment(
+                    customerAccount, customerPayment, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Deleted Successfully!");
         } catch (IllegalArgumentException e) {

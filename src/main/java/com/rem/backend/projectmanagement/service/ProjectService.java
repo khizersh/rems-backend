@@ -8,10 +8,14 @@ import com.rem.backend.paymentschedulemanagement.entity.PaymentSchedule;
 import com.rem.backend.projectmanagement.entity.Unit;
 import com.rem.backend.projectmanagement.entity.Floor;
 import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.propertymanagement.entity.PropertyAsset;
+import com.rem.backend.propertymanagement.entity.PropertyPurchase;
+import com.rem.backend.propertymanagement.enums.PropertyAssetStatus;
+import com.rem.backend.propertymanagement.repository.PropertyAssetRepo;
+import com.rem.backend.propertymanagement.repository.PropertyPurchaseRepo;
 import com.rem.backend.enums.PaymentScheduleType;
 import com.rem.backend.enums.ProjectType;
 import com.rem.backend.enums.ProjectAcquisitionType;
-import com.rem.backend.propertymanagement.service.PropertyPurchaseService;
 import com.rem.backend.utility.ResponseMapper;
 import com.rem.backend.utility.Responses;
 import com.rem.backend.utility.ValidationService;
@@ -42,7 +46,8 @@ public class ProjectService {
     private final OrganizationAccoutRepo organizationAccoutRepo;
     private final JournalEntryService journalEntryService;
     private final OrganizationAccountDetailRepo organizationAccountDetailRepo;
-    private final PropertyPurchaseService propertyPurchaseService;
+    private final PropertyPurchaseRepo propertyPurchaseRepo;
+    private final PropertyAssetRepo propertyAssetRepo;
 
 
     public Map<String, Object> getProjectById(long id) {
@@ -108,9 +113,6 @@ public class ProjectService {
             ValidationService.validate(project.getProjectType(), "project type");
             ValidationService.validate(project.getAcquisitionType(), "acquisition type");
 
-            double totalAmount = project.getPurchasingAmount() + project.getAdditionalAmount() + project.getRegistrationAmount();
-            project.setTotalAmount(totalAmount);
-
             // Handle acquisition type logic
             if (project.getAcquisitionType() == ProjectAcquisitionType.NEW_PROJECT) {
                 // For NEW_PROJECT, propertyPurchaseId is mandatory
@@ -118,11 +120,29 @@ public class ProjectService {
                     throw new IllegalArgumentException("Property Purchase ID is required for new project acquisition. Please create a property purchase first.");
                 }
 
-                // Validate that property purchase exists
-                Map<String, Object> propertyPurchaseResponse = propertyPurchaseService.getPurchaseById(project.getPropertyPurchaseId());
-                if (!propertyPurchaseResponse.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
-                    throw new IllegalArgumentException("Invalid Property Purchase ID. Property purchase does not exist.");
+                PropertyPurchase propertyPurchase = propertyPurchaseRepo
+                        .findByIdAndOrganizationId(project.getPropertyPurchaseId(), project.getOrganizationId())
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Invalid Property Purchase ID for this organization."));
+                if (projectRepo.existsByPropertyPurchaseIdAndIsActiveTrue(propertyPurchase.getId())) {
+                    throw new IllegalArgumentException("This property purchase is already assigned to an active project.");
                 }
+                PropertyAsset propertyAsset = propertyAssetRepo.findByPropertyPurchaseIdForUpdate(propertyPurchase.getId())
+                        .orElseThrow(() -> new IllegalArgumentException("Property asset was not found."));
+                if (propertyAsset.getOrganizationId() != project.getOrganizationId()
+                        || propertyAsset.getStatus() != PropertyAssetStatus.AVAILABLE
+                        || propertyAsset.getUsedInProjectId() != null) {
+                    throw new IllegalArgumentException("Property asset is not available for assignment.");
+                }
+
+                project.setPurchasingAmount(propertyPurchase.getTotalAmount());
+                project.setRegistrationAmount(0);
+                project.setConstructionAmount(0);
+                project.setAdditionalAmount(0);
+                project.setTotalAmount(propertyPurchase.getTotalAmount());
+                project.setOpeningRegistrationAmount(0.0);
+                project.setOpeningConstructionAmount(0.0);
+                project.setOpeningAdditionalAmount(0.0);
 
                 project.setMigrated(false);
 
@@ -134,6 +154,11 @@ public class ProjectService {
                 if (project.getPropertyPurchaseId() == null) {
                     project.setPropertyPurchaseId(null);
                 }
+                project.setTotalAmount(project.getPurchasingAmount()
+                        + project.getAdditionalAmount() + project.getRegistrationAmount());
+                project.setOpeningRegistrationAmount(project.getRegistrationAmount());
+                project.setOpeningConstructionAmount(project.getConstructionAmount());
+                project.setOpeningAdditionalAmount(project.getAdditionalAmount());
             }
 
             Project projectSaved = projectRepo.save(project);
@@ -143,12 +168,18 @@ public class ProjectService {
                 Map<String, Object> journalResponse = journalEntryService.createPropertyAssignmentJournalEntry(
                     projectSaved.getProjectId(), 
                     project.getPropertyPurchaseId(), 
-                    project.getTotalAmount(), 
+                    project.getPurchasingAmount(), 
                     loggedInUser
                 );
                 if (!journalResponse.get(RESPONSE_CODE).equals(Responses.SUCCESS.getResponseCode())) {
                     throw new RuntimeException("Failed to create journal entry for property assignment.");
                 }
+                PropertyAsset propertyAsset = propertyAssetRepo.findByPropertyPurchaseIdForUpdate(
+                        project.getPropertyPurchaseId()).orElseThrow();
+                propertyAsset.setStatus(PropertyAssetStatus.USED);
+                propertyAsset.setUsedInProjectId(projectSaved.getProjectId());
+                propertyAsset.setUpdatedBy(loggedInUser);
+                propertyAssetRepo.save(propertyAsset);
             } else if (project.getAcquisitionType() == ProjectAcquisitionType.EXISTING_PROJECT) {
                 journalEntryService.createJournalEntryForExistingProject(projectSaved, loggedInUser);
             }
@@ -228,10 +259,17 @@ public class ProjectService {
             ValidationService.validate(project.getAddress(), "address");
             ValidationService.validate(project.getProjectType(), "project type");
 
-            double totalAmount = project.getPurchasingAmount() + project.getAdditionalAmount() + project.getRegistrationAmount();
-            project.setTotalAmount(totalAmount);
-
             Project projectSaved = getProjectDataById(project.getProjectId());
+            if (projectSaved == null) {
+                throw new IllegalArgumentException("Project was not found.");
+            }
+            project.setPurchasingAmount(projectSaved.getPurchasingAmount());
+            project.setRegistrationAmount(projectSaved.getRegistrationAmount());
+            project.setConstructionAmount(projectSaved.getConstructionAmount());
+            project.setAdditionalAmount(projectSaved.getAdditionalAmount());
+            project.setTotalAmount(projectSaved.getTotalAmount());
+            project.setPropertyPurchaseId(projectSaved.getPropertyPurchaseId());
+            project.setMigrated(projectSaved.isMigrated());
 
 
             List<Floor> remainingFloors = new ArrayList<>();

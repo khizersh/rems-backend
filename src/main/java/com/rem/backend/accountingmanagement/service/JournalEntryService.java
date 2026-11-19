@@ -18,6 +18,9 @@ import com.rem.backend.customermanagement.entity.CustomerPayable;
 import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.organizationmanagement.entity.OrganizationAccount;
 import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.projectmanagement.entity.ProjectCost;
+import com.rem.backend.projectmanagement.entity.ProjectCostPayment;
+import com.rem.backend.projectmanagement.enums.ProjectCostPaymentType;
 import com.rem.backend.purchasemanagement.repository.GrnItemsRepo;
 import com.rem.backend.purchasemanagement.repository.GrnRepo;
 import com.rem.backend.purchasemanagement.repository.PurchaseOrderItemRepo;
@@ -43,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -58,6 +62,145 @@ public class JournalEntryService {
     private final GrnRepo grnRepo;
     private final GrnItemsRepo grnItemsRepo;
     private final PurchaseOrderItemRepo purchaseOrderItemRepo;
+
+    @Transactional
+    public void createJournalEntryForProjectCost(ProjectCost cost, String loggedInUser) {
+        BigDecimal total = cost.getTotalAmount();
+        BigDecimal paid = cost.getPaidAmount();
+        BigDecimal pending = cost.getPendingAmount();
+        ChartOfAccount construction = journalUtilities.constructionInventory(cost.getOrganizationId());
+        ChartOfAccount payable = null;
+        ChartOfAccount bank = null;
+
+        if (paid.signum() > 0) {
+            if (cost.getOrganizationAccountId() == null) {
+                throw new IllegalArgumentException("Organization account is required for immediate payments.");
+            }
+            bank = findBankAccount(cost.getOrganizationAccountId(), cost.getOrganizationId());
+        }
+        if (pending.signum() > 0) {
+            payable = journalUtilities.vendorPayable(cost.getOrganizationId());
+        }
+
+        JournalEntry header = projectCostJournalHeader(cost, "PROJECT_COST", cost.getId(),
+                cost.getOrganizationAccountId(), loggedInUser, "Project cost: " + cost.getTitle());
+        List<JournalDetailEntry> details = new ArrayList<>();
+        addProjectCostDetail(details, header, construction.getId(), total, BigDecimal.ZERO,
+                "Project cost capitalization");
+        if (paid.signum() > 0) {
+            addProjectCostDetail(details, header, bank.getId(), BigDecimal.ZERO, paid,
+                    "Immediate project cost payment");
+        }
+        if (pending.signum() > 0) {
+            addProjectCostDetail(details, header, payable.getId(), BigDecimal.ZERO, pending,
+                    cost.getPaymentType() == ProjectCostPaymentType.PDC ? "Project cost PDC payable" : "Project cost payable");
+        }
+        saveProjectCostJournalDetails(header, details, total);
+    }
+
+    public void validateProjectCostBankAccount(long organizationAccountId, long organizationId) {
+        findBankAccount(organizationAccountId, organizationId);
+    }
+
+    @Transactional
+    public void createJournalEntryForProjectCostPayment(
+            ProjectCost cost, ProjectCostPayment payment, String loggedInUser) {
+        createProjectCostSettlementJournal(cost, payment, "PROJECT_COST_PAYMENT", loggedInUser);
+    }
+
+    @Transactional
+    public void createJournalEntryForProjectCostPdcClearing(
+            ProjectCost cost, ProjectCostPayment payment, String loggedInUser) {
+        createProjectCostSettlementJournal(cost, payment, "PROJECT_COST_PDC_CLEARING", loggedInUser);
+    }
+
+    private void createProjectCostSettlementJournal(
+            ProjectCost cost, ProjectCostPayment payment, String referenceType, String loggedInUser) {
+        if (payment.getAmount() == null || payment.getAmount().signum() <= 0) {
+            throw new IllegalArgumentException("Project cost payment amount must be greater than zero.");
+        }
+        ChartOfAccount payable = journalUtilities.vendorPayable(cost.getOrganizationId());
+        ChartOfAccount bank = findBankAccount(payment.getOrganizationAccountId(), cost.getOrganizationId());
+        JournalEntry header = projectCostJournalHeader(cost, referenceType, payment.getId(),
+                payment.getOrganizationAccountId(), loggedInUser, "Project cost payment for cost #" + cost.getId());
+        List<JournalDetailEntry> details = new ArrayList<>();
+        addProjectCostDetail(details, header, payable.getId(), payment.getAmount(), BigDecimal.ZERO,
+                "Settle project cost payable");
+        addProjectCostDetail(details, header, bank.getId(), BigDecimal.ZERO, payment.getAmount(),
+                "Project cost bank payment");
+        saveProjectCostJournalDetails(header, details, payment.getAmount());
+    }
+
+    @Transactional
+    public void reverseJournalEntryForProjectCost(ProjectCost cost, String loggedInUser) {
+        List<JournalEntry> originals = journalEntryRepository
+                .findAllByOrganizationIdAndReferenceTypeAndAdditionalReferenceId(
+                        cost.getOrganizationId(), "PROJECT_COST", cost.getId());
+        if (originals.isEmpty()) {
+            throw new IllegalStateException("Original project cost journal was not found.");
+        }
+        JournalEntry original = originals.get(0);
+        JournalEntry reversal = projectCostJournalHeader(cost, "PROJECT_COST_REVERSAL", cost.getId(),
+                null, loggedInUser, "Reversal of project cost #" + cost.getId());
+        List<JournalDetailEntry> reversedDetails = new ArrayList<>();
+        for (JournalDetailEntry originalDetail : journalDetailEntryRepository.findAllByJournalEntryId(original.getId())) {
+            BigDecimal debit = BigDecimal.valueOf(originalDetail.getCreditAmount()).setScale(2);
+            BigDecimal credit = BigDecimal.valueOf(originalDetail.getDebitAmount()).setScale(2);
+            addProjectCostDetail(reversedDetails, reversal, originalDetail.getChartOfAccountId(), debit, credit,
+                    "Reversal of project cost journal");
+        }
+        BigDecimal total = reversedDetails.stream()
+                .map(detail -> BigDecimal.valueOf(detail.getDebitAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        saveProjectCostJournalDetails(reversal, reversedDetails, total);
+    }
+
+    private JournalEntry projectCostJournalHeader(
+            ProjectCost cost, String referenceType, Long referenceId, Long organizationAccountId,
+            String loggedInUser, String description) {
+        JournalEntry header = new JournalEntry();
+        header.setOrganizationId(cost.getOrganizationId());
+        header.setProjectId(cost.getProjectId());
+        header.setVendorId(cost.getVendorId());
+        header.setOrganizationAccountId(organizationAccountId);
+        header.setReferenceType(referenceType);
+        header.setAdditionalReferenceId(referenceId);
+        header.setDescription(description);
+        header.setCreatedDate(LocalDateTime.now());
+        header.setStatus(JournalEntryStatus.POSTED);
+        header.setCreatedBy(loggedInUser);
+        return journalEntryRepository.save(header);
+    }
+
+    private void addProjectCostDetail(
+            List<JournalDetailEntry> details, JournalEntry header, long accountId,
+            BigDecimal debit, BigDecimal credit, String description) {
+        if (debit.signum() == 0 && credit.signum() == 0) {
+            return;
+        }
+        JournalDetailEntry detail = new JournalDetailEntry();
+        detail.setJournalEntryId(header.getId());
+        detail.setChartOfAccountId(accountId);
+        detail.setDebitAmount(debit.doubleValue());
+        detail.setCreditAmount(credit.doubleValue());
+        detail.setDescription(description);
+        details.add(detail);
+    }
+
+    private void saveProjectCostJournalDetails(
+            JournalEntry header, List<JournalDetailEntry> details, BigDecimal expectedTotal) {
+        BigDecimal debit = details.stream().map(d -> BigDecimal.valueOf(d.getDebitAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = details.stream().map(d -> BigDecimal.valueOf(d.getCreditAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (debit.subtract(credit).abs().compareTo(new BigDecimal("0.01")) > 0
+                || debit.subtract(expectedTotal).abs().compareTo(new BigDecimal("0.01")) > 0) {
+            throw new IllegalStateException("Project cost journal is not balanced.");
+        }
+        for (JournalDetailEntry detail : details) {
+            journalDetailEntryRepository.save(detail);
+        }
+    }
 
 
     /**
@@ -4187,6 +4330,45 @@ public class JournalEntryService {
         } catch (Exception e) {
             throw new RuntimeException("Stock adjustment journal failed: " + e.getMessage(), e);
         }
+    }
+
+
+    @Transactional
+    public void reverseJournalEntryForUnpostedCustomerPayment(
+            CustomerAccount customerAccount,
+            CustomerPayment customerPayment,
+            String loggedInUser
+    ) {
+        double amount = customerPayment.getAmount();
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Invalid customer payment amount");
+        }
+        if (customerPayment.isPaymentAddedToAccount()) {
+            throw new IllegalArgumentException("Posted payments cannot use the undeposited reversal");
+        }
+
+        long organizationId = customerAccount.getCustomer().getOrganizationId();
+        ChartOfAccount receivable = journalUtilities.customerReceivable(organizationId);
+        ChartOfAccount undepositedFunds = journalUtilities.undepositedFunds(organizationId);
+
+        JournalEntry journal = new JournalEntry();
+        journal.setOrganizationId(organizationId);
+        journal.setCreatedDate(LocalDateTime.now());
+        journal.setReferenceType("CUSTOMER_PAYMENT_REVERSAL");
+        journal.setAdditionalReferenceId(customerPayment.getId());
+        journal.setCustomerId(customerAccount.getCustomer().getCustomerId());
+        journal.setProjectId(customerAccount.getProject().getProjectId());
+        journal.setUnitId(customerAccount.getUnit().getId());
+        journal.setDescription("Reversal of undeposited customer payment ID: " + customerPayment.getId());
+        journal.setStatus(JournalEntryStatus.POSTED);
+        journal.setCreatedBy(loggedInUser);
+        journal = journalEntryRepository.save(journal);
+
+        List<JournalDetailEntry> entries = List.of(
+                buildEntry(journal.getId(), receivable.getId(), amount, 0),
+                buildEntry(journal.getId(), undepositedFunds.getId(), 0, amount)
+        );
+        validateAndSave(entries, amount, amount);
     }
 
 }

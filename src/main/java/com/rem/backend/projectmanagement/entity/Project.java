@@ -44,6 +44,15 @@ public class Project {
     private double totalAmount = 0.0;
 
     @Column(nullable = true)
+    private Double openingRegistrationAmount;
+
+    @Column(nullable = true)
+    private Double openingConstructionAmount;
+
+    @Column(nullable = true)
+    private Double openingAdditionalAmount;
+
+    @Column(nullable = true)
     private String information;
 
     @Enumerated(EnumType.STRING)
