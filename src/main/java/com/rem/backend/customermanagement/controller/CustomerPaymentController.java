@@ -60,12 +60,26 @@ public class CustomerPaymentController {
         return ResponseEntity.ok(projectPage);
     }
 
+    @PostMapping("/editPayment")
+    public ResponseEntity<?> editPayment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> response = customerPaymentService.editCustomerPayment(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(response);
+    }
+
 
     @PostMapping("/deleteUnPostedPayment")
     public ResponseEntity<?> deleteUnPostedPayment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
         String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
         Map<String, Object> projectPage = customerPaymentService.deleteUnpostedPayment(customerPaymentRequest, loggedInUser);
         return ResponseEntity.ok(projectPage);
+    }
+
+    @PostMapping("/deletePayment")
+    public ResponseEntity<?> deletePayment(@RequestBody CustomerPayment customerPaymentRequest, HttpServletRequest request) {
+        String loggedInUser = (String) request.getAttribute(LOGGED_IN_USER);
+        Map<String, Object> response = customerPaymentService.deleteUnpostedPayment(customerPaymentRequest, loggedInUser);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/paymentDetails/{paymentId}")

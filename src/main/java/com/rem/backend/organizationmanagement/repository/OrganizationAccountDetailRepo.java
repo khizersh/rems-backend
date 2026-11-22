@@ -22,6 +22,10 @@ public interface OrganizationAccountDetailRepo extends JpaRepository<Organizatio
 
     Optional<OrganizationAccountDetail> findByExpenseId(long expenseId);
 
+    List<OrganizationAccountDetail> findByCustomerPaymentId(long customerPaymentId);
+    List<OrganizationAccountDetail> findByCustomerPaymentIdIn(List<Long> customerPaymentIds);
+    List<OrganizationAccountDetail> findByCustomerPaymentDetailIdIn(List<Long> customerPaymentDetailIds);
+
     @Transactional
     void deleteByExpenseId(Long expenseId);
 

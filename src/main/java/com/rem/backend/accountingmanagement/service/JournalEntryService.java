@@ -850,6 +850,7 @@ public class JournalEntryService {
                 journalEntry.setOrganizationId(organizationId);
                 journalEntry.setCreatedDate(customerPayment.getPaidDate());
                 journalEntry.setReferenceType(TransactionCategory.CUSTOMER_PAYMENT.name());
+                journalEntry.setAdditionalReferenceId(customerPayment.getId());
                 journalEntry.setOrganizationAccountId(0L);
                 journalEntry.setUnitId(unitId);
                 journalEntry.setBookingId(bookingId);
@@ -896,6 +897,7 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(organizationId);
             journalEntry.setCreatedDate(customerPayment.getPaidDate());
             journalEntry.setReferenceType(TransactionCategory.CUSTOMER_PAYMENT.name());
+            journalEntry.setAdditionalReferenceId(customerPayment.getId());
             journalEntry.setOrganizationAccountId(firstDetail.getOrganizationAcctId());
             journalEntry.setUnitId(unitId);
             journalEntry.setProjectId(firstDetail.getProjectId());
@@ -1672,6 +1674,7 @@ public class JournalEntryService {
             journalEntry.setOrganizationId(organizationId);
             journalEntry.setCreatedDate(java.time.LocalDateTime.now());
             journalEntry.setReferenceType("PAYMENT_POSTING");
+            journalEntry.setAdditionalReferenceId(customerPayment.getId());
             journalEntry.setOrganizationAccountId(organizationAccountDetails.get(0).getOrganizationAcctId());
             journalEntry.setUnitId(unitId);
             journalEntry.setProjectId(organizationAccountDetails.get(0).getProjectId());
@@ -4334,41 +4337,74 @@ public class JournalEntryService {
 
 
     @Transactional
-    public void reverseJournalEntryForUnpostedCustomerPayment(
+    public void reverseJournalEntriesForCustomerPayment(
             CustomerAccount customerAccount,
             CustomerPayment customerPayment,
             String loggedInUser
     ) {
-        double amount = customerPayment.getAmount();
-        if (!Double.isFinite(amount) || amount <= 0) {
-            throw new IllegalArgumentException("Invalid customer payment amount");
-        }
-        if (customerPayment.isPaymentAddedToAccount()) {
-            throw new IllegalArgumentException("Posted payments cannot use the undeposited reversal");
-        }
-
         long organizationId = customerAccount.getCustomer().getOrganizationId();
-        ChartOfAccount receivable = journalUtilities.customerReceivable(organizationId);
-        ChartOfAccount undepositedFunds = journalUtilities.undepositedFunds(organizationId);
+        List<JournalEntry> sourceEntries = new ArrayList<>();
+        for (String referenceType : List.of(
+                TransactionCategory.CUSTOMER_PAYMENT.name(),
+                "PAYMENT_POSTING")) {
+            sourceEntries.addAll(journalEntryRepository
+                    .findAllByOrganizationIdAndReferenceTypeAndAdditionalReferenceId(
+                            organizationId, referenceType, customerPayment.getId()));
+            sourceEntries.addAll(journalEntryRepository
+                    .findAllByOrganizationIdAndReferenceTypeAndDescriptionEndingWith(
+                            organizationId, referenceType, "Payment ID: " + customerPayment.getId()));
+        }
 
-        JournalEntry journal = new JournalEntry();
-        journal.setOrganizationId(organizationId);
-        journal.setCreatedDate(LocalDateTime.now());
-        journal.setReferenceType("CUSTOMER_PAYMENT_REVERSAL");
-        journal.setAdditionalReferenceId(customerPayment.getId());
-        journal.setCustomerId(customerAccount.getCustomer().getCustomerId());
-        journal.setProjectId(customerAccount.getProject().getProjectId());
-        journal.setUnitId(customerAccount.getUnit().getId());
-        journal.setDescription("Reversal of undeposited customer payment ID: " + customerPayment.getId());
-        journal.setStatus(JournalEntryStatus.POSTED);
-        journal.setCreatedBy(loggedInUser);
-        journal = journalEntryRepository.save(journal);
+        List<JournalEntry> activeEntries = sourceEntries.stream()
+                .filter(entry -> entry.getStatus() == JournalEntryStatus.POSTED)
+                .distinct()
+                .toList();
+        if (activeEntries.isEmpty()) {
+            throw new IllegalArgumentException("No active accounting entries found for this customer payment");
+        }
 
-        List<JournalDetailEntry> entries = List.of(
-                buildEntry(journal.getId(), receivable.getId(), amount, 0),
-                buildEntry(journal.getId(), undepositedFunds.getId(), 0, amount)
-        );
-        validateAndSave(entries, amount, amount);
+        for (JournalEntry source : activeEntries) {
+            List<JournalDetailEntry> sourceDetails =
+                    journalDetailEntryRepository.findAllByJournalEntryId(source.getId());
+            if (sourceDetails.isEmpty()) {
+                throw new IllegalStateException("Accounting entry has no journal details: " + source.getId());
+            }
+
+            JournalEntry reversal = new JournalEntry();
+            reversal.setOrganizationId(source.getOrganizationId());
+            reversal.setCreatedDate(LocalDateTime.now());
+            reversal.setReferenceType("CUSTOMER_PAYMENT_REVERSAL");
+            reversal.setAdditionalReferenceId(customerPayment.getId());
+            reversal.setProjectId(source.getProjectId());
+            reversal.setUnitId(source.getUnitId());
+            reversal.setCustomerId(source.getCustomerId());
+            reversal.setOrganizationAccountId(source.getOrganizationAccountId());
+            reversal.setBookingId(source.getBookingId());
+            reversal.setDescription("Reversal of journal entry " + source.getId()
+                    + " for customer payment ID: " + customerPayment.getId());
+            reversal.setStatus(JournalEntryStatus.POSTED);
+            reversal.setCreatedBy(loggedInUser);
+            reversal = journalEntryRepository.save(reversal);
+
+            List<JournalDetailEntry> reversedDetails = new ArrayList<>();
+            double totalDebit = 0;
+            double totalCredit = 0;
+            for (JournalDetailEntry sourceDetail : sourceDetails) {
+                JournalDetailEntry reversedDetail = buildEntry(
+                        reversal.getId(),
+                        sourceDetail.getChartOfAccountId(),
+                        sourceDetail.getCreditAmount(),
+                        sourceDetail.getDebitAmount());
+                reversedDetail.setDescription("Reversal of journal entry " + source.getId());
+                reversedDetails.add(reversedDetail);
+                totalDebit += sourceDetail.getCreditAmount();
+                totalCredit += sourceDetail.getDebitAmount();
+            }
+            validateAndSave(reversedDetails, totalDebit, totalCredit);
+
+            source.setStatus(JournalEntryStatus.CANCELLED);
+        }
+        journalEntryRepository.saveAll(activeEntries);
     }
 
 }
