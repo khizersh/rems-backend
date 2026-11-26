@@ -15,6 +15,7 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
     List<JournalEntry> findAllByOrganizationIdAndCreatedDateBetween(long organizationId, LocalDateTime startDate, LocalDateTime endDate);
     List<JournalEntry> findAllByOrganizationIdAndReferenceTypeAndAdditionalReferenceId(
             long organizationId, String referenceType, Long additionalReferenceId);
+    List<JournalEntry> findAllByOrganizationIdAndExpenseId(long organizationId, Long expenseId);
     List<JournalEntry> findAllByOrganizationIdAndReferenceTypeAndDescriptionEndingWith(
             long organizationId, String referenceType, String description);
 }

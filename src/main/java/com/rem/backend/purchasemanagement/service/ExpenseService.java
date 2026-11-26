@@ -15,6 +15,7 @@ import com.rem.backend.vendormanagement.entity.PdcRecord;
 import com.rem.backend.organizationmanagement.entity.OrganizationAccount;
 import com.rem.backend.organizationmanagement.entity.OrganizationAccountDetail;
 import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.projectmanagement.entity.Unit;
 import com.rem.backend.vendormanagement.entity.VendorAccount;
 import com.rem.backend.vendormanagement.entity.VendorPayment;
 import com.rem.backend.enums.PaymentStatus;
@@ -27,6 +28,7 @@ import com.rem.backend.purchasemanagement.repository.ExpenseTypeRepo;
 import com.rem.backend.organizationmanagement.repository.OrganizationAccoutRepo;
 import com.rem.backend.organizationmanagement.repository.OrganizationAccountDetailRepo;
 import com.rem.backend.projectmanagement.repository.ProjectRepo;
+import com.rem.backend.projectmanagement.repository.UnitRepo;
 import com.rem.backend.vendormanagement.repository.VendorAccountDetailRepo;
 import com.rem.backend.vendormanagement.repository.VendorAccountRepo;
 import com.rem.backend.accountingmanagement.service.JournalEntryService;
@@ -72,7 +74,9 @@ public class ExpenseService {
     private final ChartOfAccountRepository coaRepo;
     private final WarehouseIntegrationService warehouseIntegrationService;
     private final PdcPaymentService pdcPaymentService;
+    private final UnitRepo unitRepo;
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Map<String, Object> getExpenseList(ExpenseFetchRequestDTO requestDTO, Pageable pageable) {
 
         try {
@@ -341,7 +345,7 @@ public class ExpenseService {
                 });
             }
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, populateLegacyAccountGroups(expenses));
 
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
@@ -351,6 +355,7 @@ public class ExpenseService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Map<String, Object> getPayableExpenseList(FilterPaginationRequest request, Pageable pageable) {
 
         Page<Expense> expenses = null;
@@ -370,7 +375,7 @@ public class ExpenseService {
             }
 
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenses);
+            return ResponseMapper.buildResponse(Responses.SUCCESS, populateLegacyAccountGroups(expenses));
 
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
@@ -380,6 +385,7 @@ public class ExpenseService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Map<String, Object> getExpenseDetails(long expenseId) {
 
         try {
@@ -394,6 +400,7 @@ public class ExpenseService {
                 throw new IllegalArgumentException("Invalid Expense");
 
             Expense expense = expenseOptional.get();
+            populateLegacyAccountGroups(List.of(expense));
             expenseDetails = expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(expenseId);
 
             Map<String, Object> data = new HashMap<>();
@@ -423,10 +430,33 @@ public class ExpenseService {
             ValidationService.validate(expense.getPaymentType(), "payment type");
             ValidationService.validate(expense.getOrganizationAccountId(), "organization account id");
 
+            if (expense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS) {
+                if (expense.getPaymentType() == PaymentType.CHEQUE) {
+                    throw new IllegalArgumentException("Post-dated cheques are not supported for miscellaneous expenses");
+                }
+                if (!Double.isFinite(expense.getTotalAmount())
+                        || !Double.isFinite(expense.getAmountPaid())
+                        || !Double.isFinite(expense.getCreditAmount())
+                        || expense.getTotalAmount() <= 0 || expense.getAmountPaid() < 0
+                        || expense.getCreditAmount() < 0
+                        || Math.abs(expense.getAmountPaid() + expense.getCreditAmount()
+                        - expense.getTotalAmount()) > 0.01) {
+                    throw new IllegalArgumentException(
+                            "Total amount must equal amount paid plus credit amount, and all amounts must be valid");
+                }
+                setExpenseAccountGroup(expense, loggedInUser);
+                expense.setProjectId(0L);
+                expense.setProjectName(null);
+                expense.setUnitId(null);
+                validateMiscellaneousVendor(expense);
+            } else {
+                expense.setAccountGroupId(null);
+            }
+
             // ── PDC MODE: determine if this is a Post-Dated Cheque ──────────
             // PDC flow is triggered when paymentType == CHEQUE
 
-            if (expense.getProjectId() > 0l) {
+            if (expense.getProjectId() != null && expense.getProjectId() > 0l) {
                 Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
                 if (!projectOptional.isPresent())
                     throw new IllegalArgumentException("Invalid Project!");
@@ -469,7 +499,8 @@ public class ExpenseService {
                 pdcRecord.setComments(expense.getComments());
 
 
-                Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(expense.getOrganizationAccountId());
+                Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo
+                        .findByIdAndOrganizationId(expense.getOrganizationAccountId(), expense.getOrganizationId());
                 if (!organizationAccountOptional.isPresent())
                     throw new IllegalArgumentException("Invalid Account");
 //
@@ -484,7 +515,8 @@ public class ExpenseService {
 
             OrganizationAccountDetail organizationAccountDetail = new OrganizationAccountDetail();
 
-            Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo.findById(expense.getOrganizationAccountId());
+            Optional<OrganizationAccount> organizationAccountOptional = organizationAccountRepo
+                    .findByIdAndOrganizationId(expense.getOrganizationAccountId(), expense.getOrganizationId());
 
             if (!organizationAccountOptional.isPresent())
                 throw new IllegalArgumentException("Invalid Account");
@@ -526,12 +558,10 @@ public class ExpenseService {
             expense.setPaymentStatus(getPaymentStatus(expense));
             expense = expenseRepo.save(expense);
 
-
-            organizationAccountDetail.setExpenseId(expense.getId());
-            organizationAccountDetail.setComments(expense.getComments());
-            organizationAccountDetail.setAmount(expense.getAmountPaid());
-            organizationAccountDetail.setTransactionCategory(TransactionCategory.CUSTOMER_PAYMENT);
-            organizationAccountDetail.setOrganizationAcctId(expense.getOrganizationAccountId());
+            if (expense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS) {
+                addMiscellaneousVendorPayment(expense, loggedInUser);
+            }
+            populateExpenseAccountDetail(organizationAccountDetail, expense);
             OrganizationAccount organizationAccount = organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
             expense.setOrgAccountTitle(organizationAccount.getName());
 
@@ -595,6 +625,7 @@ public class ExpenseService {
 
     }
 
+    @Transactional
     public Map<String, Object> updateExpense(Expense newExpense, String loggedInUser) {
 
         try {
@@ -616,6 +647,54 @@ public class ExpenseService {
 
             if (oldExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.HISTORICAL))
                 throw new IllegalArgumentException("Historical expense cannot be edited!");
+            validateExpenseCanBeModified(oldExpense);
+            if (!Objects.equals(newExpense.getOrganizationId(), oldExpense.getOrganizationId())) {
+                throw new IllegalArgumentException("Expense organization cannot be changed");
+            }
+            if (newExpense.getExpenseType() != com.rem.backend.enums.ExpenseType.CONSTRUCTION
+                    && newExpense.getExpenseType() != com.rem.backend.enums.ExpenseType.MISCELLANEOUS) {
+                throw new IllegalArgumentException("Only construction and miscellaneous expenses can be edited");
+            }
+            List<ExpenseDetail> oldDetails = expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(oldExpense.getId());
+            if (oldDetails.size() > 1) {
+                throw new IllegalArgumentException("Expenses with multiple payments cannot be edited");
+            }
+            if (!Double.isFinite(newExpense.getTotalAmount())
+                    || !Double.isFinite(newExpense.getAmountPaid())
+                    || !Double.isFinite(newExpense.getCreditAmount())
+                    || newExpense.getTotalAmount() <= 0
+                    || newExpense.getAmountPaid() < 0
+                    || newExpense.getCreditAmount() < 0
+                    || Math.abs(newExpense.getAmountPaid() + newExpense.getCreditAmount()
+                    - newExpense.getTotalAmount()) > 0.01) {
+                throw new IllegalArgumentException(
+                        "Total amount must equal amount paid plus credit amount, and all amounts must be valid");
+            }
+
+            if (newExpense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS) {
+                setExpenseAccountGroup(newExpense, loggedInUser);
+                newExpense.setProjectId(0L);
+                newExpense.setProjectName(null);
+                newExpense.setUnitId(null);
+                if ((newExpense.getVendorAccountId() == null || newExpense.getVendorAccountId() <= 0)
+                        && oldExpense.getVendorAccountId() != null && oldExpense.getVendorAccountId() > 0) {
+                    newExpense.setVendorAccountId(oldExpense.getVendorAccountId());
+                }
+                validateMiscellaneousVendor(newExpense);
+            } else {
+                newExpense.setAccountGroupId(null);
+                newExpense.setExpenseCOAId(journalUtilities.constructionInventory(newExpense.getOrganizationId()).getId());
+            }
+
+            newExpense.setCreatedBy(oldExpense.getCreatedBy());
+            newExpense.setCreatedDate(oldExpense.getCreatedDate());
+            newExpense.setUpdatedBy(loggedInUser);
+            newExpense.setPaymentStatus(getPaymentStatus(newExpense));
+            OrganizationAccount updatedOrganizationAccount = organizationAccoutRepo
+                    .findByIdAndOrganizationId(
+                            newExpense.getOrganizationAccountId(), newExpense.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Organization Account!"));
+            newExpense.setOrgAccountTitle(updatedOrganizationAccount.getName());
 
 
             if (!newExpense.getExpenseType().equals(oldExpense.getExpenseType())) {
@@ -643,28 +722,24 @@ public class ExpenseService {
 
                     newExpense.setProjectId(0l);
                     newExpense.setProjectName("");
-                    newExpense.setVendorAccountId(0l);
-                    newExpense.setVendorName("");
-                    newExpense.setExpenseTitle("Miscellaneous Expense");
+                    if (newExpense.getExpenseTitle() == null || newExpense.getExpenseTitle().isBlank()) {
+                        newExpense.setExpenseTitle("Miscellaneous Expense");
+                    }
 
                     // Only update project if old expense had a project
                     if (oldExpense.getProjectId() != null && oldExpense.getProjectId() > 0) {
-                        Optional<Project> projectOptional = projectRepo.findById(oldExpense.getProjectId());
-                        if (projectOptional.isPresent()) {
-                            Project oldProject = projectOptional.get();
+                        Project oldProject = projectRepo.findById(oldExpense.getProjectId())
+                                .orElseThrow(() -> new IllegalArgumentException("Invalid old Project!"));
 
-                            oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
-                            oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
+                        oldProject.setTotalAmount(oldProject.getTotalAmount() - oldExpense.getTotalAmount());
+                        oldProject.setConstructionAmount(oldProject.getConstructionAmount() - oldExpense.getTotalAmount());
 
-                            projectRepo.save(oldProject);
-                        }
+                        projectRepo.save(oldProject);
                     }
-
-                    expenseRepo.save(newExpense);
-
 
                 } else if (newExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
+                    removeMiscellaneousVendorPayment(oldExpense, loggedInUser);
                     // Project is optional when changing to CONSTRUCTION type
                     Optional<Project> newProjectOptional = Optional.empty();
                     if (newExpense.getProjectId() != null && newExpense.getProjectId() > 0) {
@@ -743,7 +818,7 @@ public class ExpenseService {
                 // ValidationService.validate(newExpense.getProjectId(), "Project"); // Removed - project is now optional
                 ValidationService.validate(newExpense.getVendorAccountId(), "Vendor");
 
-                if (newExpense.getOrganizationAccountId() != oldExpense.getOrganizationAccountId()) {
+                if (!Objects.equals(newExpense.getOrganizationAccountId(), oldExpense.getOrganizationAccountId())) {
 
                     Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(oldExpense.getOrganizationAccountId());
                     if (organizationAccountOptional.isEmpty())
@@ -765,12 +840,7 @@ public class ExpenseService {
 
                     organizationAccountDetail = new OrganizationAccountDetail();
 
-                    organizationAccountDetail.setExpenseId(newExpense.getId());
-                    organizationAccountDetail.setComments(newExpense.getComments());
-                    organizationAccountDetail.setAmount(newExpense.getAmountPaid());
-                    organizationAccountDetail.setOrganizationAcctId(newExpense.getOrganizationAccountId());
-
-//                    TODO :: ADD NEW ROWS IN ORG ACCOUNT DETAIL
+                    populateExpenseAccountDetail(organizationAccountDetail, newExpense);
 
                     organizationAccount = organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
 
@@ -792,10 +862,14 @@ public class ExpenseService {
                     OrganizationAccountDetail organizationAccountDetail = organizationAccountDetailOptional.get();
 
                     double latestAmountOrg = organizationAccount.getTotalAmount() + (oldExpense.getAmountPaid() - newExpense.getAmountPaid());
+                    if (latestAmountOrg < 0) {
+                        throw new IllegalArgumentException("Not Enough Funds for this account");
+                    }
                     organizationAccount.setTotalAmount(latestAmountOrg);
                     organizationAccount.setUpdatedBy(loggedInUser);
                     organizationAccoutRepo.save(organizationAccount);
 
+                    populateExpenseAccountDetail(organizationAccountDetail, newExpense);
                     organizationAccountDetail.setAmount(newExpense.getAmountPaid());
                     organizationAccountDetail.setUpdatedBy(loggedInUser);
                     organizationAccountDetailRepo.save(organizationAccountDetail);
@@ -824,7 +898,7 @@ public class ExpenseService {
                     VendorAccount vendorAccount = vendorAccountOptional.get();
                     VendorPayment vendorPayment = vendorPaymentOptional.get();
 
-                    if (newExpense.getVendorAccountId() != oldExpense.getVendorAccountId()) {
+                    if (!Objects.equals(newExpense.getVendorAccountId(), oldExpense.getVendorAccountId())) {
 
                         vendorAccount.setTotalAmountPaid(vendorAccount.getTotalAmountPaid() - vendorPayment.getAmountPaid());
                         vendorAccount.setTotalCreditAmount(vendorAccount.getTotalCreditAmount() - vendorPayment.getCreditAmount());
@@ -938,6 +1012,11 @@ public class ExpenseService {
             } // handling type change
             else if (newExpense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.MISCELLANEOUS)) {
 
+                if (!isExpenseTypeChanges) {
+                    removeMiscellaneousVendorPayment(oldExpense, loggedInUser);
+                }
+                addMiscellaneousVendorPayment(newExpense, loggedInUser);
+
                 Optional<OrganizationAccount> organizationAccountOptional = organizationAccoutRepo.findById(newExpense.getOrganizationAccountId());
                 if (organizationAccountOptional.isEmpty())
                     throw new IllegalArgumentException("Invalid Organization Account!");
@@ -950,22 +1029,21 @@ public class ExpenseService {
                 OrganizationAccount organizationAccount = organizationAccountOptional.get();
                 OrganizationAccountDetail organizationAccountDetail = organizationAccountDetailOptional.get();
 
-                if (newExpense.getOrganizationAccountId() != oldExpense.getOrganizationAccountId()) {
+                if (!Objects.equals(newExpense.getOrganizationAccountId(), oldExpense.getOrganizationAccountId())) {
 
-                    organizationAccount.setTotalAmount(organizationAccount.getTotalAmount() + organizationAccountDetail.getAmount());
-                    organizationAccount.setUpdatedBy(loggedInUser);
-                    organizationAccoutRepo.save(organizationAccount);
+                    OrganizationAccount oldOrganizationAccount = organizationAccoutRepo
+                            .findById(organizationAccountDetail.getOrganizationAcctId())
+                            .orElseThrow(() -> new IllegalArgumentException("Invalid old Organization Account!"));
+                    oldOrganizationAccount.setTotalAmount(
+                            oldOrganizationAccount.getTotalAmount() + organizationAccountDetail.getAmount());
+                    oldOrganizationAccount.setUpdatedBy(loggedInUser);
+                    organizationAccoutRepo.save(oldOrganizationAccount);
 
                     organizationAccountDetailRepo.delete(organizationAccountDetail);
 
                     organizationAccountDetail = new OrganizationAccountDetail();
 
-                    organizationAccountDetail.setExpenseId(newExpense.getId());
-                    organizationAccountDetail.setComments(newExpense.getComments());
-                    organizationAccountDetail.setAmount(newExpense.getAmountPaid());
-                    organizationAccountDetail.setOrganizationAcctId(newExpense.getOrganizationAccountId());
-
-//                    TODO :: ADD NEW ROWS IN ORG ACCOUNT DETAIL
+                    populateExpenseAccountDetail(organizationAccountDetail, newExpense);
 
                     organizationAccountService.deductFromOrgAcct(organizationAccountDetail, loggedInUser);
 
@@ -973,18 +1051,22 @@ public class ExpenseService {
                 } else {
 
                     double latestAmountOrg = organizationAccount.getTotalAmount() + (oldExpense.getAmountPaid() - newExpense.getAmountPaid());
+                    if (latestAmountOrg < 0) {
+                        throw new IllegalArgumentException("Not Enough Funds for this account");
+                    }
                     organizationAccount.setTotalAmount(latestAmountOrg);
                     organizationAccount.setUpdatedBy(loggedInUser);
                     organizationAccoutRepo.save(organizationAccount);
 
+                    populateExpenseAccountDetail(organizationAccountDetail, newExpense);
                     organizationAccountDetail.setAmount(newExpense.getAmountPaid());
                     organizationAccountDetail.setUpdatedBy(loggedInUser);
                     organizationAccountDetailRepo.save(organizationAccountDetail);
                 }
             } // handling type change
 
-            if (newExpense.getCreditAmount() == 0)
-                newExpense.setPaymentStatus(PaymentStatus.PAID);
+            newExpense.setUpdatedBy(loggedInUser);
+            newExpense.setPaymentStatus(getPaymentStatus(newExpense));
 
             newExpense = expenseRepo.save(newExpense);
 
@@ -994,21 +1076,176 @@ public class ExpenseService {
             expenseDetail.setOrganizationAccountId(newExpense.getOrganizationAccountId());
             expenseDetail.setOrganizationAccountTitle(newExpense.getOrgAccountTitle());
             expenseDetail.setExpenseTitle(newExpense.getExpenseTitle());
+            if (newExpense.getPaymentType() != null) {
+                expenseDetail.setPaymentType(newExpense.getPaymentType());
+                expenseDetail.setPaymentDocNo(newExpense.getPaymentDocNo());
+                expenseDetail.setPaymentDocDate(newExpense.getPaymentDocDate());
+            } else if (!oldDetails.isEmpty()) {
+                expenseDetail.setPaymentType(oldDetails.get(0).getPaymentType());
+                expenseDetail.setPaymentDocNo(oldDetails.get(0).getPaymentDocNo());
+                expenseDetail.setPaymentDocDate(oldDetails.get(0).getPaymentDocDate());
+            }
             expenseDetail.setUpdatedBy(loggedInUser);
             expenseDetail.setCreatedBy(loggedInUser);
             expenseDetailRepo.save(expenseDetail);
 
+            journalEntryService.reverseJournalEntriesForExpenseUpdate(oldExpense, loggedInUser);
+            journalEntryService.createJournalEntryForExpenseUpdate(
+                    newExpense, updatedOrganizationAccount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, newExpense);
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
 
     }
 
+    private void populateExpenseAccountDetail(
+            OrganizationAccountDetail detail,
+            Expense expense
+    ) {
+        detail.setExpenseId(expense.getId());
+        detail.setOrganizationAcctId(expense.getOrganizationAccountId());
+        detail.setAmount(expense.getAmountPaid());
+        detail.setComments(expense.getComments() == null || expense.getComments().isBlank()
+                ? "Expense: " + expense.getExpenseTitle()
+                : expense.getComments());
+        detail.setTransactionCategory(
+                expense.getExpenseType() == com.rem.backend.enums.ExpenseType.CONSTRUCTION
+                        ? TransactionCategory.CONSTRUCTION
+                        : TransactionCategory.MISCALLENOUS);
+        detail.setProjectId(0L);
+        detail.setProjectName(null);
+        detail.setUnitSerialNo(null);
+
+        if (expense.getProjectId() != null && expense.getProjectId() > 0) {
+            Project project = projectRepo
+                    .findByProjectIdAndOrganizationIdAndIsActiveTrue(
+                            expense.getProjectId(), expense.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Project!"));
+            detail.setProjectId(project.getProjectId());
+            detail.setProjectName(project.getName());
+            expense.setProjectName(project.getName());
+        }
+
+        if (expense.getUnitId() != null && expense.getUnitId() > 0) {
+            Unit unit = unitRepo.findById(expense.getUnitId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Unit!"));
+            detail.setUnitSerialNo(unit.getSerialNo());
+        }
+    }
+
+    private void setExpenseAccountGroup(Expense expense, String loggedInUser) {
+        ChartOfAccount account = journalUtilities.findChartOfAccount(expense, loggedInUser);
+        expense.setAccountGroupId(account.getAccountGroup().getId());
+    }
+
+    private void validateMiscellaneousVendor(Expense expense) {
+        Long vendorId = expense.getVendorAccountId();
+        if (vendorId == null || vendorId <= 0) {
+            if (expense.getCreditAmount() > 0) {
+                throw new IllegalArgumentException("A vendor is required for a miscellaneous expense with credit");
+            }
+            expense.setVendorAccountId(0L);
+            expense.setVendorName(null);
+            return;
+        }
+        VendorAccount vendor = vendorAccountRepo.findById(vendorId)
+                .filter(account -> account.getOrganizationId() == expense.getOrganizationId())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid Vendor Account"));
+        expense.setVendorName(vendor.getName());
+    }
+
+    private void addMiscellaneousVendorPayment(Expense expense, String loggedInUser) {
+        if (expense.getVendorAccountId() == null || expense.getVendorAccountId() <= 0) {
+            return;
+        }
+        VendorAccount vendor = vendorAccountRepo.findById(expense.getVendorAccountId())
+                .filter(account -> account.getOrganizationId() == expense.getOrganizationId())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid Vendor Account"));
+        vendor.setTotalAmount(vendor.getTotalAmount() + expense.getTotalAmount());
+        vendor.setTotalAmountPaid(vendor.getTotalAmountPaid() + expense.getAmountPaid());
+        vendor.setTotalCreditAmount(vendor.getTotalCreditAmount() + expense.getCreditAmount());
+        vendor.setUpdatedBy(loggedInUser);
+        vendorAccountRepo.save(vendor);
+
+        VendorPayment payment = new VendorPayment();
+        payment.setVendorAccountId(vendor.getId());
+        payment.setExpenseId(expense.getId());
+        payment.setOrganizationAccountId(expense.getOrganizationAccountId());
+        payment.setProjectId(0);
+        payment.setAmountPaid(expense.getAmountPaid());
+        payment.setCreditAmount(expense.getCreditAmount());
+        payment.setBalanceAmount(vendor.getTotalCreditAmount());
+        payment.setVendorPaymentType(VendorPaymentType.DIRECT_PURCHASE);
+        payment.setTransactionType(expense.getCreditAmount() == 0 ? TransactionType.DEBIT
+                : expense.getAmountPaid() == 0 ? TransactionType.CREDIT : TransactionType.DEBIT_CREDIT);
+        payment.setCreatedBy(loggedInUser);
+        payment.setUpdatedBy(loggedInUser);
+        vendorAccountDetailRepo.save(payment);
+    }
+
+    private void removeMiscellaneousVendorPayment(Expense expense, String loggedInUser) {
+        Optional<VendorPayment> paymentOptional = vendorAccountDetailRepo.findByExpenseId(expense.getId());
+        if (paymentOptional.isEmpty()) {
+            return;
+        }
+        VendorPayment payment = paymentOptional.get();
+        VendorAccount vendor = vendorAccountRepo.findById(payment.getVendorAccountId())
+                .filter(account -> account.getOrganizationId() == expense.getOrganizationId())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid Vendor Account"));
+        vendor.setTotalAmount(vendor.getTotalAmount() - payment.getAmountPaid() - payment.getCreditAmount());
+        vendor.setTotalAmountPaid(vendor.getTotalAmountPaid() - payment.getAmountPaid());
+        vendor.setTotalCreditAmount(vendor.getTotalCreditAmount() - payment.getCreditAmount());
+        vendor.setUpdatedBy(loggedInUser);
+        vendorAccountRepo.save(vendor);
+        vendorAccountDetailRepo.delete(payment);
+    }
+
+    private void validateExpenseCanBeModified(Expense expense) {
+        if (expense.getPdcStatus() != null
+                || (expense.getExpenseType() == com.rem.backend.enums.ExpenseType.CONSTRUCTION
+                && vendorAccountDetailRepo.findByExpenseId(expense.getId())
+                .map(payment -> payment.getVendorPaymentType() == VendorPaymentType.PDC_CLEARANCE)
+                .orElse(false))) {
+            throw new IllegalArgumentException("PDC-related expenses must be managed through the PDC workflow");
+        }
+    }
+
+    private Page<Expense> populateLegacyAccountGroups(Page<Expense> expenses) {
+        populateLegacyAccountGroups(expenses.getContent());
+        return expenses;
+    }
+
+    private void populateLegacyAccountGroups(List<Expense> expenses) {
+        Set<Long> ids = expenses.stream()
+                .filter(expense -> expense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS
+                        && expense.getAccountGroupId() == null && expense.getExpenseCOAId() > 0)
+                .map(Expense::getExpenseCOAId)
+                .collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, ChartOfAccount> accounts = coaRepo.findAllById(ids).stream()
+                .collect(Collectors.toMap(ChartOfAccount::getId, Function.identity()));
+        for (Expense expense : expenses) {
+            ChartOfAccount account = accounts.get(expense.getExpenseCOAId());
+            if (expense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS
+                    && expense.getAccountGroupId() == null && account != null
+                    && account.getOrganization() != null
+                    && Objects.equals(expense.getOrganizationId(), account.getOrganization().getOrganizationId())
+                    && account.getAccountGroup() != null) {
+                expense.setAccountGroupId(account.getAccountGroup().getId());
+            }
+        }
+    }
+
+    @Transactional
     public Map<String, Object> deleteExpense(long expenseId, String loggedInUser) {
 
         try {
@@ -1022,6 +1259,7 @@ public class ExpenseService {
 
             if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.HISTORICAL))
                 throw new IllegalArgumentException("Historical Expense cannot be deleted!");
+            validateExpenseCanBeModified(expense);
 
             ValidationService.validate(expense.getId(), "Expense");
             ValidationService.validate(loggedInUser, "logged in user");
@@ -1030,52 +1268,44 @@ public class ExpenseService {
             ValidationService.validate(expense.getTotalAmount(), "total amount");
             ValidationService.validate(expense.getOrganizationId(), "organization id");
             ValidationService.validate(expense.getOrganizationAccountId(), "organization account id");
+            if (expenseDetailRepo.findByExpenseIdOrderByCreatedDateDesc(expenseId).size() > 1) {
+                throw new IllegalArgumentException("Expenses with multiple payments cannot be deleted");
+            }
 
 
             if (expense.getExpenseType().equals(com.rem.backend.enums.ExpenseType.CONSTRUCTION)) {
 
 
-                Optional<Project> projectOptional = projectRepo.findById(expense.getProjectId());
-                if (projectOptional.isPresent()) {
-                    Project project = projectOptional.get();
+                if (expense.getProjectId() != null && expense.getProjectId() > 0) {
+                    Project project = projectRepo.findById(expense.getProjectId())
+                            .orElseThrow(() -> new IllegalArgumentException("Invalid Project"));
                     project.setConstructionAmount(project.getConstructionAmount() - expense.getTotalAmount());
                     project.setTotalAmount(project.getTotalAmount() - expense.getTotalAmount());
                     project.setUpdatedBy(loggedInUser);
                     projectRepo.save(project);
                 }
 
-                Optional<OrganizationAccount> orgAccountOptional = organizationAccoutRepo.findById(expense.getOrganizationAccountId());
-                if (orgAccountOptional.isPresent()) {
-                    OrganizationAccount account = orgAccountOptional.get();
-                    account.setTotalAmount(account.getTotalAmount() + expense.getAmountPaid());
-                    account.setUpdatedBy(loggedInUser);
-                    organizationAccoutRepo.save(account);
-                    organizationAccountDetailRepo.deleteByExpenseId(expense.getId());
-                }
-
-                Optional<VendorAccount> vendorAccountOptional = vendorAccountRepo.findById(expense.getVendorAccountId());
-                if (vendorAccountOptional.isPresent()) {
-                    VendorAccount account = vendorAccountOptional.get();
-                    account.setTotalAmount(account.getTotalAmount() - expense.getTotalAmount());
-                    account.setTotalCreditAmount(account.getTotalCreditAmount() - expense.getCreditAmount());
-                    account.setTotalAmountPaid(account.getTotalCreditAmount() - expense.getAmountPaid());
-                    account.setUpdatedBy(loggedInUser);
-                    vendorAccountRepo.save(account);
-                    vendorAccountDetailRepo.deleteByExpenseId(expense.getId());
-                }
-
-            } else {
-
-                Optional<OrganizationAccount> orgAccountOptional = organizationAccoutRepo.findById(expense.getOrganizationAccountId());
-                if (orgAccountOptional.isPresent()) {
-                    OrganizationAccount account = orgAccountOptional.get();
-                    account.setTotalAmount(account.getTotalAmount() + expense.getAmountPaid());
-                    account.setUpdatedBy(loggedInUser);
-                    organizationAccoutRepo.save(account);
-                    organizationAccountDetailRepo.deleteByExpenseId(expense.getId());
-                }
+                VendorAccount account = vendorAccountRepo.findById(expense.getVendorAccountId())
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid Vendor Account"));
+                account.setTotalAmount(account.getTotalAmount() - expense.getTotalAmount());
+                account.setTotalCreditAmount(account.getTotalCreditAmount() - expense.getCreditAmount());
+                account.setTotalAmountPaid(account.getTotalAmountPaid() - expense.getAmountPaid());
+                account.setUpdatedBy(loggedInUser);
+                vendorAccountRepo.save(account);
+                vendorAccountDetailRepo.deleteByExpenseId(expense.getId());
+            } else if (expense.getExpenseType() == com.rem.backend.enums.ExpenseType.MISCELLANEOUS) {
+                removeMiscellaneousVendorPayment(expense, loggedInUser);
             }
 
+            OrganizationAccount account = organizationAccoutRepo
+                    .findByIdAndOrganizationId(expense.getOrganizationAccountId(), expense.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Organization Account"));
+            account.setTotalAmount(account.getTotalAmount() + expense.getAmountPaid());
+            account.setUpdatedBy(loggedInUser);
+            organizationAccoutRepo.save(account);
+            organizationAccountDetailRepo.deleteByExpenseId(expense.getId());
+
+            journalEntryService.reverseJournalEntriesForExpenseUpdate(expense, loggedInUser);
             expenseDetailRepo.deleteByExpenseId(expense.getId());
             expenseRepo.delete(expense);
 
@@ -1083,9 +1313,11 @@ public class ExpenseService {
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Successfully Deleted!");
 
         } catch (IllegalArgumentException e) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {
             e.printStackTrace();
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return ResponseMapper.buildResponse(Responses.SYSTEM_FAILURE, e.getMessage());
         }
     }
@@ -1272,6 +1504,7 @@ public class ExpenseService {
     }
 
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Map<String, Object> getExpenseById(long id) {
 
         try {
@@ -1283,7 +1516,9 @@ public class ExpenseService {
             if (expenseOptional.isEmpty())
                 throw new IllegalArgumentException("Invalid Expense");
 
-            return ResponseMapper.buildResponse(Responses.SUCCESS, expenseOptional.get());
+            Expense expense = expenseOptional.get();
+            populateLegacyAccountGroups(List.of(expense));
+            return ResponseMapper.buildResponse(Responses.SUCCESS, expense);
         } catch (IllegalArgumentException e) {
             return ResponseMapper.buildResponse(Responses.INVALID_PARAMETER, e.getMessage());
         } catch (Exception e) {

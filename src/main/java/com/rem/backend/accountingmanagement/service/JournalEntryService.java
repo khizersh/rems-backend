@@ -203,236 +203,166 @@ public class JournalEntryService {
     }
 
 
-    /**
-     * Create journal entry for expense creation with payment
-     * Double-entry bookkeeping: Total Debit MUST equal Total Credit
-     * <p>
-     * For cash payment (amountPaid > 0):
-     * Debit: Expense Account (amountPaid)
-     * Credit: Bank/Cash Account (amountPaid)
-     * <p>
-     * For credit purchase (creditAmount > 0):
-     * Debit: Expense Account (creditAmount)
-     * Credit: Accounts Payable - Vendor (creditAmount)
-     */
     @Transactional
     public void createJournalEntryForExpense(Expense expense, OrganizationAccount organizationAccount, String loggedInUser) {
-        try {
-            double totalDebit = 0.0;
-            double totalCredit = 0.0;
-            List<JournalDetailEntry> detailEntries = new ArrayList<>();
-
-            // Create Journal Entry header
-            JournalEntry journalEntry = new JournalEntry();
-            journalEntry.setOrganizationId(expense.getOrganizationId());
-            journalEntry.setCreatedDate(expense.getCreatedDate() != null ? expense.getCreatedDate() : java.time.LocalDateTime.now());
-            journalEntry.setReferenceType("EXPENSE");
-            journalEntry.setExpenseId(expense.getId());
-            journalEntry.setOrganizationAccountId(organizationAccount.getId());
-            journalEntry.setVendorId(expense.getVendorAccountId());
-            journalEntry.setProjectId(expense.getProjectId());
-            journalEntry.setUnitId(expense.getUnitId());
-
-            if (expense.getPaymentType().equals(PaymentType.CHEQUE) &&
-                    expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)) {
-                journalEntry.setReferenceType("EXPENSE_CHEQUE_PAYMENT");
-                journalEntry.setDescription("PDC Clearing: Vendor# = " + expense.getVendorName() +
-                        (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
-            } else {
-                journalEntry.setDescription("Expense: " + expense.getExpenseTitle() +
-                        (expense.getProjectName() != null ? " - Project: " + expense.getProjectName() : ""));
-            }
-            journalEntry.setStatus(JournalEntryStatus.POSTED);
-            journalEntry.setCreatedBy(loggedInUser);
-            journalEntry = journalEntryRepository.save(journalEntry);
-
-            log.info("Created Journal Entry ID: {} for Expense ID: {}", journalEntry.getId(), expense.getId());
-
-            // Find or create Chart of Account for Bank/Cash Account
-            ChartOfAccount bankAccount = findBankAccount(organizationAccount.getId(), expense.getOrganizationId());
-            if (bankAccount == null) {
-                throw new RuntimeException("Bank account COA not found for organization account ID: "
-                        + organizationAccount.getId());
-            }
-            log.info("Bank Account COA ID: {} - {}", bankAccount.getId(), bankAccount.getName());
-
-
-            if (expense.getPaymentType().equals(PaymentType.CHEQUE)) {
-
-                // when cheque is cleared, we can record the payment directly to bank account. But if it's not cleared yet, we need to record the payment in a separate "Cheque Account" to reflect the pending nature of the transaction.
-                if (expense.getPaymentStatus() != null && expense.getPaymentStatus().equals(PaymentStatus.PAID)) {
-
-
-                    ChartOfAccount chequeAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
-                    JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
-                    debitChequeEntry.setJournalEntryId(journalEntry.getId());
-                    debitChequeEntry.setChartOfAccountId(chequeAccount.getId());
-                    debitChequeEntry.setDebitAmount(expense.getTotalAmount());
-                    debitChequeEntry.setCreditAmount(0.0);
-                    debitChequeEntry.setDescription(
-                            "Vendor payment settlement via cheque for expense: " + expense.getExpenseTitle()
-                    );
-                    detailEntries.add(debitChequeEntry);
-                    totalDebit += expense.getAmountPaid();
-
-
-                    // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
-                    log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
-
-                    JournalDetailEntry creditBankEntry = new JournalDetailEntry();
-                    creditBankEntry.setJournalEntryId(journalEntry.getId());
-                    creditBankEntry.setChartOfAccountId(bankAccount.getId());
-                    creditBankEntry.setDebitAmount(0.0);
-                    creditBankEntry.setCreditAmount(expense.getAmountPaid());
-                    creditBankEntry.setDescription(
-                            "Cheque payment issued from bank: " + organizationAccount.getName() +
-                                    " for expense: " + expense.getExpenseTitle()
-                    );
-                    detailEntries.add(creditBankEntry);
-                    totalCredit += expense.getAmountPaid();
-
-                } else { // when cheque is created but not yet cleared, we record the payment in a separate "Cheque Account" until it's cleared. This is to reflect the pending nature of the transaction.
-                    ChartOfAccount chequeAccount = journalUtilities.constructionInventory(expense.getOrganizationId());
-                    JournalDetailEntry debitChequeEntry = new JournalDetailEntry();
-                    debitChequeEntry.setJournalEntryId(journalEntry.getId());
-                    debitChequeEntry.setChartOfAccountId(chequeAccount.getId());
-                    debitChequeEntry.setDebitAmount(expense.getTotalAmount());
-                    debitChequeEntry.setCreditAmount(0.0);
-                    debitChequeEntry.setDescription(
-                            "Construction inventory purchased: " + expense.getExpenseTitle()
-                    );
-                    detailEntries.add(debitChequeEntry);
-                    totalDebit += expense.getAmountPaid();
-
-
-                    // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
-                    log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
-
-                    JournalDetailEntry creditBankEntry = new JournalDetailEntry();
-                    creditBankEntry.setJournalEntryId(journalEntry.getId());
-                    creditBankEntry.setChartOfAccountId(accountsPayableAccount.getId());
-                    creditBankEntry.setDebitAmount(0.0);
-                    creditBankEntry.setCreditAmount(expense.getAmountPaid());
-                    creditBankEntry.setDescription(
-                            "Vendor payable recorded for construction material purchase: " + expense.getExpenseTitle()
-                    );
-                    detailEntries.add(creditBankEntry);
-                    totalCredit += expense.getAmountPaid();
-                }
-
-            } else {
-                // If amountPaid > 0: Debit Expense, Credit Bank
-                if (expense.getAmountPaid() > 0 && expense.getCreditAmount() == 0) {
-                    // Debit: Expense Account
-
-                    ChartOfAccount debitAccount =
-                            expense.getExpenseType() != ExpenseType.CONSTRUCTION
-                                    ? journalUtilities.findChartOfAccount(expense, loggedInUser)
-                                    : journalUtilities.constructionInventory(expense.getOrganizationId());
-
-                    if (debitAccount == null) {
-                        throw new RuntimeException("No Valid Debit Account was found");
-                    }
-
-                    log.info("Debit Account COA ID: {} - {}", debitAccount.getId(), debitAccount.getName());
-
-                    JournalDetailEntry debitEntry = new JournalDetailEntry();
-                    debitEntry.setJournalEntryId(journalEntry.getId());
-                    debitEntry.setChartOfAccountId(debitAccount.getId());
-                    debitEntry.setDebitAmount(expense.getTotalAmount());
-                    debitEntry.setCreditAmount(0.0);
-                    debitEntry.setDescription("Expense: " + expense.getExpenseTitle());
-                    detailEntries.add(debitEntry);
-                    totalDebit += expense.getTotalAmount();
-
-                    // Credit: Bank Account
-                    JournalDetailEntry creditEntry = new JournalDetailEntry();
-                    creditEntry.setJournalEntryId(journalEntry.getId());
-                    creditEntry.setChartOfAccountId(bankAccount.getId());
-                    creditEntry.setDebitAmount(0.0);
-                    creditEntry.setCreditAmount(expense.getAmountPaid());
-                    creditEntry.setDescription("Payment from: " + organizationAccount.getName());
-                    detailEntries.add(creditEntry);
-                    totalCredit += expense.getAmountPaid();
-
-                }
-
-                // If creditAmount > 0: Debit Expense, Credit Accounts Payable (Vendor)
-                else if (expense.getCreditAmount() > 0 && expense.getVendorAccountId() != null) {
-
-                    ChartOfAccount constructionInventoryAccount = journalUtilities.
-                            constructionInventory(organizationAccount.getOrganizationId());
-
-                    // Find or create Accounts Payable account for vendor
-                    ChartOfAccount accountsPayableAccount = journalUtilities.vendorPayable(expense.getOrganizationId());
-                    log.info("Accounts Payable COA ID: {} - {}", accountsPayableAccount.getId(), accountsPayableAccount.getName());
-
-
-                    JournalDetailEntry debitInventoryEntry = new JournalDetailEntry();
-                    debitInventoryEntry.setJournalEntryId(journalEntry.getId());
-                    debitInventoryEntry.setChartOfAccountId(constructionInventoryAccount.getId());
-                    debitInventoryEntry.setDebitAmount(expense.getTotalAmount());
-                    debitInventoryEntry.setCreditAmount(0.0);
-                    debitInventoryEntry.setDescription("Expense: " + expense.getExpenseTitle());
-                    detailEntries.add(debitInventoryEntry);
-                    totalDebit += expense.getTotalAmount();
-
-
-                    JournalDetailEntry creditVendorEntry = new JournalDetailEntry();
-                    creditVendorEntry.setJournalEntryId(journalEntry.getId());
-                    creditVendorEntry.setChartOfAccountId(accountsPayableAccount.getId());
-                    creditVendorEntry.setDebitAmount(0.0);
-                    creditVendorEntry.setCreditAmount(expense.getTotalAmount());
-                    creditVendorEntry.setDescription("Expense: " + expense.getExpenseTitle());
-                    detailEntries.add(creditVendorEntry);
-                    totalCredit += expense.getTotalAmount();
-
-
-                    JournalDetailEntry debitVendorEntry = new JournalDetailEntry();
-                    debitVendorEntry.setJournalEntryId(journalEntry.getId());
-                    debitVendorEntry.setChartOfAccountId(accountsPayableAccount.getId());
-                    debitVendorEntry.setDebitAmount(expense.getAmountPaid());
-                    debitVendorEntry.setCreditAmount(0.0);
-                    debitVendorEntry.setDescription("Expense: " + expense.getExpenseTitle());
-                    detailEntries.add(debitVendorEntry);
-                    totalDebit += expense.getAmountPaid();
-
-
-                    // Credit: Bank Account
-                    JournalDetailEntry creditBankEntry = new JournalDetailEntry();
-                    creditBankEntry.setJournalEntryId(journalEntry.getId());
-                    creditBankEntry.setChartOfAccountId(bankAccount.getId());
-                    creditBankEntry.setDebitAmount(0.0);
-                    creditBankEntry.setCreditAmount(expense.getAmountPaid());
-                    creditBankEntry.setDescription("Payment from: " + organizationAccount.getName());
-                    detailEntries.add(creditBankEntry);
-                    totalCredit += expense.getAmountPaid();
-                }
-
-            }
-
-
-            // Validate double-entry: Debit MUST equal Credit
-            if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new RuntimeException("Journal Entry imbalance! Debit: " + totalDebit + ", Credit: " + totalCredit);
-            }
-
-            // Save all detail entries
-            for (JournalDetailEntry entry : detailEntries) {
-                journalDetailEntryRepository.save(entry);
-                log.info("Saved Journal Detail Entry - COA: {}, Debit: {}, Credit: {}",
-                        entry.getChartOfAccountId(), entry.getDebitAmount(), entry.getCreditAmount());
-            }
-
-            log.info("Journal Entry {} completed. Total Debit: {}, Total Credit: {}",
-                    journalEntry.getId(), totalDebit, totalCredit);
-
-        } catch (Exception e) {
-            log.error("Failed to create journal entry for expense {}: {}", expense.getId(), e.getMessage(), e);
-            throw new RuntimeException("Failed to create journal entry: " + e.getMessage(), e);
+        if (expense.getPaymentType() == PaymentType.CHEQUE) {
+            createChequeExpenseJournal(expense, organizationAccount, loggedInUser);
+            return;
         }
+        createExpenseJournal(expense, organizationAccount, loggedInUser, "EXPENSE");
+    }
+
+    private void createChequeExpenseJournal(Expense expense, OrganizationAccount organizationAccount, String loggedInUser) {
+        boolean cleared = expense.getPaymentStatus() == PaymentStatus.PAID;
+        double amount = cleared ? expense.getAmountPaid() : expense.getTotalAmount();
+        if (!Double.isFinite(amount) || amount <= 0) {
+            throw new IllegalArgumentException("Invalid cheque expense amount");
+        }
+        ChartOfAccount debitAccount = cleared
+                ? journalUtilities.vendorPayable(expense.getOrganizationId())
+                : expenseDebitAccount(expense, loggedInUser);
+        ChartOfAccount creditAccount = cleared
+                ? findBankAccount(organizationAccount.getId(), expense.getOrganizationId())
+                : journalUtilities.vendorPayable(expense.getOrganizationId());
+
+        JournalEntry journalEntry = expenseJournalHeader(expense, organizationAccount, loggedInUser,
+                cleared ? "EXPENSE_CHEQUE_PAYMENT" : "EXPENSE");
+        journalEntry.setDescription(cleared ? "PDC Clearing: Vendor# = " + expense.getVendorName()
+                : "Expense: " + expense.getExpenseTitle());
+        journalEntry = journalEntryRepository.save(journalEntry);
+        validateAndSave(List.of(
+                buildEntry(journalEntry.getId(), debitAccount.getId(), amount, 0),
+                buildEntry(journalEntry.getId(), creditAccount.getId(), 0, amount)), amount, amount);
+    }
+
+    private ChartOfAccount expenseDebitAccount(Expense expense, String loggedInUser) {
+        ChartOfAccount account = expense.getExpenseType() == ExpenseType.CONSTRUCTION
+                ? journalUtilities.constructionInventory(expense.getOrganizationId())
+                : journalUtilities.findChartOfAccount(expense, loggedInUser);
+        if (account == null) {
+            throw new IllegalArgumentException("No valid expense account was found");
+        }
+        return account;
+    }
+
+    private JournalEntry expenseJournalHeader(Expense expense, OrganizationAccount organizationAccount,
+                                               String loggedInUser, String referenceType) {
+        JournalEntry entry = new JournalEntry();
+        entry.setOrganizationId(expense.getOrganizationId());
+        entry.setCreatedDate("EXPENSE_UPDATE".equals(referenceType) || expense.getCreatedDate() == null
+                ? LocalDateTime.now() : expense.getCreatedDate());
+        entry.setReferenceType(referenceType);
+        entry.setExpenseId(expense.getId());
+        entry.setOrganizationAccountId(organizationAccount.getId());
+        entry.setVendorId(expense.getVendorAccountId());
+        entry.setProjectId(expense.getProjectId());
+        entry.setUnitId(expense.getUnitId());
+        entry.setStatus(JournalEntryStatus.POSTED);
+        entry.setCreatedBy(loggedInUser);
+        return entry;
+    }
+
+    private void createExpenseJournal(Expense expense, OrganizationAccount organizationAccount,
+                                      String loggedInUser, String referenceType) {
+        double amountPaid = expense.getAmountPaid();
+        double creditAmount = expense.getCreditAmount();
+        double totalAmount = expense.getTotalAmount();
+        if (!Double.isFinite(amountPaid) || !Double.isFinite(creditAmount)
+                || !Double.isFinite(totalAmount) || totalAmount <= 0 || amountPaid < 0 || creditAmount < 0
+                || Math.abs(amountPaid + creditAmount - totalAmount) > 0.01) {
+            throw new IllegalArgumentException("Invalid expense amounts for journal entry");
+        }
+
+        ChartOfAccount expenseAccount = expenseDebitAccount(expense, loggedInUser);
+        ChartOfAccount bankAccount = amountPaid > 0
+                ? findBankAccount(organizationAccount.getId(), expense.getOrganizationId()) : null;
+        ChartOfAccount payableAccount = creditAmount > 0
+                ? journalUtilities.vendorPayable(expense.getOrganizationId()) : null;
+
+        JournalEntry journalEntry = expenseJournalHeader(expense, organizationAccount, loggedInUser, referenceType);
+        journalEntry.setDescription(("EXPENSE_UPDATE".equals(referenceType) ? "Updated expense: " : "Expense: ")
+                + expense.getExpenseTitle());
+        journalEntry = journalEntryRepository.save(journalEntry);
+
+        List<JournalDetailEntry> entries = new ArrayList<>();
+        entries.add(buildEntry(journalEntry.getId(), expenseAccount.getId(), totalAmount, 0));
+        if (bankAccount != null) {
+            entries.add(buildEntry(journalEntry.getId(), bankAccount.getId(), 0, amountPaid));
+        }
+        if (payableAccount != null) {
+            entries.add(buildEntry(journalEntry.getId(), payableAccount.getId(), 0, creditAmount));
+        }
+        validateAndSave(entries, totalAmount, amountPaid + creditAmount);
+    }
+
+    @Transactional
+    public void reverseJournalEntriesForExpenseUpdate(Expense expense, String loggedInUser) {
+        List<JournalEntry> sourceEntries = journalEntryRepository
+                .findAllByOrganizationIdAndExpenseId(expense.getOrganizationId(), expense.getId());
+
+        Set<Long> reversedIds = new HashSet<>();
+        for (JournalEntry entry : sourceEntries) {
+            if ("EXPENSE_UPDATE_REVERSAL".equals(entry.getReferenceType())
+                    && entry.getStatus() == JournalEntryStatus.POSTED
+                    && entry.getAdditionalReferenceId() != null) {
+                reversedIds.add(entry.getAdditionalReferenceId());
+            }
+        }
+        List<JournalEntry> activeEntries = sourceEntries.stream()
+                .filter(entry -> "EXPENSE".equals(entry.getReferenceType())
+                        || "EXPENSE_CHEQUE_PAYMENT".equals(entry.getReferenceType())
+                        || "EXPENSE_PAYMENT".equals(entry.getReferenceType())
+                        || "EXPENSE_UPDATE".equals(entry.getReferenceType()))
+                .filter(entry -> entry.getStatus() == JournalEntryStatus.POSTED)
+                .filter(entry -> !reversedIds.contains(entry.getId()))
+                .toList();
+
+        for (JournalEntry source : activeEntries) {
+            List<JournalDetailEntry> sourceDetails =
+                    journalDetailEntryRepository.findAllByJournalEntryId(source.getId());
+            if (sourceDetails.isEmpty()) {
+                throw new IllegalStateException(
+                        "Expense journal entry has no journal details: " + source.getId());
+            }
+
+            JournalEntry reversal = new JournalEntry();
+            reversal.setOrganizationId(source.getOrganizationId());
+            reversal.setCreatedDate(LocalDateTime.now());
+            reversal.setReferenceType("EXPENSE_UPDATE_REVERSAL");
+            reversal.setAdditionalReferenceId(source.getId());
+            reversal.setExpenseId(expense.getId());
+            reversal.setOrganizationAccountId(source.getOrganizationAccountId());
+            reversal.setVendorId(source.getVendorId());
+            reversal.setProjectId(source.getProjectId());
+            reversal.setUnitId(source.getUnitId());
+            reversal.setDescription("Reversal of expense journal entry " + source.getId()
+                    + " for expense ID: " + expense.getId());
+            reversal.setStatus(JournalEntryStatus.POSTED);
+            reversal.setCreatedBy(loggedInUser);
+            reversal = journalEntryRepository.save(reversal);
+
+            List<JournalDetailEntry> reversalDetails = new ArrayList<>();
+            double totalDebit = 0;
+            double totalCredit = 0;
+            for (JournalDetailEntry sourceDetail : sourceDetails) {
+                JournalDetailEntry reversalDetail = buildEntry(
+                        reversal.getId(),
+                        sourceDetail.getChartOfAccountId(),
+                        sourceDetail.getCreditAmount(),
+                        sourceDetail.getDebitAmount());
+                reversalDetail.setDescription("Reversal of expense journal entry " + source.getId());
+                reversalDetails.add(reversalDetail);
+                totalDebit += sourceDetail.getCreditAmount();
+                totalCredit += sourceDetail.getDebitAmount();
+            }
+            validateAndSave(reversalDetails, totalDebit, totalCredit);
+        }
+    }
+
+    @Transactional
+    public void createJournalEntryForExpenseUpdate(
+            Expense expense, OrganizationAccount organizationAccount, String loggedInUser) {
+        createExpenseJournal(expense, organizationAccount, loggedInUser, "EXPENSE_UPDATE");
     }
 
     /**

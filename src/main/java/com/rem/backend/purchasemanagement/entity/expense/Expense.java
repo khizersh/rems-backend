@@ -43,6 +43,7 @@ public class Expense {
     private String vendorName;
     private String expenseTitle;
     private long expenseCOAId; //only present when expense is non construction
+    private Long accountGroupId;
     private String comments = "Miscellaneous Expense";
 
     @Enumerated(EnumType.STRING)

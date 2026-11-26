@@ -4,11 +4,10 @@ package com.rem.backend.accountingmanagement.utility;
 import com.rem.backend.accountingmanagement.entity.ChartOfAccount;
 import com.rem.backend.purchasemanagement.entity.expense.Expense;
 import com.rem.backend.enums.AccountStatus;
+import com.rem.backend.enums.ExpenseType;
 import com.rem.backend.accountingmanagement.repos.ChartOfAccountRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-
-import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -100,12 +99,23 @@ public class JournalUtilities {
 
 
     public ChartOfAccount findChartOfAccount(Expense expense, String loggedInUser) {
-
-        // Try to find existing account
-        Optional<ChartOfAccount> existingAccount = chartOfAccountRepository
-                .findById(expense.getExpenseCOAId());
-
-        return existingAccount.orElse(null);
+        if (expense.getExpenseType() != ExpenseType.MISCELLANEOUS
+                || expense.getExpenseCOAId() <= 0 || expense.getOrganizationId() == null) {
+            throw new IllegalArgumentException("A miscellaneous expense account is required");
+        }
+        ChartOfAccount account = chartOfAccountRepository.findById(expense.getExpenseCOAId())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid expense account"));
+        if (account.getOrganization() == null
+                || account.getOrganization().getOrganizationId() != expense.getOrganizationId()
+                || account.getStatus() != AccountStatus.ACTIVE
+                || account.getAccountGroup() == null
+                || account.getAccountGroup().getAccountCategory() == null
+                || account.getAccountGroup().getAccountCategory().getAccountType() == null
+                || !"EXPENSE".equalsIgnoreCase(
+                        account.getAccountGroup().getAccountCategory().getAccountType().getName())) {
+            throw new IllegalArgumentException("Expense account must be an active expense account in the same organization");
+        }
+        return account;
     }
 
 
