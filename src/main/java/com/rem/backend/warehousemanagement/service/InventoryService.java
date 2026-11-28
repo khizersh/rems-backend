@@ -44,7 +44,7 @@ public class InventoryService {
         }
 
         // Find existing stock or create new
-        Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId)
+        Stock stock = stockRepository.findForUpdate(warehouseId, itemId)
             .orElse(createNewStock(warehouseId, itemId, loggedInUser));
 
         // Calculate new average rate using weighted average
@@ -81,7 +81,7 @@ public class InventoryService {
         validateDeductStockParams(warehouseId, itemId, quantity, refType, refId, loggedInUser);
 
         // Find existing stock
-        Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId)
+        Stock stock = stockRepository.findForUpdate(warehouseId, itemId)
             .orElseThrow(() -> new IllegalArgumentException(
                 "No stock available for item " + itemId + " in warehouse " + warehouseId));
 
@@ -119,7 +119,7 @@ public class InventoryService {
         }
 
         // Get source stock for rate calculation
-        Stock sourceStock = stockRepository.findByWarehouseIdAndItemId(fromWarehouseId, itemId)
+        Stock sourceStock = stockRepository.findForUpdate(fromWarehouseId, itemId)
             .orElseThrow(() -> new IllegalArgumentException("No stock found in source warehouse"));
 
         BigDecimal transferRate = sourceStock.getAvgRate();
@@ -167,7 +167,7 @@ public class InventoryService {
      */
     @Transactional
     public void reserveStock(Long warehouseId, Long itemId, BigDecimal quantity, String loggedInUser) {
-        Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId)
+        Stock stock = stockRepository.findForUpdate(warehouseId, itemId)
             .orElseThrow(() -> new IllegalArgumentException("Stock not found"));
 
         BigDecimal availableQty = stock.getQuantity().subtract(stock.getReservedQuantity());
@@ -187,7 +187,7 @@ public class InventoryService {
      */
     @Transactional
     public void releaseReservedStock(Long warehouseId, Long itemId, BigDecimal quantity, String loggedInUser) {
-        Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId)
+        Stock stock = stockRepository.findForUpdate(warehouseId, itemId)
             .orElseThrow(() -> new IllegalArgumentException("Stock not found"));
 
         if (stock.getReservedQuantity().compareTo(quantity) < 0) {

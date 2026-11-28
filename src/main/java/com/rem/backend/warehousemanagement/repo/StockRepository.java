@@ -1,10 +1,12 @@
 package com.rem.backend.warehousemanagement.repo;
 
 import com.rem.backend.warehousemanagement.entity.Stock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
@@ -16,6 +18,10 @@ import java.util.Optional;
 public interface StockRepository extends JpaRepository<Stock, Long> {
 
     Optional<Stock> findByWarehouseIdAndItemId(Long warehouseId, Long itemId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Stock s WHERE s.warehouseId = :warehouseId AND s.itemId = :itemId")
+    Optional<Stock> findForUpdate(@Param("warehouseId") Long warehouseId, @Param("itemId") Long itemId);
 
     boolean existsByWarehouseIdAndItemId(Long warehouseId, Long itemId);
 

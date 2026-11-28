@@ -11,6 +11,8 @@ import com.rem.backend.enums.StockRefType;
 import com.rem.backend.purchasemanagement.entity.grn.Grn;
 import com.rem.backend.purchasemanagement.entity.grn.GrnItems;
 import com.rem.backend.purchasemanagement.repository.ExpenseRepo;
+import com.rem.backend.projectmanagement.entity.Project;
+import com.rem.backend.projectmanagement.repository.ProjectRepo;
 import com.rem.backend.warehousemanagement.repo.ExpenseItemRepository;
 import com.rem.backend.warehousemanagement.repo.StockRepository;
 import com.rem.backend.warehousemanagement.repo.WarehouseRepository;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +40,7 @@ public class WarehouseIntegrationService {
     private final ExpenseRepo expenseRepo;
     private final WarehouseRepository warehouseRepository;
     private final StockRepository stockRepository;
+    private final ProjectRepo projectRepo;
     private final JournalEntryService journalEntryService;
 
     /**
@@ -232,15 +236,34 @@ public class WarehouseIntegrationService {
             if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalArgumentException("Quantity must be greater than zero");
             }
+            if (quantity.stripTrailingZeros().scale() > 4) {
+                throw new IllegalArgumentException("Quantity cannot have more than four decimal places");
+            }
 
-            // Use projectId as refId if provided, otherwise use timestamp
+            Warehouse warehouse = warehouseRepository.findById(warehouseId)
+                    .orElseThrow(() -> new IllegalArgumentException("Warehouse not found"));
+            if (!Boolean.TRUE.equals(warehouse.getActive())) {
+                throw new IllegalArgumentException("Cannot issue material from an inactive warehouse");
+            }
+            Stock stock = stockRepository.findForUpdate(warehouseId, itemId)
+                    .orElseThrow(() -> new IllegalArgumentException("No stock available for this item in the warehouse"));
+            if (stock.getAvgRate() == null || stock.getAvgRate().signum() < 0) {
+                throw new IllegalArgumentException("Warehouse stock valuation is invalid");
+            }
+            BigDecimal issueAmount = quantity.multiply(stock.getAvgRate()).setScale(4, RoundingMode.HALF_UP);
+
+            Project project = null;
+            if (projectId != null) {
+                if (projectId <= 0) {
+                    throw new IllegalArgumentException("Invalid project");
+                }
+                project = projectRepo.findActiveForUpdate(projectId, warehouse.getOrganizationId())
+                        .orElseThrow(() -> new IllegalArgumentException("Project not found or does not belong to the warehouse organization"));
+            }
+
             Long refId = projectId != null ? projectId : System.currentTimeMillis();
             String materialIssueRemarks = "Material issue to project " + projectId +
                                         (remarks != null ? " - " + remarks : "");
-
-            // Capture the issue valuation (quantity * average rate) before deducting
-            Stock stock = stockRepository.findByWarehouseIdAndItemId(warehouseId, itemId).orElse(null);
-            BigDecimal issueRate = stock != null ? stock.getAvgRate() : BigDecimal.ZERO;
 
             inventoryService.deductStock(
                 warehouseId,
@@ -255,20 +278,15 @@ public class WarehouseIntegrationService {
             log.info("Material issued: Warehouse={}, Item={}, Qty={}, Project={}",
                     warehouseId, itemId, quantity, projectId);
 
-            // Recognise the consumption: DR Construction Inventory, CR Stock Inventory
-            Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
-            if (warehouse != null) {
-                double amount = quantity.multiply(issueRate).doubleValue();
-                journalEntryService.createJournalEntryForMaterialIssue(
-                    warehouse.getOrganizationId(),
-                    projectId,
-                    warehouseId,
-                    itemId,
-                    refId,
-                    amount,
-                    loggedInUser
-                );
+            if (project != null) {
+                project.setConstructionAmount(BigDecimal.valueOf(project.getConstructionAmount()).add(issueAmount).doubleValue());
+                project.setTotalAmount(BigDecimal.valueOf(project.getTotalAmount()).add(issueAmount).doubleValue());
+                project.setUpdatedBy(loggedInUser);
+                projectRepo.save(project);
             }
+            journalEntryService.createJournalEntryForMaterialIssue(
+                    warehouse.getOrganizationId(), projectId, warehouseId, itemId, refId,
+                    issueAmount, loggedInUser);
 
             return ResponseMapper.buildResponse(Responses.SUCCESS, "Material issued successfully");
 

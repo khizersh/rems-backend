@@ -4113,11 +4113,7 @@ public class JournalEntryService {
     /**
      * Journal Entry for material issued out of a warehouse (e.g. to a project).
      * The stock asset is consumed and recognised as a construction cost.
-     * <p>
-     * DR Construction Inventory   (amount)
-     * CR Stock Inventory          (amount)
-     *
-     * @param amount valuation of the issued stock (quantity * average rate)
+     * The project and stock are valued at the same weighted-average cost.
      */
     @Transactional
     public void createJournalEntryForMaterialIssue(
@@ -4126,15 +4122,15 @@ public class JournalEntryService {
             Long warehouseId,
             Long itemId,
             Long refId,
-            double amount,
+            BigDecimal amount,
             String loggedInUser
     ) {
         try {
 
-            if (amount <= 0) return;
-
-            double totalDebit = 0;
-            double totalCredit = 0;
+            if (amount.signum() < 0) {
+                throw new IllegalArgumentException("Material issue amounts cannot be negative");
+            }
+            if (amount.signum() == 0) return;
 
             ChartOfAccount stockInventory =
                     journalUtilities.stockInventory(organizationId);
@@ -4159,27 +4155,10 @@ public class JournalEntryService {
 
             List<JournalDetailEntry> entries = new ArrayList<>();
 
-            // DR Construction Inventory
-            entries.add(buildEntry(
-                    journalEntry.getId(),
-                    constructionInventory.getId(),
-                    amount,
-                    0
-            ));
-            totalDebit += amount;
-
-            // CR Stock Inventory
-            entries.add(buildEntry(
-                    journalEntry.getId(),
-                    stockInventory.getId(),
-                    0,
-                    amount
-            ));
-            totalCredit += amount;
-
-            if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                throw new RuntimeException("Material issue journal imbalance");
-            }
+            entries.add(buildEntry(journalEntry.getId(), constructionInventory.getId(),
+                    amount.doubleValue(), 0));
+            entries.add(buildEntry(journalEntry.getId(), stockInventory.getId(),
+                    0, amount.doubleValue()));
 
             journalDetailEntryRepository.saveAll(entries);
 

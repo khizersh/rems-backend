@@ -24,7 +24,7 @@ public class PurchaseOrder {
     @Column(nullable = false)
     private Long orgId;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Long projectId;
 
     @Column(nullable = false)
